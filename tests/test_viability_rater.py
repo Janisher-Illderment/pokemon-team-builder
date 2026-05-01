@@ -157,3 +157,26 @@ def test_generate_explanation_contains_score() -> None:
     variant = _balanced_variant()
     text = generate_explanation(variant, 82.5)
     assert "83" in text or "82" in text  # rounding tolerance
+
+
+def test_rank_variants_tiebreak_by_coverage() -> None:
+    """Equal total score → higher coverage wins, regardless of input order."""
+    # Both get score=60. The balanced variant has better coverage.
+    v_a = _weak_variant().model_copy(update={"score": 60.0})     # poor coverage
+    v_b = _balanced_variant().model_copy(update={"score": 60.0}) # good coverage
+    # Pass weak first — tiebreaker must put balanced first.
+    ranked = rank_variants([v_a, v_b])
+    assert ranked[0].is_recommended is True
+    # balanced variant (v_b) should win the coverage tiebreak.
+    assert ranked[0].score == 60.0
+    # Exactly one variant is recommended.
+    assert sum(v.is_recommended for v in ranked) == 1
+
+
+def test_rank_variants_stable_on_full_tie() -> None:
+    """Identical variants keep their input order when all components tie."""
+    v = _balanced_variant().model_copy(update={"score": 70.0})
+    # Two structurally identical variants — only the first should be recommended.
+    ranked = rank_variants([v, v])
+    assert ranked[0].is_recommended is True
+    assert ranked[1].is_recommended is False

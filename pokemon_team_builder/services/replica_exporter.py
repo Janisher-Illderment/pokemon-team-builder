@@ -201,14 +201,18 @@ def select_moves_for_role(
         slot3 = _fallback_move(move_pool, used)
     used.add(slot3)
 
-    # Slot 4: role move.
+    # Slot 4: role move — walk all assigned roles, not just primary, so a
+    # pokemon with roles ["lead_support", "redirect"] gets follow-me/tailwind
+    # even if the primary-role list is exhausted.
     slot4 = None
-    role_candidates = _ROLE_MOVE_PRIORITY.get(primary_role, ())
-    for candidate in role_candidates:
-        if candidate in used:
-            continue
-        if candidate in move_pool:
-            slot4 = candidate
+    for role in roles:
+        for candidate in _ROLE_MOVE_PRIORITY.get(role, ()):
+            if candidate in used:
+                continue
+            if candidate in move_pool:
+                slot4 = candidate
+                break
+        if slot4 is not None:
             break
     if slot4 is None:
         slot4 = _fallback_move(move_pool, used)
@@ -221,10 +225,13 @@ def _fallback_move(move_pool: list[str], used: set[str]) -> str:
     for m in move_pool:
         if m not in used:
             return m
-    # WHY: Pokemon Champions guarantees protect availability for every
-    # legal mon, so pad with a non-empty placeholder. Tackle is universal
-    # enough for offline serialization.
-    return "tackle"
+    # Pool exhausted — cycle through universal generics before repeating.
+    # WHY: returning a move already in ``used`` would create a duplicate-move
+    # set that fails PikaChampions / Showdown validation.
+    for generic in ("tackle", "scratch", "pound", "growl", "leer"):
+        if generic not in used:
+            return generic
+    return "tackle"  # absolute last resort — cannot deduplicate further
 
 
 def _format_name(slug: str) -> str:

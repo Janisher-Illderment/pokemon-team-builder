@@ -237,3 +237,28 @@ def test_pokepaste_preserves_hyphen_in_species_name() -> None:
     paste = to_pokepaste(variant)
     assert "Rotom-Wash @" in paste
     assert "Rotom Wash @" not in paste
+
+
+def test_fallback_move_avoids_duplicate_when_tackle_in_used() -> None:
+    """_fallback_move must not return a move that is already in ``used``."""
+    from pokemon_team_builder.services.replica_exporter import _fallback_move
+
+    # Pool exhausted; "tackle" is already used.
+    pool: list[str] = []
+    used = {"protect", "tackle"}
+    result = _fallback_move(pool, used)
+    assert result not in used
+
+
+def test_select_moves_slot4_uses_secondary_role() -> None:
+    """Slot 4 should pick a role move from secondary roles when primary has none."""
+    # Primary role "physical_sweeper" has no swords-dance/dragon-dance in pool.
+    # Secondary role "redirect" has "follow-me" in pool.
+    pokemon = _mk_pokemon(
+        "togekiss",
+        ["fairy", "flying"],
+        moves=["protect", "dazzling-gleam", "air-slash", "follow-me"],
+    )
+    # physical_sweeper as primary (atk heuristic), but also redirect role.
+    moves = select_moves_for_role(pokemon, ["physical_sweeper", "redirect"])
+    assert "follow-me" in moves
