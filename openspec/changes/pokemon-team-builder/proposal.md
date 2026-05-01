@@ -1,31 +1,34 @@
 ## Why
 
-Fans de Pokémon quieren construir equipos competitivos o semi-competitivos alrededor de su Pokémon favorito, pero sin conocimiento profundo de la metagame es difícil conseguir un equipo equilibrado. Esta herramienta elimina esa barrera: el usuario elige su Pokémon ancla y el sistema construye el equipo por él.
+Fans de Pokémon Champions quieren construir equipos competitivos alrededor de su Pokémon favorito, pero el sistema de Doubles (Pick 4 de 6), la mecánica de Stat Points y el pool reducido (~263 Pokémon legales) hacen difícil saber qué compañeros cubren mejor las debilidades del ancla. Esta herramienta elimina esa barrera: el usuario elige su Pokémon favorito y el sistema construye un equipo equilibrado y legal para Pokémon Champions.
 
 ## What Changes
 
-- Nueva herramienta CLI/web que recibe un Pokémon de entrada y genera un equipo de 6 miembros sinérgico y viable.
-- Consulta a PokéAPI para obtener tipos, stats base, moveset y debilidades de cada Pokémon.
-- Motor de análisis de sinergias: cobertura de tipos, roles de equipo (sweeper, tank, support, hazard setter, etc.) y resistencias cruzadas.
-- Generador de equipo que rellena los 5 slots restantes para cubrir las debilidades del Pokémon ancla.
-- Evaluador de viabilidad que puntúa el equipo resultante y explica los motivos.
-- Exportación del equipo en formato Showdown (texto copiable para Pokémon Showdown).
+- Nueva herramienta CLI que recibe un Pokémon ancla y genera un equipo de 6 miembros legal para Champions (Regulation M-A).
+- Consulta a PokéAPI para tipos, stats base y moveset; filtra al pool legal de Champions (~263 Pokémon).
+- Motor de sinergias orientado a **Doubles**: cobertura de tipos, roles de Doubles (lead, sweeper, support, trick room setter, redirect), resistencias cruzadas y synergy de moves de área.
+- Sistema de **Stat Points (SPs)**: distribución sugerida respetando máx. 66 SPs por Pokémon y máx. 32 por stat (reemplaza EVs/IVs del sistema antiguo; IVs son 31 fijos).
+- **Item Clause**: garantiza que ningún ítem se repita en el equipo.
+- Generador de hasta 3 variantes de equipo con puntuación de viabilidad para Doubles.
+- Exportación en formato **PokePaste** compatible con PikaChampions y ChampTeams.gg (herramientas oficiales de la comunidad Champions); también genera código **Replica Team** si la API lo permite.
 
 ## Capabilities
 
 ### New Capabilities
 
-- `pokemon-lookup`: Consulta PokéAPI para obtener datos completos de un Pokémon (tipos, stats, debilidades, moveset). Es la fuente de datos de todo el sistema.
-- `synergy-engine`: Analiza cobertura de tipos ofensiva/defensiva, identifica huecos y asigna roles de equipo. Núcleo del producto.
-- `team-generator`: Selecciona los 5 Pokémon que mejor complementan al ancla usando los datos del synergy-engine. Genera 1-3 variantes de equipo.
-- `viability-rater`: Puntúa cada equipo generado (0–100) basándose en cobertura, balance de roles y stats combinados. Muestra explicación legible.
-- `showdown-export`: Serializa el equipo al formato texto de Pokémon Showdown para importar directamente.
+- `pokemon-lookup`: Consulta PokéAPI para datos del Pokémon (tipos, stats base, moveset) y verifica que esté en el pool legal de Champions (~263 Pokémon). Calcula debilidades con multiplicadores.
+- `synergy-engine`: Analiza cobertura de tipos y roles orientados a **Doubles** (Pick 4 de 6). Detecta huecos de roles y vulnerabilidades compartidas. Considera la mecánica de selección de 4.
+- `team-generator`: Genera hasta 3 variantes de equipo de 6 alrededor del ancla, respetando Species Clause, Item Clause y el pool legal de Champions. Sugiere distribución de SPs por Pokémon.
+- `viability-rater`: Puntúa cada variante (0–100) para el meta de Doubles de Champions. Compara variantes y recomienda la mejor.
+- `replica-export`: Exporta el equipo seleccionado en formato PokePaste compatible con PikaChampions/ChampTeams.gg, incluyendo SPs en lugar de EVs.
 
 ### Modified Capabilities
 
 ## Impact
 
 - **Stack nuevo** — proyecto desde cero; sin código previo.
-- **Dependencia externa** — PokéAPI (REST, sin autenticación, rate limit generoso).
-- **GitHub** — repo nuevo `Janisher-Illderment/pokemon-team-builder` (público o privado según usuario).
-- **Sin datos locales propios** — toda la data de Pokémon viene de PokéAPI; no se almacena una base de datos propia en v1.
+- **PokéAPI** — fuente de datos de Pokémon (REST, sin auth); se superpone la lista legal de Champions mantenida localmente.
+- **Lista legal Champions** — fichero local con los ~263 Pokémon de Regulation M-A; debe actualizarse cuando cambie la regulación.
+- **GitHub** — repo `Janisher-Illderment/pokemon-team-builder` (público).
+- **Formato de export** — PokePaste (texto), NO formato nativo Showdown; compatible con PikaChampions y ChampTeams.gg.
+- **No base de datos propia** — toda la data de Pokémon viene de PokéAPI + lista legal local; sin persistencia en v1.
