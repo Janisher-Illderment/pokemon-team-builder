@@ -32,6 +32,10 @@ CHARIZARD_RAW: dict[str, Any] = {
         {"move": {"name": "air-slash"}},
         {"move": {"name": "earthquake"}},
     ],
+    "abilities": [
+        {"ability": {"name": "blaze"}, "is_hidden": False, "slot": 1},
+        {"ability": {"name": "solar-power"}, "is_hidden": True, "slot": 3},
+    ],
 }
 
 
@@ -58,6 +62,9 @@ def test_lookup_charizard_returns_pokemon_data(
     assert result.base_stats.spd == 85
     assert result.base_stats.spe == 100
     assert "flamethrower" in result.move_names
+    assert isinstance(result.abilities, list)
+    assert len(result.abilities) > 0
+    assert "blaze" in result.abilities
     assert "rock" in result.weaknesses
     # Charizard (fire/flying) takes 4x rock damage.
     assert result.weaknesses["rock"] == pytest.approx(4.0)
