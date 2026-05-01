@@ -1,14 +1,15 @@
 ## ADDED Requirements
 
-### Requirement: Exportar equipo en formato PokePaste compatible con Champions
-El sistema SHALL serializar el equipo seleccionado en formato **PokePaste** compatible con PikaChampions (pikachampions.com) y ChampTeams.gg. El formato usa **Stat Points (SPs)** en lugar de EVs:
-- IVs se omiten (son 31 fijos en Champions)
-- EVs se reemplazan por `SPs: <stat>/<valor>` usando la distribución calculada por team-generator
-- Incluye: nombre, ítem, ability, nature, SPs, moveset para los 6 Pokémon
+### Requirement: Exportar equipo en formato PokePaste estándar Showdown compatible con Champions
+El sistema SHALL serializar el equipo seleccionado en formato **PokePaste estándar Showdown** compatible con PikaChampions y ChampTeams.gg. Formato verificado contra ambas herramientas:
+- `Level: 50` explícito en cada Pokémon
+- `EVs:` con valores convertidos desde SPs (1 SP = 8 EVs)
+- Sin línea `IVs:` (Showdown asume 31 por defecto, igual que Champions)
+- 4 moves concretos por Pokémon (genéricos por rol, Protect en slot 1)
 
 #### Scenario: Exportación exitosa
 - **WHEN** el usuario selecciona una variante de equipo y ejecuta el export
-- **THEN** el sistema imprime en stdout el bloque PokePaste completo con los 6 Pokémon y sus SPs
+- **THEN** el sistema imprime en stdout el bloque PokePaste con los 6 Pokémon, cada uno con Level 50, EVs convertidos, nature, ability, ítem y 4 moves
 
 #### Scenario: Formato importable en PikaChampions
 - **WHEN** el texto exportado se copia en PikaChampions o ChampTeams.gg

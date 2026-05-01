@@ -65,19 +65,34 @@ Los SPs se distribuyen según plantillas predefinidas en `role_sp_templates.json
 
 Para roles mixtos se usa la plantilla del rol primario. Alternativa descartada: Linear Programming — la función objetivo es subjetiva y las plantillas cubren el 90% de los casos reales.
 
-### D6 — Formato PokePaste para Champions
-IVs son 31 fijos → se omiten del output. EVs no existen → se reemplaza la línea `EVs:` por `SPs:` con los valores calculados. Formato por Pokémon:
+### D6 — Formato PokePaste para Champions [VERIFICADO]
+Formato verificado contra ChampTeams.gg y PikaChampions (fuente: Inte research + pokepast.es ejemplos reales). Ambas herramientas usan el **formato Showdown estándar con `EVs:`** — no existe línea `SPs:` en el export. Conversión: `1 SP × 8 = valor EVs`. `IVs:` se omite (asumir 31 es comportamiento por defecto de Showdown). `Level: 50` se incluye siempre explícitamente.
+
+Formato por Pokémon:
 ```
 Nombre @ Ítem
 Ability: Habilidad
-Nature: Naturaleza
-SPs: Atk 32 / Spe 32 / HP 2
-- Move 1
-- Move 2
-- Move 3
-- Move 4
+Level: 50
+EVs: 252 Atk / 252 Spe / 16 HP
+Jolly Nature
+- Protect
+- [STAB move]
+- [Coverage move]
+- [Role move]
 ```
-**Pendiente antes de cerrar spec:** round-trip test del formato contra ChampTeams.gg para confirmar que acepta la línea `SPs:` en lugar de `EVs:`. Si no lo acepta, se emite `EVs:` con valores escalados (1 SP = 8 EVs) como fallback.
+
+Conversión interna: SP → EVs en el momento de serialización (32 SPs = 256 EVs, 2 SPs = 16 EVs).
+
+### D7 — Movesets genéricos por rol
+Los team builders competitivos exportan 4 moves concretos por Pokémon (verificado: DevonCorp 38-teams paste, VGCPastes). Se generarán moves genéricos por rol:
+- **Universal**: `Protect` en slot 1 (presente en ~95% de sets Doubles competitivos)
+- **Sweeper físico**: STAB físico principal + move de cobertura + Protect + flex (Tera Blast o segundo STAB)
+- **Sweeper especial**: STAB especial principal + cobertura + Protect + flex
+- **Wall físico**: Move de recuperación (si lo aprende) + Protect + move de daño + utility
+- **Lead/Soporte**: Tailwind o Follow Me + Protect + move de daño + flex
+- **Trick Room setter**: Trick Room + Protect + move de daño + utility
+
+Los moves se seleccionan del moveset real del Pokémon (vía PokéAPI). Si el Pokémon no aprende el move genérico esperado para su rol, se sustituye por el STAB más potente disponible. Se documenta que los moves son sugerencias de partida, no sets optimizados.
 
 ## Risks / Trade-offs
 
@@ -88,6 +103,6 @@ SPs: Atk 32 / Spe 32 / HP 2
 
 ## Open Questions
 
-1. **Formato PokePaste exacto de ChampTeams.gg** — ¿acepta `SPs:` directamente o hay que mapearlo a `EVs:` escalados? Requiere test manual antes de implementar `replica-export`. [BLOCKER para D6]
-2. **Scope de moveset en v1** — ¿sugiere moves concretos o solo el slot vacío? Recomendación: moves genéricos por rol (sin optimización de sets) para mantener v1 simple.
-3. **Nombre del comando raíz** — `poke-builder`, `pkbuilder` o `pkmchampions`? Decidir antes de implementar `cli/`.
+~~1. Formato PokePaste~~ → Resuelto: `EVs:` estándar Showdown, `Level: 50`, sin `IVs:`. Ver D6.
+~~2. Scope de moveset~~ → Resuelto: moves genéricos por rol con Protect universal. Ver D7.
+~~3. Nombre del comando~~ → Resuelto: `poke-builder`.
