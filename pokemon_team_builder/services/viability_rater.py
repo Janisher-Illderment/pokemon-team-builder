@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from collections import Counter
 
 from pokemon_team_builder.config import MAX_SP_TOTAL
@@ -62,9 +63,10 @@ def _sps_points(variant: TeamVariant) -> int:
         total = sp.hp + sp.atk + sp.def_ + sp.spa + sp.spd + sp.spe
         if total == MAX_SP_TOTAL:
             pts += per_member
-    # WHY: round, then clamp to keep the budget integer-clean. Float drift
-    # from per_member division otherwise leaks 14.999... -> 14.
-    return max(0, min(_W_SPS, round(pts)))
+    # WHY: floor so partial SP allocation never rounds up to full credit.
+    # A member not at MAX_SP_TOTAL loses its 2.5-pt share entirely — conservative
+    # but predictable (never surprises the user with a score that feels too high).
+    return max(0, min(_W_SPS, math.floor(pts)))
 
 
 def _items_points(variant: TeamVariant) -> int:
@@ -133,14 +135,25 @@ def generate_explanation(variant: TeamVariant, score: float) -> str:
 def rank_variants(variants: list[TeamVariant]) -> list[TeamVariant]:
     """Return a new list ordered by score desc, with the top one recommended.
 
-    Stable: ties preserve input order. Returns deep-ish copies (model_copy)
-    so callers don't observe in-place mutation.
+    Tiebreak chain (all descending): total score → coverage pts → roles pts
+    → SP pts → original input order. The first entry is marked recommended.
+    Returns model_copy instances so callers don't observe in-place mutation.
     """
     if not variants:
         return []
 
+    def _sort_key(pair: tuple[int, TeamVariant]) -> tuple[float, float, float, float, int]:
+        idx, v = pair
+        return (
+            -v.score,
+            -_coverage_points(v),
+            -_roles_points(v),
+            -_sps_points(v),
+            idx,  # stable on full tie
+        )
+
     indexed = list(enumerate(variants))
-    indexed.sort(key=lambda pair: (-pair[1].score, pair[0]))
+    indexed.sort(key=_sort_key)
 
     out: list[TeamVariant] = []
     for rank, (_, variant) in enumerate(indexed):

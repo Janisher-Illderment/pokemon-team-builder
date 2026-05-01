@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from functools import lru_cache
 from typing import Callable, Iterable
 
 from pokemon_team_builder.config import (
@@ -85,6 +86,7 @@ _BEAM_WIDTH = 10
 _HEURISTIC_POOL_LIMIT = 50
 
 
+@lru_cache(maxsize=1)
 def _load_sp_templates() -> dict[str, dict[str, int]]:
     with open(ROLE_SP_TEMPLATES_FILE, "r", encoding="utf-8") as f:
         raw = json.load(f)
@@ -123,7 +125,10 @@ def _resistant_or_immune(pokemon: PokemonData, attacker_type: str) -> bool:
 
 
 def _heuristic_filter(
-    anchor: PokemonData, pool: list[PokemonData], limit: int = _HEURISTIC_POOL_LIMIT
+    anchor: PokemonData,
+    pool: list[PokemonData],
+    role_map: dict[str, list[str]],
+    limit: int = _HEURISTIC_POOL_LIMIT,
 ) -> list[PokemonData]:
     """Trim a candidate pool to those that complement the anchor.
 
@@ -136,7 +141,7 @@ def _heuristic_filter(
     anchor_weak = {
         t for t, mult in anchor.weaknesses.items() if mult >= 2.0
     }
-    anchor_roles = set(assign_role(anchor))
+    anchor_roles = set(role_map.get(anchor.name, assign_role(anchor)))
     anchor_is_sweeper = bool(
         anchor_roles & {"physical_sweeper", "special_sweeper"}
     )
@@ -148,14 +153,12 @@ def _heuristic_filter(
         if sorted(cand.types) == sorted(anchor.types):
             # Exact same defensive shape adds no coverage.
             continue
-        cand_roles = set(assign_role(cand))
+        cand_roles = set(role_map.get(cand.name, assign_role(cand)))
 
         score = 0.0
-        # +1 for each anchor weakness this candidate covers.
         for weak in anchor_weak:
             if _resistant_or_immune(cand, weak):
                 score += 1.0
-        # +0.5 if it brings a complementary role.
         if anchor_is_sweeper and (
             cand_roles & {"lead_support", "redirect", "physical_wall", "special_wall"}
         ):
@@ -174,25 +177,23 @@ def _heuristic_filter(
     return [cand for _, cand in scored[:limit]]
 
 
-def _partial_score(partial_team: list[PokemonData]) -> float:
+def _partial_score(
+    partial_team: list[PokemonData], role_map: dict[str, list[str]]
+) -> float:
     """Heuristic score for a beam state. Higher is better."""
     if not partial_team:
         return 0.0
 
     report = analyze_coverage(partial_team)
     score = 0.0
-    # Reward coverage of types (anti-gap).
     score += (len(ALL_TYPES) - len(report.offensive_gaps)) * 1.0
-    # Penalize shared defensive weaknesses.
     score -= len(report.defensive_weaknesses) * 2.0
 
-    # Reward role diversity.
     role_counter: set[str] = set()
     for member in partial_team:
-        role_counter.update(assign_role(member))
+        role_counter.update(role_map.get(member.name, assign_role(member)))
     score += len(role_counter) * 1.5
 
-    # Penalize redundant types: if 3+ members share a type, that's wasted.
     type_counts: dict[str, int] = {}
     for member in partial_team:
         for t in member.types:
@@ -207,6 +208,7 @@ def _partial_score(partial_team: list[PokemonData]) -> float:
 def _beam_search(
     anchor: PokemonData,
     candidates: list[PokemonData],
+    role_map: dict[str, list[str]],
     target_size: int = 6,
     beam_width: int = _BEAM_WIDTH,
 ) -> list[list[PokemonData]]:
@@ -233,14 +235,11 @@ def _beam_search(
                     continue
                 new_state = state + [cand]
                 next_states.append(
-                    (_partial_score(new_state), new_state)
+                    (_partial_score(new_state, role_map), new_state)
                 )
         if not next_states:
-            # Cannot extend further; return what we have.
             break
         next_states.sort(key=lambda pair: pair[0], reverse=True)
-        # Keep top-k unique states (by frozen membership) so the beam
-        # doesn't collapse into 10 copies of the same state.
         seen_keys: set[frozenset[str]] = set()
         kept: list[list[PokemonData]] = []
         for _, state in next_states:
@@ -253,7 +252,7 @@ def _beam_search(
                 break
         states = kept
 
-    states.sort(key=_partial_score, reverse=True)
+    states.sort(key=lambda s: _partial_score(s, role_map), reverse=True)
     return states
 
 
@@ -327,15 +326,19 @@ def generate_team(
     if not pool:
         return []
 
-    candidates = _heuristic_filter(anchor, pool)
+    # Precompute roles once per Pokemon — assign_role is pure and pool is
+    # fixed for this call. Avoids O(pool × beam_width × steps) recomputation.
+    all_pokemon = [anchor] + pool
+    role_map: dict[str, list[str]] = {p.name: assign_role(p) for p in all_pokemon}
+
+    candidates = _heuristic_filter(anchor, pool, role_map)
     if not candidates:
         return []
 
-    # Need at least 5 distinct candidates to fill slots 2..6.
     if len(candidates) < 5:
         return []
 
-    states = _beam_search(anchor, candidates, target_size=6)
+    states = _beam_search(anchor, candidates, role_map, target_size=6)
     if not states:
         return []
 
@@ -349,7 +352,7 @@ def generate_team(
             continue
         seen_signatures.add(signature)
         try:
-            variant = _build_variant(state)
+            variant = _build_variant(state, role_map)
         except ValueError:
             continue
         score = viability_rater.score_team(variant)
@@ -364,8 +367,10 @@ def generate_team(
     return variants
 
 
-def _build_variant(team: list[PokemonData]) -> TeamVariant:
-    members_roles = [assign_role(p) for p in team]
+def _build_variant(
+    team: list[PokemonData], role_map: dict[str, list[str]]
+) -> TeamVariant:
+    members_roles = [role_map.get(p.name, assign_role(p)) for p in team]
     items = _assign_items(members_roles)
 
     members: list[TeamMember] = []

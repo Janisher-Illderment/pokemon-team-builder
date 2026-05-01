@@ -120,15 +120,20 @@ def _extract_abilities(raw: dict[str, Any]) -> list[str]:
     """Extract ability slugs from PokeAPI ``abilities`` block.
 
     Structure: ``[{"ability": {"name": "speed-boost"}, "is_hidden": false, "slot": 1}, ...]``.
-    Returned in slot order; hidden abilities included.
+
+    Two-pass ordering: entries with a valid integer ``slot`` come first
+    (sorted ascending by slot), followed by slot-less entries in their
+    original list position. This avoids mixing the two number domains
+    into a single sort that could place a slotted entry after an unslotted one.
     """
     abilities_field = raw.get("abilities")
     if not isinstance(abilities_field, list):
         return []
-    # WHY: PokeAPI usually returns slot 1, slot 2, then hidden (slot 3) — we
-    # respect that order. If slot is missing we fall back to list order.
-    entries: list[tuple[int, str]] = []
-    for idx, entry in enumerate(abilities_field):
+
+    slotted: list[tuple[int, str]] = []
+    unslotted: list[str] = []
+
+    for entry in abilities_field:
         if not isinstance(entry, dict):
             continue
         ab_obj = entry.get("ability")
@@ -137,16 +142,22 @@ def _extract_abilities(raw: dict[str, Any]) -> list[str]:
         name = ab_obj.get("name")
         if not isinstance(name, str) or not name:
             continue
+        slug = name.lower()
         slot = entry.get("slot")
-        order = slot if isinstance(slot, int) else idx
-        entries.append((order, name.lower()))
-    entries.sort(key=lambda pair: pair[0])
+        if isinstance(slot, int):
+            slotted.append((slot, slug))
+        else:
+            unslotted.append(slug)
+
+    slotted.sort(key=lambda pair: pair[0])
+    combined = [slug for _, slug in slotted] + unslotted
+
     seen: set[str] = set()
     out: list[str] = []
-    for _, name in entries:
-        if name not in seen:
-            seen.add(name)
-            out.append(name)
+    for slug in combined:
+        if slug not in seen:
+            seen.add(slug)
+            out.append(slug)
     return out
 
 

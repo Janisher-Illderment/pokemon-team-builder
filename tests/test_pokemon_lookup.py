@@ -160,3 +160,37 @@ def test_calculate_weaknesses_unknown_type_raises() -> None:
 def test_calculate_weaknesses_empty_raises() -> None:
     with pytest.raises(ValueError):
         pokemon_lookup.calculate_weaknesses([])
+
+
+def test_extract_abilities_two_pass_ordering(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Slotted abilities must come before unslotted ones regardless of list order."""
+    raw = {
+        **CHARIZARD_RAW,
+        "abilities": [
+            # No slot field — would fall to idx=0 in old mixed sort.
+            {"ability": {"name": "no-slot-ability"}, "is_hidden": False},
+            # slot=1 — should come first.
+            {"ability": {"name": "blaze"}, "is_hidden": False, "slot": 1},
+            {"ability": {"name": "solar-power"}, "is_hidden": True, "slot": 3},
+        ],
+    }
+    monkeypatch.setattr(pokemon_lookup, "is_legal", lambda _: True)
+    monkeypatch.setattr(
+        pokemon_lookup.pokeapi_client, "get_pokemon", lambda _: raw
+    )
+    result = pokemon_lookup.lookup("charizard")
+    # slotted entries (slot 1, slot 3) come before no-slot entry
+    assert result.abilities[0] == "blaze"
+    assert result.abilities[1] == "solar-power"
+    assert result.abilities[2] == "no-slot-ability"
+
+
+def test_load_sp_templates_is_cached() -> None:
+    """_load_sp_templates uses lru_cache — second call returns same object."""
+    from pokemon_team_builder.services.team_generator import _load_sp_templates
+
+    first = _load_sp_templates()
+    second = _load_sp_templates()
+    assert first is second  # same dict object, not a copy
