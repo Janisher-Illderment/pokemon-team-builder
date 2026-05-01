@@ -23,9 +23,8 @@ dev = [
     "respx",
 ]
 
-# Entry point — restored in Group 9 (cli/main.py does not exist yet)
-# [project.scripts]
-# poke-builder = "pokemon_team_builder.cli.main:cli"
+[project.scripts]
+poke-builder = "pokemon_team_builder.cli.main:cli"
 
 [build-system]
 requires = ["hatchling"]

@@ -116,6 +116,51 @@ def _extract_base_stats(raw: dict[str, Any]) -> BaseStats:
     return BaseStats.model_validate(collected)
 
 
+def _extract_abilities(raw: dict[str, Any]) -> list[str]:
+    """Extract ability slugs from PokeAPI ``abilities`` block.
+
+    Structure: ``[{"ability": {"name": "speed-boost"}, "is_hidden": false, "slot": 1}, ...]``.
+
+    Two-pass ordering: entries with a valid integer ``slot`` come first
+    (sorted ascending by slot), followed by slot-less entries in their
+    original list position. This avoids mixing the two number domains
+    into a single sort that could place a slotted entry after an unslotted one.
+    """
+    abilities_field = raw.get("abilities")
+    if not isinstance(abilities_field, list):
+        return []
+
+    slotted: list[tuple[int, str]] = []
+    unslotted: list[str] = []
+
+    for entry in abilities_field:
+        if not isinstance(entry, dict):
+            continue
+        ab_obj = entry.get("ability")
+        if not isinstance(ab_obj, dict):
+            continue
+        name = ab_obj.get("name")
+        if not isinstance(name, str) or not name:
+            continue
+        slug = name.lower()
+        slot = entry.get("slot")
+        if isinstance(slot, int):
+            slotted.append((slot, slug))
+        else:
+            unslotted.append(slug)
+
+    slotted.sort(key=lambda pair: pair[0])
+    combined = [slug for _, slug in slotted] + unslotted
+
+    seen: set[str] = set()
+    out: list[str] = []
+    for slug in combined:
+        if slug not in seen:
+            seen.add(slug)
+            out.append(slug)
+    return out
+
+
 def _extract_move_names(raw: dict[str, Any]) -> list[str]:
     moves_field = raw.get("moves")
     if not isinstance(moves_field, list):
@@ -167,6 +212,7 @@ def lookup(name_or_id: Union[str, int]) -> PokemonData:
     types = _extract_types(raw)
     base_stats = _extract_base_stats(raw)
     move_names = _extract_move_names(raw)
+    abilities = _extract_abilities(raw)
     weaknesses = calculate_weaknesses(types)
 
     return PokemonData(
@@ -175,5 +221,6 @@ def lookup(name_or_id: Union[str, int]) -> PokemonData:
         types=types,
         base_stats=base_stats,
         move_names=move_names,
+        abilities=abilities,
         weaknesses=weaknesses,
     )

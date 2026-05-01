@@ -31,3 +31,14 @@ class PokeAPIError(PokeBuilderError):
     def __init__(self, message: str) -> None:
         self.message = message
         super().__init__(message)
+
+
+class TeamBuildError(PokeBuilderError):
+    """Raised when team construction cannot satisfy a domain invariant.
+
+    Examples: the curated item pool is exhausted while honoring the
+    Item Clause (no two team members may share an item), or any other
+    case where we would otherwise be forced to emit a synthetic / invalid
+    artifact that downstream importers (PokePaste, PikaChampions) would
+    reject.
+    """

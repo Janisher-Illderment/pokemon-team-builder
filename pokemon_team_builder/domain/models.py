@@ -25,6 +25,7 @@ class PokemonData(BaseModel):
     types: list[str] = Field(min_length=1, max_length=2)
     base_stats: BaseStats
     move_names: list[str]
+    abilities: list[str] = Field(default_factory=list)
     weaknesses: dict[str, float] = Field(default_factory=dict)
 
 
