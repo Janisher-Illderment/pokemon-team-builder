@@ -1,9 +1,16 @@
+import sys
 from pathlib import Path
 
 CACHE_DIR = Path.home() / ".pokemon-builder"
 CACHE_DB = CACHE_DIR / "cache.db"
 CACHE_TTL_SECONDS = 30 * 24 * 3600  # 30 days
-DATA_DIR = Path(__file__).parent.parent / "data"
+
+# PyInstaller bundles package data under sys._MEIPASS; fall back to the
+# normal source-relative path for editable installs and regular pip installs.
+if getattr(sys, "frozen", False):
+    DATA_DIR = Path(sys._MEIPASS) / "pokemon_team_builder" / "data"  # type: ignore[attr-defined]
+else:
+    DATA_DIR = Path(__file__).parent / "data"
 LEGAL_POOL_FILE = DATA_DIR / "legal_pool_mA.json"
 TYPE_CHART_FILE = DATA_DIR / "type_chart.json"
 ROLE_SP_TEMPLATES_FILE = DATA_DIR / "role_sp_templates.json"

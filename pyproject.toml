@@ -1,6 +1,6 @@
 [project]
 name = "pokemon-team-builder"
-version = "0.1.0"
+version = "0.2.0"
 description = "CLI to generate competitive Pokemon Champions teams (Regulation M-A, Doubles)"
 requires-python = ">=3.11"
 readme = "README.md"
@@ -21,6 +21,7 @@ dev = [
     "pytest>=8.0",
     "pytest-cov",
     "respx",
+    "pyinstaller>=6.0",
 ]
 
 [project.scripts]
