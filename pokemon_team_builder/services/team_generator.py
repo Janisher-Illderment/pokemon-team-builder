@@ -44,6 +44,7 @@ _FALLBACK_ITEM = "Choice Scarf"
 # same-role mons can each receive a distinct, importable item.
 _BACKUP_ITEMS: tuple[str, ...] = (
     "Sitrus Berry",
+    "Lum Berry",
     "Scope Lens",
     "Power Herb",
     "White Herb",
@@ -54,7 +55,6 @@ _BACKUP_ITEMS: tuple[str, ...] = (
     "Adrenaline Orb",
     "Light Clay",
     "King's Rock",
-    "Weakness Policy",
     "Mystic Water",
     "Charcoal",
     "Magnet",
