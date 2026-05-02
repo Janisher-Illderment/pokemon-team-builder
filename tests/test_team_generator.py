@@ -226,6 +226,49 @@ def test_no_illegal_items_in_constants() -> None:
     assert not leaked, f"illegal items in _BACKUP_ITEMS: {sorted(leaked)}"
 
 
+def test_no_setup_move_with_choice_item() -> None:
+    """A special_sweeper with Choice Scarf must not get a setup move in slot 4."""
+    from pokemon_team_builder.services.replica_exporter import (
+        _SETUP_MOVES,
+        select_moves_for_role,
+    )
+
+    pokemon = _mk(
+        "slowking",
+        ["water", "psychic"],
+        spa=100,
+        atk=75,
+        moves=[
+            "protect",
+            "scald",
+            "psychic",
+            "ice-beam",
+            "nasty-plot",
+            "calm-mind",
+        ],
+    )
+    moves = select_moves_for_role(
+        pokemon, ["special_sweeper"], item="Choice Scarf"
+    )
+    assert not any(m in _SETUP_MOVES for m in moves), (
+        f"setup move leaked into Choice Scarf set: {moves}"
+    )
+
+
+def test_ability_skips_sand_veil() -> None:
+    """_pick_ability should return the first non-situational ability."""
+    from pokemon_team_builder.services.team_generator import _pick_ability
+
+    pokemon = _mk(
+        "garchomp",
+        ["dragon", "ground"],
+        atk=130,
+        spe=102,
+        abilities=["sand-veil", "rough-skin"],
+    )
+    assert _pick_ability(pokemon) == "rough-skin"
+
+
 def test_assign_items_no_synthetic_item_strings() -> None:
     """Item Clause: 6 same-role mons must each get a distinct, real item.
 

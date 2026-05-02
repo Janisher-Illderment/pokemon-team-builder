@@ -229,6 +229,14 @@ _MOVE_TYPE: dict[str, str] = {
     "flash-cannon": "steel",
 }
 
+_CHOICE_ITEMS: frozenset[str] = frozenset({"Choice Scarf", "Choice Band", "Choice Specs"})
+_SETUP_MOVES: frozenset[str] = frozenset({
+    "nasty-plot", "calm-mind", "tail-glow",
+    "swords-dance", "dragon-dance", "bulk-up",
+    "quiver-dance", "shell-smash", "coil", "hone-claws", "work-up",
+})
+
+
 # Role -> ordered list of preferred role moves.
 _ROLE_MOVE_PRIORITY: dict[str, tuple[str, ...]] = {
     "lead_support": ("tailwind", "fake-out", "follow-me", "rage-powder"),
@@ -258,7 +266,7 @@ def _first_available(candidates: tuple[str, ...], move_pool: list[str]) -> str |
 
 
 def select_moves_for_role(
-    pokemon: PokemonData, roles: list[str]
+    pokemon: PokemonData, roles: list[str], *, item: str = ""
 ) -> list[str]:
     """Pick exactly 4 moves for a Pokemon given its assigned roles.
 
@@ -338,6 +346,8 @@ def select_moves_for_role(
         for candidate in _ROLE_MOVE_PRIORITY.get(role, ()):
             if candidate in used:
                 continue
+            if item in _CHOICE_ITEMS and candidate in _SETUP_MOVES:
+                continue  # locked-in setup is useless with a Choice item
             if candidate in move_pool:
                 slot4 = candidate
                 break

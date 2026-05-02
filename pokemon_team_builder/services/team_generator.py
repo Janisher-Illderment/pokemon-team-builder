@@ -75,6 +75,13 @@ _BACKUP_ITEMS: tuple[str, ...] = (
     "Fairy Feather",
 )
 
+_SITUATIONAL_ABILITIES: frozenset[str] = frozenset({
+    "sand-veil", "snow-cloak", "swift-swim", "chlorophyll",
+    "solar-power", "sand-rush", "slush-rush", "surge-surfer",
+    "leaf-guard", "flower-gift", "forecast",
+})
+
+
 _NATURE_BY_ROLE: dict[str, str] = {
     "physical_sweeper": "Jolly",
     "special_sweeper": "Timid",
@@ -372,6 +379,14 @@ def generate_team(
     return variants
 
 
+def _pick_ability(pokemon: PokemonData) -> str:
+    """Prefer the first ability that is not weather/condition-dependent."""
+    for ability in pokemon.abilities:
+        if ability.lower() not in _SITUATIONAL_ABILITIES:
+            return ability
+    return pokemon.abilities[0] if pokemon.abilities else "pressure"
+
+
 def _build_variant(
     team: list[PokemonData], role_map: dict[str, list[str]]
 ) -> TeamVariant:
@@ -383,8 +398,8 @@ def _build_variant(
         primary = roles[0] if roles else "physical_sweeper"
         sp = suggest_sp_distribution(pokemon, primary)
         nature = _NATURE_BY_ROLE.get(primary, _FALLBACK_NATURE)
-        ability = pokemon.abilities[0] if pokemon.abilities else "Pressure"
-        moves = replica_exporter.select_moves_for_role(pokemon, roles)
+        ability = _pick_ability(pokemon)
+        moves = replica_exporter.select_moves_for_role(pokemon, roles, item=item)
         members.append(
             TeamMember(
                 pokemon=pokemon,
