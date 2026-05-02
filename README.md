@@ -9,17 +9,34 @@ each variant 0–100, and exports a PokePaste ready to import into PikaChampions
 
 ## Requirements
 
-- Python 3.11+
 - Internet access on first run (PokeAPI data is cached locally after that)
 
 ## Installation
 
-```bash
-# with pip
-pip install -e .
+### Option A — Standalone executable (no Python needed)
 
-# with uv (recommended)
-uv pip install -e .
+Download the latest `poke-builder.exe` from the
+[Releases page](https://github.com/Janisher-Illderment/pokemon-team-builder/releases)
+and run it from any folder:
+
+```
+poke-builder build charizard
+```
+
+### Option B — Install from GitHub (Python 3.11+ required)
+
+```bash
+pip install git+https://github.com/Janisher-Illderment/pokemon-team-builder.git
+```
+
+That's it. The `poke-builder` command is now available globally.
+
+### Option C — Editable install (for development)
+
+```bash
+git clone https://github.com/Janisher-Illderment/pokemon-team-builder.git
+cd pokemon-team-builder
+pip install -e ".[dev]"   # or: uv pip install -e ".[dev]"
 ```
 
 ## Quick Usage
