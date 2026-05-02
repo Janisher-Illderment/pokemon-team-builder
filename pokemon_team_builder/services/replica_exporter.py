@@ -10,10 +10,8 @@ from pokemon_team_builder.domain.models import (
 )
 
 
-# WHY: 1 SP equates to 8 EVs in Pokemon Champions' replica format. Showdown
-# caps per-stat EVs at 252 — past that the surplus is wasted, so we clamp.
-_SP_TO_EV = 8
-_SHOWDOWN_EV_CAP = 252
+# Champions replica format uses raw SP values (0–32) in the EVs: line, NOT
+# the traditional Showdown ×8 conversion. Max per stat is 32.
 
 
 # Curated STAB candidates per type. We pick the first one that the Pokemon
@@ -92,6 +90,117 @@ _COVERAGE_PRIORITY: tuple[str, ...] = (
     "energy-ball",
 )
 
+# Physical/special category for moves that appear in coverage or STAB slots.
+# WHY: slot-2 prefers STAB moves that match the Pokemon's primary attack stat,
+# and slot-3 skips coverage moves of the wrong attack category (e.g. no
+# Earthquake on a special attacker like Charizard).
+_MOVE_CATEGORY: dict[str, str] = {
+    # Coverage priority moves
+    "earthquake": "physical",
+    "ice-beam": "special",
+    "thunderbolt": "special",
+    "psychic": "special",
+    "dazzling-gleam": "special",
+    "shadow-ball": "special",
+    "focus-blast": "special",
+    "rock-slide": "physical",
+    "flamethrower": "special",
+    "energy-ball": "special",
+    # STAB moves — normal
+    "body-slam": "physical",
+    "double-edge": "physical",
+    "return": "physical",
+    "hyper-voice": "special",
+    "tackle": "physical",
+    # fire
+    "fire-blast": "special",
+    "heat-wave": "special",
+    "fire-punch": "physical",
+    "overheat": "special",
+    "ember": "special",
+    # water
+    "hydro-pump": "special",
+    "surf": "special",
+    "scald": "special",
+    "muddy-water": "special",
+    "water-pulse": "special",
+    "waterfall": "physical",
+    # electric
+    "thunder": "special",
+    "discharge": "special",
+    "thunder-punch": "physical",
+    "wild-charge": "physical",
+    # grass
+    "leaf-storm": "special",
+    "giga-drain": "special",
+    "grass-knot": "special",
+    "leaf-blade": "physical",
+    "seed-bomb": "physical",
+    # ice
+    "blizzard": "special",
+    "icicle-crash": "physical",
+    "ice-punch": "physical",
+    "freeze-dry": "special",
+    # fighting
+    "close-combat": "physical",
+    "drain-punch": "physical",
+    "aura-sphere": "special",
+    "brick-break": "physical",
+    # poison
+    "sludge-bomb": "special",
+    "gunk-shot": "physical",
+    "poison-jab": "physical",
+    "sludge-wave": "special",
+    # ground
+    "earth-power": "special",
+    "high-horsepower": "physical",
+    "bulldoze": "physical",
+    # flying
+    "brave-bird": "physical",
+    "air-slash": "special",
+    "hurricane": "special",
+    "drill-peck": "physical",
+    "aerial-ace": "physical",
+    # psychic
+    "psyshock": "special",
+    "psystrike": "special",
+    "expanding-force": "special",
+    "stored-power": "special",
+    # bug
+    "u-turn": "physical",
+    "bug-buzz": "special",
+    "x-scissor": "physical",
+    "megahorn": "physical",
+    "leech-life": "physical",
+    # rock
+    "stone-edge": "physical",
+    "power-gem": "special",
+    "ancient-power": "special",
+    # ghost
+    "shadow-claw": "physical",
+    "poltergeist": "physical",
+    "phantom-force": "physical",
+    # dragon
+    "draco-meteor": "special",
+    "dragon-pulse": "special",
+    "outrage": "physical",
+    "dragon-claw": "physical",
+    # dark
+    "dark-pulse": "special",
+    "knock-off": "physical",
+    "crunch": "physical",
+    "foul-play": "physical",
+    # steel
+    "iron-head": "physical",
+    "flash-cannon": "special",
+    "meteor-mash": "physical",
+    "iron-tail": "physical",
+    # fairy
+    "moonblast": "special",
+    "play-rough": "physical",
+    "fleur-cannon": "special",
+}
+
 # Damage type for every move that may appear in a coverage / STAB slot.
 # WHY: previously slot-3 used ``candidate.startswith(t)`` against the
 # Pokemon's own types to skip same-type coverage; that was coincidentally
@@ -169,34 +278,54 @@ def select_moves_for_role(
     slot1 = "protect"
     used.add(slot1)
 
-    # Slot 2: STAB based on the primary type.
+    # Primary attack category: physical if Atk >= SpA, else special.
+    primary_cat = (
+        "physical"
+        if pokemon.base_stats.atk >= pokemon.base_stats.spa
+        else "special"
+    )
+
+    # Slot 2: STAB — prefer a move matching the primary attack category first,
+    # then fall back to any available STAB (e.g. a physical sweeper may know
+    # only special STAB, which is better than nothing).
     slot2 = None
-    for ptype in pokemon.types:
-        candidates = _STAB_BY_TYPE.get(ptype.lower(), ())
-        chosen = _first_available(candidates, move_pool)
-        if chosen and chosen not in used:
-            slot2 = chosen
+    for pass_num in range(2):
+        for ptype in pokemon.types:
+            for candidate in _STAB_BY_TYPE.get(ptype.lower(), ()):
+                if candidate in used or candidate not in move_pool:
+                    continue
+                cand_cat = _MOVE_CATEGORY.get(candidate, "")
+                if pass_num == 0 and cand_cat and cand_cat != primary_cat:
+                    continue  # first pass: category-matching only
+                slot2 = candidate
+                break
+            if slot2:
+                break
+        if slot2:
             break
     if slot2 is None:
         slot2 = _fallback_move(move_pool, used)
     used.add(slot2)
 
-    # Slot 3: coverage (skip moves of the Pokemon's own types when possible).
+    # Slot 3: coverage — skip same-type moves AND moves of the wrong attack
+    # category (no Earthquake on a special attacker, no Ice Beam on a physical
+    # one). Two-pass: strict category filter first, any coverage second.
     own_types = {t.lower() for t in pokemon.types}
     slot3 = None
-    for candidate in _COVERAGE_PRIORITY:
-        if candidate in used:
-            continue
-        if candidate not in move_pool:
-            continue
-        # Skip same-type moves so slot 3 actually broadens coverage
-        # beyond the STAB locked in slot 2. Falls back to "" for moves
-        # not in the table — those are kept (we err on inclusion).
-        candidate_type = _MOVE_TYPE.get(candidate, "")
-        if candidate_type and candidate_type in own_types:
-            continue
-        slot3 = candidate
-        break
+    for pass_num in range(2):
+        for candidate in _COVERAGE_PRIORITY:
+            if candidate in used or candidate not in move_pool:
+                continue
+            candidate_type = _MOVE_TYPE.get(candidate, "")
+            if candidate_type and candidate_type in own_types:
+                continue
+            cand_cat = _MOVE_CATEGORY.get(candidate, "")
+            if pass_num == 0 and cand_cat and cand_cat != primary_cat:
+                continue  # first pass: category-matching only
+            slot3 = candidate
+            break
+        if slot3:
+            break
     if slot3 is None:
         slot3 = _fallback_move(move_pool, used)
     used.add(slot3)
@@ -260,7 +389,7 @@ def _format_species(slug: str) -> str:
 
 
 def _ev_line(sp: SPDistribution) -> str:
-    """Format the ``EVs:`` line, skipping zero-stat entries."""
+    """Format the ``EVs:`` line using raw SP values (0–32), skipping zeros."""
     pairs: list[tuple[str, int]] = [
         ("HP", sp.hp),
         ("Atk", sp.atk),
@@ -273,8 +402,7 @@ def _ev_line(sp: SPDistribution) -> str:
     for label, sp_value in pairs:
         if sp_value <= 0:
             continue
-        ev = min(_SHOWDOWN_EV_CAP, sp_value * _SP_TO_EV)
-        parts.append(f"{ev} {label}")
+        parts.append(f"{sp_value} {label}")
     if not parts:
         return ""
     return "EVs: " + " / ".join(parts)
