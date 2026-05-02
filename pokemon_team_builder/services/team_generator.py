@@ -29,29 +29,32 @@ from pokemon_team_builder.services.synergy_engine import (
 
 
 _DEFAULT_ITEM_BY_ROLE: dict[str, str] = {
-    "physical_sweeper": "Choice Band",
-    "special_sweeper": "Choice Specs",
+    # Choice Band / Specs / Assault Vest / Life Orb are NOT in Champions.
+    "physical_sweeper": "Weakness Policy",
+    "special_sweeper": "Throat Spray",
     "physical_wall": "Rocky Helmet",
-    "special_wall": "Assault Vest",
+    "special_wall": "Leftovers",
     "lead_support": "Focus Sash",
     "trick_room_setter": "Mental Herb",
-    "redirect": "Eject Button",
+    "redirect": "Clear Amulet",
 }
-_FALLBACK_ITEM = "Life Orb"
-# Backup pool of real, competitively-legal Doubles items. Order is
-# preference: berries / utility first, then type-boosting plates so that
-# even six same-role mons can each receive a distinct, importable item.
-# WHY: we can never emit a synthetic "Item-N" string — PokePaste imports
-# silently fail on unknown items in PikaChampions / champteams.gg.
+_FALLBACK_ITEM = "Choice Scarf"
+# Champions-legal backup items (Serebii/MetaVGC confirmed). Order is
+# preference: utility first, then type-boosting items so that even six
+# same-role mons can each receive a distinct, importable item.
 _BACKUP_ITEMS: tuple[str, ...] = (
     "Sitrus Berry",
     "Lum Berry",
-    "Expert Belt",
-    "Wide Lens",
+    "Scope Lens",
     "Power Herb",
-    "Leftovers",
-    "Choice Scarf",
-    "Safety Goggles",
+    "White Herb",
+    "Shell Bell",
+    "Loaded Dice",
+    "Covert Cloak",
+    "Focus Band",
+    "Adrenaline Orb",
+    "Light Clay",
+    "King's Rock",
     "Mystic Water",
     "Charcoal",
     "Magnet",
@@ -62,12 +65,14 @@ _BACKUP_ITEMS: tuple[str, ...] = (
     "Dragon Fang",
     "Spell Tag",
     "Miracle Seed",
-    "Hard Stone",
-    "Twisted Spoon",
-    "NeverMeltIce",
+    "Never-Melt Ice",
     "Poison Barb",
     "Metal Coat",
     "Black Glasses",
+    "Twisted Spoon",
+    "Hard Stone",
+    "Silk Scarf",
+    "Fairy Feather",
 )
 
 _NATURE_BY_ROLE: dict[str, str] = {

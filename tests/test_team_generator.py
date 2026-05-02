@@ -189,6 +189,43 @@ def test_generate_team_6_members() -> None:
         assert len(variant.members) == 6
 
 
+def test_no_illegal_items_in_constants() -> None:
+    """No mainline-only items leak into Champions item constants.
+
+    Champions has a closed item pool (~117 items). Importing a team with
+    an unknown item into PikaChampions / champteams.gg silently drops it,
+    so the team builder must never emit one. Guards against regressions
+    where confirmed-illegal items (Choice Band, Choice Specs, Assault
+    Vest, Life Orb, Eject Button) sneak back in via copy-paste from
+    mainline VGC references.
+    """
+    from pokemon_team_builder.services.team_generator import (
+        _BACKUP_ITEMS,
+        _DEFAULT_ITEM_BY_ROLE,
+        _FALLBACK_ITEM,
+    )
+
+    illegal = {
+        "Choice Band",
+        "Choice Specs",
+        "Assault Vest",
+        "Life Orb",
+        "Eject Button",
+    }
+
+    for role, item in _DEFAULT_ITEM_BY_ROLE.items():
+        assert item not in illegal, (
+            f"_DEFAULT_ITEM_BY_ROLE[{role!r}] = {item!r} is not legal in Champions"
+        )
+
+    assert _FALLBACK_ITEM not in illegal, (
+        f"_FALLBACK_ITEM = {_FALLBACK_ITEM!r} is not legal in Champions"
+    )
+
+    leaked = set(_BACKUP_ITEMS) & illegal
+    assert not leaked, f"illegal items in _BACKUP_ITEMS: {sorted(leaked)}"
+
+
 def test_assign_items_no_synthetic_item_strings() -> None:
     """Item Clause: 6 same-role mons must each get a distinct, real item.
 
