@@ -251,6 +251,36 @@ def test_fallback_move_avoids_duplicate_when_tackle_in_used() -> None:
     assert result not in used
 
 
+def test_earthquake_not_first_coverage_priority() -> None:
+    """EQ must not be slot-3 when safer coverage exists (hits ally in Doubles)."""
+    # A ground-immune special attacker with full coverage pool should get
+    # ice-beam/thunderbolt/etc before earthquake.
+    # NOTE: _mk_pokemon ties atk == spa, so primary_cat resolves to physical;
+    # we include "rock-slide" in the pool so that the strict-physical pass
+    # has a non-earthquake physical option to pick first.
+    pokemon = _mk_pokemon(
+        "gardevoir",
+        ["psychic", "fairy"],
+        moves=[
+            "protect",
+            "moonblast",
+            "ice-beam",
+            "earthquake",
+            "thunderbolt",
+            "rock-slide",
+        ],
+    )
+    moves = select_moves_for_role(pokemon, ["special_sweeper"])
+    # ice-beam or thunderbolt or rock-slide should win over earthquake as slot 3
+    assert moves[2] != "earthquake"
+
+
+def test_outrage_not_in_dragon_stab() -> None:
+    """Outrage must never appear — random target in Doubles."""
+    from pokemon_team_builder.services.replica_exporter import _STAB_BY_TYPE
+    assert "outrage" not in _STAB_BY_TYPE["dragon"]
+
+
 def test_select_moves_slot4_uses_secondary_role() -> None:
     """Slot 4 should pick a role move from secondary roles when primary has none."""
     # Primary role "physical_sweeper" has no swords-dance/dragon-dance in pool.

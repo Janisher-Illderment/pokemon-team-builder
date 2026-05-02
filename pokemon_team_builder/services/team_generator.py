@@ -53,7 +53,7 @@ _BACKUP_ITEMS: tuple[str, ...] = (
     "Covert Cloak",
     "Focus Band",
     "Adrenaline Orb",
-    "Light Clay",
+    "Safety Goggles",  # NOT Light Clay — Light Clay is NOT in Champions
     "King's Rock",
     "Mystic Water",
     "Charcoal",

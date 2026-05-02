@@ -27,13 +27,13 @@ _STAB_BY_TYPE: dict[str, tuple[str, ...]] = {
         "overheat",
         "ember",
     ),
-    "water": ("hydro-pump", "surf", "scald", "muddy-water", "water-pulse", "waterfall"),
+    "water": ("hydro-pump", "scald", "muddy-water", "waterfall", "water-pulse", "surf"),
     "electric": (
         "thunderbolt",
         "thunder",
-        "discharge",
         "thunder-punch",
         "wild-charge",
+        "discharge",   # last — hits ally in Doubles
     ),
     "grass": (
         "energy-ball",
@@ -65,12 +65,11 @@ _STAB_BY_TYPE: dict[str, tuple[str, ...]] = {
         "psyshock",
         "psystrike",
         "expanding-force",
-        "stored-power",
     ),
     "bug": ("u-turn", "bug-buzz", "x-scissor", "megahorn", "leech-life"),
     "rock": ("rock-slide", "stone-edge", "power-gem", "ancient-power"),
-    "ghost": ("shadow-ball", "shadow-claw", "poltergeist", "phantom-force"),
-    "dragon": ("draco-meteor", "dragon-pulse", "outrage", "dragon-claw"),
+    "ghost": ("shadow-ball", "shadow-claw", "poltergeist"),
+    "dragon": ("draco-meteor", "dragon-pulse", "dragon-claw"),
     "dark": ("dark-pulse", "knock-off", "crunch", "foul-play"),
     "steel": ("iron-head", "flash-cannon", "meteor-mash", "iron-tail"),
     "fairy": ("moonblast", "dazzling-gleam", "play-rough", "fleur-cannon"),
@@ -78,7 +77,6 @@ _STAB_BY_TYPE: dict[str, tuple[str, ...]] = {
 
 # Generic coverage moves (non-STAB), in priority order.
 _COVERAGE_PRIORITY: tuple[str, ...] = (
-    "earthquake",
     "ice-beam",
     "thunderbolt",
     "psychic",
@@ -88,6 +86,7 @@ _COVERAGE_PRIORITY: tuple[str, ...] = (
     "rock-slide",
     "flamethrower",
     "energy-ball",
+    "earthquake",   # last — hits ally in Doubles unless partner has Ground immunity
 )
 
 # Physical/special category for moves that appear in coverage or STAB slots.
@@ -179,11 +178,9 @@ _MOVE_CATEGORY: dict[str, str] = {
     # ghost
     "shadow-claw": "physical",
     "poltergeist": "physical",
-    "phantom-force": "physical",
     # dragon
     "draco-meteor": "special",
     "dragon-pulse": "special",
-    "outrage": "physical",
     "dragon-claw": "physical",
     # dark
     "dark-pulse": "special",
