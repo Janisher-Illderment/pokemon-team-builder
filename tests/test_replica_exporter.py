@@ -71,12 +71,12 @@ def _basic_variant() -> TeamVariant:
         for i in range(6)
     ]
     items = [
-        "Choice Band",
+        "Weakness Policy",
         "Focus Sash",
         "Sitrus Berry",
-        "Assault Vest",
+        "Leftovers",
         "Rocky Helmet",
-        "Life Orb",
+        "Choice Scarf",
     ]
     members = [
         _mk_member(
@@ -116,7 +116,8 @@ def test_select_moves_for_role_picks_role_move() -> None:
     assert "tailwind" in moves
 
 
-def test_sp_to_ev_conversion_32sp() -> None:
+def test_sp_values_written_raw() -> None:
+    # Champions uses raw SP values (max 32) in the EVs: line, not ×8.
     pokemon = _mk_pokemon(
         "garchomp",
         ["dragon", "ground"],
@@ -124,17 +125,17 @@ def test_sp_to_ev_conversion_32sp() -> None:
     )
     member = _mk_member(
         pokemon,
-        item="Choice Band",
+        item="Weakness Policy",
         nature="Jolly",
         moves=["protect", "earthquake", "dragon-claw", "swords-dance"],
         sp=SPDistribution.model_validate({"atk": 32, "spe": 32, "hp": 2}),
     )
     variant = TeamVariant(members=[member] * 6)
     paste = to_pokepaste(variant)
-    # 32 SP * 8 = 256 → capped at Showdown's 252 EV cap.
-    assert "252 Atk" in paste
-    assert "252 Spe" in paste
-    assert "16 HP" in paste
+    assert "32 Atk" in paste
+    assert "32 Spe" in paste
+    assert "2 HP" in paste
+    assert "252" not in paste
 
 
 def test_pokepaste_has_level_50() -> None:
