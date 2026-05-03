@@ -92,6 +92,53 @@ _STAT_DROP_MOVES: frozenset[str] = frozenset({
     "close-combat", "superpower", "v-create",
 })
 
+# Mirrors replica_exporter._CHOICE_ITEMS — kept as a local copy so
+# team_generator does not depend on a private constant in another module.
+# These two sets must always agree.
+_CHOICE_ITEMS: frozenset[str] = frozenset(
+    {"Choice Scarf", "Choice Band", "Choice Specs"}
+)
+
+# Roles where ANY Choice item is forbidden — locking these into a single
+# move makes the Pokemon useless for the rest of the match (TR setter
+# stuck on Trick Room, redirect stuck on Follow Me, walls stuck on
+# recovery moves with no offensive option).
+_NO_CHOICE_ROLES: frozenset[str] = frozenset({
+    "trick_room_setter",
+    "redirect",
+    "physical_wall",
+    "special_wall",
+})
+
+# Pokemon that cannot be built into a legal team member by the move
+# selection system (e.g., Ditto's only legal move in Champions is
+# Transform — no STAB/coverage moveset is producible).
+_UNGENERABLE_POKEMON: frozenset[str] = frozenset({"ditto"})
+
+# Type-boosting items only buff moves of their specific type. Heuristic:
+# only assign one if the Pokemon is itself that type (so it has STAB
+# moves of that type to actually benefit).
+_TYPE_BOOST_ITEMS: dict[str, str] = {
+    "Mystic Water": "water",
+    "Charcoal": "fire",
+    "Magnet": "electric",
+    "Black Belt": "fighting",
+    "Soft Sand": "ground",
+    "Sharp Beak": "flying",
+    "Silver Powder": "bug",
+    "Dragon Fang": "dragon",
+    "Spell Tag": "ghost",
+    "Miracle Seed": "grass",
+    "Never-Melt Ice": "ice",
+    "Poison Barb": "poison",
+    "Metal Coat": "steel",
+    "Black Glasses": "dark",
+    "Twisted Spoon": "psychic",
+    "Hard Stone": "rock",
+    "Silk Scarf": "normal",
+    "Fairy Feather": "fairy",
+}
+
 
 _NATURE_BY_ROLE: dict[str, str] = {
     "physical_sweeper": "Jolly",
@@ -172,6 +219,9 @@ def _heuristic_filter(
     scored: list[tuple[float, PokemonData]] = []
     for cand in pool:
         if cand.name == anchor.name:
+            continue
+        if cand.name in _UNGENERABLE_POKEMON:
+            # No buildable moveset in Champions — never include.
             continue
         if sorted(cand.types) == sorted(anchor.types):
             # Exact same defensive shape adds no coverage.
@@ -286,6 +336,9 @@ def _item_is_activatable(item: str, pokemon: PokemonData) -> bool:
         return bool(move_pool & _SOUND_MOVES)
     if item == "White Herb":
         return bool(move_pool & _STAT_DROP_MOVES)
+    if item in _TYPE_BOOST_ITEMS:
+        boost_type = _TYPE_BOOST_ITEMS[item]
+        return boost_type.lower() in {t.lower() for t in pokemon.types}
     return True
 
 
@@ -316,6 +369,10 @@ def _assign_items(
             chosen: str | None = None
             for alt in (_FALLBACK_ITEM, *_BACKUP_ITEMS):
                 if alt not in used:
+                    # Choice items lock the holder into one move — useless
+                    # for setters/redirectors/walls.
+                    if primary in _NO_CHOICE_ROLES and alt in _CHOICE_ITEMS:
+                        continue
                     if members is None or _item_is_activatable(alt, members[i]):
                         chosen = alt
                         break
@@ -323,6 +380,8 @@ def _assign_items(
                 # Last resort: take any unused item, activation or not — better than nothing
                 for alt in (_FALLBACK_ITEM, *_BACKUP_ITEMS):
                     if alt not in used:
+                        if primary in _NO_CHOICE_ROLES and alt in _CHOICE_ITEMS:
+                            continue
                         chosen = alt
                         break
             if chosen is None:
@@ -363,6 +422,12 @@ def generate_team(
     """
     if num_variants < 1:
         return []
+
+    if anchor.name in _UNGENERABLE_POKEMON:
+        raise TeamBuildError(
+            "Ditto cannot be used as a team anchor — it has no buildable "
+            "moveset in Champions."
+        )
 
     if pool is None:
         if candidate_loader is not None:
@@ -460,7 +525,7 @@ def _default_pool_loader(anchor: PokemonData) -> list[PokemonData]:
     """
     pool: list[PokemonData] = []
     for name in get_all_names():
-        if name == anchor.name:
+        if name == anchor.name or name in _UNGENERABLE_POKEMON:
             continue
         try:
             pool.append(pokemon_lookup.lookup(name))

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import pytest
+
 from pokemon_team_builder.config import MAX_SP_TOTAL
+from pokemon_team_builder.domain.exceptions import TeamBuildError
 from pokemon_team_builder.domain.models import (
     BaseStats,
     PokemonData,
@@ -360,3 +363,148 @@ def test_assign_items_no_synthetic_item_strings() -> None:
         assert not item.startswith("Item-"), (
             f"synthetic placeholder leaked into items: {items}"
         )
+
+
+def test_choice_scarf_not_assigned_to_trick_room_setter() -> None:
+    """Trick Room setters must never receive a Choice item."""
+    from pokemon_team_builder.services.team_generator import (
+        _CHOICE_ITEMS,
+        _assign_items,
+    )
+
+    # Build six trick_room_setter mons. The role-default ("Mental Herb")
+    # is unique to one slot, so the other five must walk the fallback
+    # chain — which historically picks "Choice Scarf" first. With the
+    # fix, no Choice item must be selected for any slot.
+    pokemon = _mk(
+        "tr-mon",
+        ["psychic"],
+        atk=60,
+        spa=120,
+        spe=30,
+        moves=["protect", "trick-room", "psychic", "shadow-ball"],
+    )
+    members = [pokemon] * 6
+    members_roles = [["trick_room_setter"]] * 6
+    items = _assign_items(members_roles, members)
+
+    leaked = [item for item in items if item in _CHOICE_ITEMS]
+    assert not leaked, (
+        f"Choice item assigned to trick_room_setter: {items}"
+    )
+
+
+def test_choice_scarf_not_assigned_to_redirect() -> None:
+    """Redirect roles (Follow Me) must never receive a Choice item."""
+    from pokemon_team_builder.services.team_generator import (
+        _CHOICE_ITEMS,
+        _assign_items,
+    )
+
+    pokemon = _mk(
+        "redirect-mon",
+        ["fairy"],
+        atk=60,
+        spa=100,
+        spd=120,
+        moves=["protect", "follow-me", "moonblast", "helping-hand"],
+    )
+    members = [pokemon] * 6
+    members_roles = [["redirect"]] * 6
+    items = _assign_items(members_roles, members)
+
+    leaked = [item for item in items if item in _CHOICE_ITEMS]
+    assert not leaked, f"Choice item assigned to redirect: {items}"
+
+
+def test_ditto_excluded_from_candidate_pool() -> None:
+    """Ditto must never appear as a generated team member."""
+    anchor = _mk(
+        "charizard",
+        ["fire", "flying"],
+        atk=84,
+        spa=109,
+        spe=100,
+        pid=6,
+        moves=["protect", "flamethrower", "air-slash", "earthquake"],
+    )
+    pool = _diverse_pool()
+    # Inject Ditto into the pool — generator must filter it out.
+    pool.append(
+        _mk(
+            "ditto",
+            ["normal"],
+            hp=48,
+            atk=48,
+            def_=48,
+            spa=48,
+            spd=48,
+            spe=48,
+            moves=["transform"],
+            abilities=["limber"],
+            pid=132,
+        )
+    )
+    variants = generate_team(anchor, pool=pool, num_variants=3)
+    assert variants, "expected at least one variant"
+    for variant in variants:
+        names = [m.pokemon.name for m in variant.members]
+        assert "ditto" not in names, f"ditto leaked into team: {names}"
+
+
+def test_generate_team_raises_for_ditto_anchor() -> None:
+    """generate_team must raise TeamBuildError when anchor is Ditto."""
+    ditto = _mk(
+        "ditto",
+        ["normal"],
+        hp=48,
+        atk=48,
+        def_=48,
+        spa=48,
+        spd=48,
+        spe=48,
+        moves=["transform"],
+        abilities=["limber"],
+        pid=132,
+    )
+    pool = _diverse_pool()
+    with pytest.raises(TeamBuildError, match="Ditto"):
+        generate_team(ditto, pool=pool, num_variants=1)
+
+
+def test_type_boost_item_not_assigned_to_wrong_type() -> None:
+    """Mystic Water must not be assigned to a Fire-type Pokemon."""
+    from pokemon_team_builder.services.team_generator import (
+        _TYPE_BOOST_ITEMS,
+        _assign_items,
+    )
+
+    # Sanity: Mystic Water is a known type-booster.
+    assert _TYPE_BOOST_ITEMS["Mystic Water"] == "water"
+
+    # Six Fire-type mons sharing physical_sweeper — the fallback chain
+    # will walk past Choice Scarf into the type-booster section. The
+    # generator must skip Mystic Water (water) on a Fire-type and pick
+    # something type-appropriate (e.g. Charcoal) or a typeless item.
+    members = [
+        _mk(
+            f"fire-{i}",
+            ["fire"],
+            atk=120,
+            spa=70,
+            spe=90,
+            moves=["protect", "flare-blitz", "earthquake", "rock-slide"],
+            pid=200 + i,
+        )
+        for i in range(6)
+    ]
+    members_roles = [["physical_sweeper"]] * 6
+    items = _assign_items(members_roles, members)
+
+    for pokemon, item in zip(members, items):
+        if item in _TYPE_BOOST_ITEMS:
+            boost_type = _TYPE_BOOST_ITEMS[item]
+            assert boost_type in {t.lower() for t in pokemon.types}, (
+                f"{item} (boosts {boost_type}) assigned to "
+                f"{pokemon.name} (types={pokemon.types})"
+            )

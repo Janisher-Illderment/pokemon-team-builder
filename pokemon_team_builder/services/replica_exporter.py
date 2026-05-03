@@ -199,13 +199,11 @@ _MOVE_CATEGORY: dict[str, str] = {
 }
 
 # Damage type for every move that may appear in a coverage / STAB slot.
-# WHY: previously slot-3 used ``candidate.startswith(t)`` against the
-# Pokemon's own types to skip same-type coverage; that was coincidentally
-# correct (e.g. "flamethrower".startswith("fire")) but semantically wrong
-# (e.g. "ice-beam".startswith("ice") only works because of slug ordering).
-# An explicit move→type table keeps the filter intentional and robust to
-# future additions like "icicle-crash" (ice) or "iron-tail" (steel).
+# WHY: slot-3 must skip same-type moves (no STAB in the coverage slot).
+# This table covers all of _COVERAGE_PRIORITY plus all _STAB_BY_TYPE
+# moves, so the filter stays correct if either list is extended later.
 _MOVE_TYPE: dict[str, str] = {
+    # _COVERAGE_PRIORITY moves
     "earthquake": "ground",
     "ice-beam": "ice",
     "thunderbolt": "electric",
@@ -216,6 +214,7 @@ _MOVE_TYPE: dict[str, str] = {
     "rock-slide": "rock",
     "energy-ball": "grass",
     "flamethrower": "fire",
+    # Additional coverage
     "surf": "water",
     "air-slash": "flying",
     "iron-head": "steel",
@@ -224,6 +223,89 @@ _MOVE_TYPE: dict[str, str] = {
     "poison-jab": "poison",
     "bug-buzz": "bug",
     "flash-cannon": "steel",
+    # STAB moves from _STAB_BY_TYPE — normal
+    "body-slam": "normal",
+    "double-edge": "normal",
+    "return": "normal",
+    "hyper-voice": "normal",
+    "tackle": "normal",
+    # fire
+    "fire-blast": "fire",
+    "heat-wave": "fire",
+    "fire-punch": "fire",
+    "overheat": "fire",
+    "ember": "fire",
+    # water
+    "hydro-pump": "water",
+    "scald": "water",
+    "muddy-water": "water",
+    "waterfall": "water",
+    "water-pulse": "water",
+    # electric
+    "thunder": "electric",
+    "thunder-punch": "electric",
+    "wild-charge": "electric",
+    "discharge": "electric",
+    # grass
+    "leaf-storm": "grass",
+    "giga-drain": "grass",
+    "grass-knot": "grass",
+    "leaf-blade": "grass",
+    "seed-bomb": "grass",
+    # ice
+    "blizzard": "ice",
+    "icicle-crash": "ice",
+    "ice-punch": "ice",
+    "freeze-dry": "ice",
+    # fighting
+    "close-combat": "fighting",
+    "drain-punch": "fighting",
+    "aura-sphere": "fighting",
+    "brick-break": "fighting",
+    # poison
+    "sludge-bomb": "poison",
+    "gunk-shot": "poison",
+    "sludge-wave": "poison",
+    # ground
+    "earth-power": "ground",
+    "high-horsepower": "ground",
+    "bulldoze": "ground",
+    # flying
+    "brave-bird": "flying",
+    "hurricane": "flying",
+    "drill-peck": "flying",
+    "aerial-ace": "flying",
+    # psychic
+    "psyshock": "psychic",
+    "psystrike": "psychic",
+    "expanding-force": "psychic",
+    "stored-power": "psychic",
+    # bug
+    "u-turn": "bug",
+    "x-scissor": "bug",
+    "megahorn": "bug",
+    "leech-life": "bug",
+    # rock
+    "stone-edge": "rock",
+    "power-gem": "rock",
+    "ancient-power": "rock",
+    # ghost
+    "shadow-claw": "ghost",
+    "poltergeist": "ghost",
+    # dragon
+    "draco-meteor": "dragon",
+    "dragon-claw": "dragon",
+    # dark
+    "knock-off": "dark",
+    "crunch": "dark",
+    "foul-play": "dark",
+    # steel
+    "meteor-mash": "steel",
+    "iron-tail": "steel",
+    # fairy
+    "moonblast": "fairy",
+    "play-rough": "fairy",
+    "fleur-cannon": "fairy",
 }
 
 _CHOICE_ITEMS: frozenset[str] = frozenset({"Choice Scarf", "Choice Band", "Choice Specs"})
