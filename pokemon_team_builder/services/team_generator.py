@@ -46,7 +46,7 @@ _BACKUP_ITEMS: tuple[str, ...] = (
     "Sitrus Berry",
     "Lum Berry",
     "Scope Lens",
-    "Power Herb",
+    "Persim Berry",
     "White Herb",
     "Shell Bell",
     "Loaded Dice",
@@ -79,6 +79,17 @@ _SITUATIONAL_ABILITIES: frozenset[str] = frozenset({
     "sand-veil", "snow-cloak", "swift-swim", "chlorophyll",
     "solar-power", "sand-rush", "slush-rush", "surge-surfer",
     "leaf-guard", "flower-gift", "forecast",
+})
+
+_SOUND_MOVES: frozenset[str] = frozenset({
+    "hyper-voice", "bug-buzz", "boomburst", "round", "disarming-voice",
+    "chatter", "echoed-voice", "relic-song", "sparkling-aria",
+    "torch-song", "clangorous-soul",
+})
+
+_STAT_DROP_MOVES: frozenset[str] = frozenset({
+    "overheat", "draco-meteor", "leaf-storm", "fleur-cannon",
+    "close-combat", "superpower", "v-create",
 })
 
 
@@ -268,7 +279,20 @@ def _beam_search(
     return states
 
 
-def _assign_items(members_roles: list[list[str]]) -> list[str]:
+def _item_is_activatable(item: str, pokemon: PokemonData) -> bool:
+    """Return False when an item requires specific moves the Pokemon doesn't have."""
+    move_pool = frozenset(pokemon.move_names)
+    if item == "Throat Spray":
+        return bool(move_pool & _SOUND_MOVES)
+    if item == "White Herb":
+        return bool(move_pool & _STAT_DROP_MOVES)
+    return True
+
+
+def _assign_items(
+    members_roles: list[list[str]],
+    members: list[PokemonData] | None = None,
+) -> list[str]:
     """Allocate items by role honoring the no-duplicates Item Clause.
 
     Raises:
@@ -279,17 +303,28 @@ def _assign_items(members_roles: list[list[str]]) -> list[str]:
     """
     used: set[str] = set()
     out: list[str] = []
-    for roles in members_roles:
+    for i, roles in enumerate(members_roles):
         primary = roles[0] if roles else "physical_sweeper"
         candidate = _DEFAULT_ITEM_BY_ROLE.get(primary, _FALLBACK_ITEM)
-        if candidate in used:
+        # If this item requires moves the Pokemon doesn't have, skip it immediately
+        # and let the fallback chain find something useful.
+        if members is not None and not _item_is_activatable(candidate, members[i]):
+            candidate = "__skip__"  # sentinel — not a real item name, forces fallback
+        if candidate in used or candidate == "__skip__":
             # Fallback chain: Life Orb → backup pool. Keep walking until
-            # we find an unused real item.
+            # we find an unused real item that can also activate.
             chosen: str | None = None
             for alt in (_FALLBACK_ITEM, *_BACKUP_ITEMS):
                 if alt not in used:
-                    chosen = alt
-                    break
+                    if members is None or _item_is_activatable(alt, members[i]):
+                        chosen = alt
+                        break
+            if chosen is None:
+                # Last resort: take any unused item, activation or not — better than nothing
+                for alt in (_FALLBACK_ITEM, *_BACKUP_ITEMS):
+                    if alt not in used:
+                        chosen = alt
+                        break
             if chosen is None:
                 raise TeamBuildError(
                     "Item Clause: el pool de items reales se agoto antes "
@@ -391,7 +426,7 @@ def _build_variant(
     team: list[PokemonData], role_map: dict[str, list[str]]
 ) -> TeamVariant:
     members_roles = [role_map.get(p.name, assign_role(p)) for p in team]
-    items = _assign_items(members_roles)
+    items = _assign_items(members_roles, team)
 
     members: list[TeamMember] = []
     for pokemon, roles, item in zip(team, members_roles, items):

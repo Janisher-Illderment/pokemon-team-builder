@@ -269,6 +269,75 @@ def test_ability_skips_sand_veil() -> None:
     assert _pick_ability(pokemon) == "rough-skin"
 
 
+def test_throat_spray_not_assigned_without_sound_move() -> None:
+    """special_sweeper without sound moves must not get Throat Spray."""
+    from pokemon_team_builder.services.team_generator import _assign_items
+
+    # Special-leaning Pokemon (spa > atk) but no sound moves in pool.
+    pokemon = _mk(
+        "no-sound-mon",
+        ["psychic"],
+        atk=60,
+        spa=130,
+        spe=100,
+        moves=["protect", "psychic", "shadow-ball", "thunderbolt"],
+    )
+    items = _assign_items([["special_sweeper"]], [pokemon])
+    assert items[0] != "Throat Spray", (
+        f"Throat Spray assigned despite no sound moves: {items}"
+    )
+
+
+def test_white_herb_not_assigned_without_stat_drop_move() -> None:
+    """White Herb must not be assigned if the Pokemon has no stat-drop moves."""
+    from pokemon_team_builder.services.team_generator import (
+        _BACKUP_ITEMS,
+        _assign_items,
+    )
+
+    # Sanity: White Herb is in the backup pool, so we know it could
+    # theoretically be picked if activatability weren't enforced.
+    assert "White Herb" in _BACKUP_ITEMS
+
+    # Build 6 same-role mons (force fallback chain), none with stat-drop moves.
+    members = [
+        _mk(
+            f"mon-{i}",
+            ["normal"],
+            atk=120,
+            spa=70,
+            spe=90,
+            moves=["protect", "tackle", "earthquake", "ice-beam"],
+            pid=100 + i,
+        )
+        for i in range(6)
+    ]
+    members_roles = [["physical_sweeper"]] * 6
+    items = _assign_items(members_roles, members)
+
+    assert "White Herb" not in items, (
+        f"White Herb assigned despite no stat-drop moves anywhere: {items}"
+    )
+
+
+def test_throat_spray_assigned_with_sound_move() -> None:
+    """special_sweeper WITH a sound move SHOULD keep Throat Spray."""
+    from pokemon_team_builder.services.team_generator import _assign_items
+
+    pokemon = _mk(
+        "sound-mon",
+        ["fairy"],
+        atk=60,
+        spa=130,
+        spe=100,
+        moves=["protect", "hyper-voice", "psychic", "thunderbolt"],
+    )
+    items = _assign_items([["special_sweeper"]], [pokemon])
+    assert items[0] == "Throat Spray", (
+        f"Throat Spray not assigned despite hyper-voice in pool: {items}"
+    )
+
+
 def test_assign_items_no_synthetic_item_strings() -> None:
     """Item Clause: 6 same-role mons must each get a distinct, real item.
 
