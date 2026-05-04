@@ -68,9 +68,20 @@ def assign_role(pokemon: PokemonData) -> list[str]:
 
     roles: list[str] = []
 
-    if stats.atk >= 100:
+    # WHY: when both offensive stats are >=100 the dominant one must come
+    # first so it becomes the primary role (drives item, nature, SP). A
+    # naïve append-both order made Hydreigon (Atk 105 / SpA 125) build as
+    # a physical sweeper despite SpA being the clear winner.
+    if stats.atk >= 100 and stats.spa >= 100:
+        if stats.atk >= stats.spa:
+            roles.append("physical_sweeper")
+            roles.append("special_sweeper")
+        else:
+            roles.append("special_sweeper")
+            roles.append("physical_sweeper")
+    elif stats.atk >= 100:
         roles.append("physical_sweeper")
-    if stats.spa >= 100:
+    elif stats.spa >= 100:
         roles.append("special_sweeper")
     if stats.def_ >= 100 and stats.hp >= 80:
         roles.append("physical_wall")
@@ -108,6 +119,13 @@ def analyze_coverage(team: list[PokemonData]) -> CoverageReport:
     - Defensive weakness: 3+ members take >= 2.0x damage from a given
       attacker type.
     Empty team yields an empty report.
+
+    NOTE: Offensive gap detection uses ``pokemon.types`` (STAB types),
+    NOT the actual generated moveset. A Pokemon of type Fire is assumed
+    to cover Fire regardless of whether its emitted moves include a Fire
+    attack. This is a known v1 limitation — v2 will derive coverage
+    from the generated moveset for accuracy on mixed attackers and
+    coverage-only Pokemon.
     """
     if not team:
         return CoverageReport(offensive_gaps=[], defensive_weaknesses=[])

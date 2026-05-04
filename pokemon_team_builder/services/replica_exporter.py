@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from pokemon_team_builder.domain.exceptions import TeamBuildError
 from pokemon_team_builder.domain.models import (
     PokemonData,
     SPDistribution,
@@ -360,9 +361,14 @@ def select_moves_for_role(
     move_pool = list(pokemon.move_names)
     used: set[str] = set()
 
-    # Slot 1: protect (always present in the team — universally available
-    # in modern formats and required by the spec).
-    slot1 = "protect"
+    # Slot 1: protect when the Pokemon actually knows it. Most legal mons
+    # learn Protect, but a handful (e.g. species locked to specific
+    # tutors) don't — in that case the slot falls back to whatever the
+    # move pool offers so we don't emit a move the importer rejects.
+    if "protect" in move_pool:
+        slot1 = "protect"
+    else:
+        slot1 = _fallback_move(move_pool, set())
     used.add(slot1)
 
     # Primary attack category: physical if Atk >= SpA, else special.
@@ -382,7 +388,13 @@ def select_moves_for_role(
                 if candidate in used or candidate not in move_pool:
                     continue
                 cand_cat = _MOVE_CATEGORY.get(candidate, "")
-                if pass_num == 0 and cand_cat and cand_cat != primary_cat:
+                # WHY: ``cand_cat == ""`` means we have no category metadata
+                # for this move. The earlier guard ``cand_cat and cand_cat
+                # != primary_cat`` would let it through pass 0, which is
+                # too permissive — an unknown move could pre-empt a
+                # category-matching one. Treat unknown as ineligible in
+                # pass 0; pass 1 still picks it up.
+                if pass_num == 0 and cand_cat != primary_cat:
                     continue  # first pass: category-matching only
                 slot2 = candidate
                 break
@@ -407,7 +419,9 @@ def select_moves_for_role(
             if candidate_type and candidate_type in own_types:
                 continue
             cand_cat = _MOVE_CATEGORY.get(candidate, "")
-            if pass_num == 0 and cand_cat and cand_cat != primary_cat:
+            # See slot-2 comment: unknown category is treated as ineligible
+            # in pass 0 so a categorized move always wins the strict pass.
+            if pass_num == 0 and cand_cat != primary_cat:
                 continue  # first pass: category-matching only
             slot3 = candidate
             break
@@ -445,11 +459,16 @@ def _fallback_move(move_pool: list[str], used: set[str]) -> str:
             return m
     # Pool exhausted — cycle through universal generics before repeating.
     # WHY: returning a move already in ``used`` would create a duplicate-move
-    # set that fails PikaChampions / Showdown validation.
+    # set that fails PikaChampions / Showdown validation. The previous
+    # implementation fell back to ``return "tackle"`` even when ``tackle``
+    # was already in ``used``, silently emitting an invalid moveset.
     for generic in ("tackle", "scratch", "pound", "growl", "leer"):
         if generic not in used:
             return generic
-    return "tackle"  # absolute last resort — cannot deduplicate further
+    raise TeamBuildError(
+        "No hay move disponible para este Pokemon — move pool demasiado "
+        "pequeno para generar 4 moves unicos."
+    )
 
 
 def _format_name(slug: str) -> str:
@@ -459,6 +478,16 @@ def _format_name(slug: str) -> str:
     is capitalized and the original hyphens are dropped.
     """
     return " ".join(part.capitalize() for part in slug.split("-") if part)
+
+
+# Showdown / PikaChampions species names that do NOT follow the
+# split-on-hyphen-then-Capitalize rule. Each entry has been verified
+# against PokePaste output. Add new exceptions here when found.
+_SPECIES_OVERRIDES: dict[str, str] = {
+    "kommo-o": "Kommo-o",
+    "ho-oh": "Ho-Oh",
+    "porygon-z": "Porygon-Z",
+}
 
 
 def _format_species(slug: str) -> str:
@@ -473,7 +502,13 @@ def _format_species(slug: str) -> str:
     WHY: ``_format_name`` would turn ``"rotom-wash"`` into
     ``"Rotom Wash"``, which PikaChampions / champteams.gg do not match
     against their species table — the import silently drops the mon.
+
+    A small override table handles species whose canonical name does
+    not follow the title-case-each-segment rule (e.g. ``Kommo-o`` keeps
+    a lowercase ``o``).
     """
+    if slug in _SPECIES_OVERRIDES:
+        return _SPECIES_OVERRIDES[slug]
     return "-".join(part.capitalize() for part in slug.split("-") if part)
 
 

@@ -49,7 +49,6 @@ _BACKUP_ITEMS: tuple[str, ...] = (
     "Persim Berry",
     "White Herb",
     "Shell Bell",
-    "Loaded Dice",
     "Covert Cloak",
     "Focus Band",
     "Adrenaline Orb",
@@ -102,12 +101,14 @@ _CHOICE_ITEMS: frozenset[str] = frozenset(
 # Roles where ANY Choice item is forbidden — locking these into a single
 # move makes the Pokemon useless for the rest of the match (TR setter
 # stuck on Trick Room, redirect stuck on Follow Me, walls stuck on
-# recovery moves with no offensive option).
+# recovery moves with no offensive option, lead_support stuck on
+# Tailwind/Fake Out instead of cycling utility).
 _NO_CHOICE_ROLES: frozenset[str] = frozenset({
     "trick_room_setter",
     "redirect",
     "physical_wall",
     "special_wall",
+    "lead_support",
 })
 
 # Pokemon that cannot be built into a legal team member by the move
@@ -329,13 +330,45 @@ def _beam_search(
     return states
 
 
-def _item_is_activatable(item: str, pokemon: PokemonData) -> bool:
-    """Return False when an item requires specific moves the Pokemon doesn't have."""
-    move_pool = frozenset(pokemon.move_names)
-    if item == "Throat Spray":
-        return bool(move_pool & _SOUND_MOVES)
-    if item == "White Herb":
-        return bool(move_pool & _STAT_DROP_MOVES)
+# Declarative table of item preconditions. Each predicate receives the
+# Pokemon and either the actual generated moveset (preferred) or ``None``
+# to fall back to the Pokemon's full learnset.
+#
+# WHY: refactored from an if/elif chain so adding a new item-aware rule
+# is a one-line tuple entry. Predicates that only care about types are
+# kept out of this table — see ``_item_is_activatable`` below.
+_ITEM_PRECONDITIONS_MOVESET: dict[str, Callable[[PokemonData, list[str] | None], bool]] = {
+    # Sound-move items only fire when the holder actually emits a sound move.
+    "Throat Spray": lambda p, moves: bool(
+        frozenset(moves if moves is not None else p.move_names) & _SOUND_MOVES
+    ),
+    # White Herb resets stat drops from moves like Overheat / Close Combat.
+    "White Herb": lambda p, moves: any(
+        m in _STAT_DROP_MOVES for m in (moves if moves is not None else p.move_names)
+    ),
+    # Weakness Policy is dead weight on a Pokemon that boosts itself with
+    # a setup move — the +2 from the Policy collides with the setup line.
+    # When ``moves`` is None we cannot tell, so we allow it (the caller is
+    # asking about pre-moveset eligibility against the learnset).
+    "Weakness Policy": lambda p, moves: not any(
+        m in replica_exporter._SETUP_MOVES for m in (moves or [])
+    ),
+}
+
+
+def _item_is_activatable(
+    item: str,
+    pokemon: PokemonData,
+    moves: list[str] | None = None,
+) -> bool:
+    """Return False when an item requires specific moves the Pokemon doesn't have.
+
+    When ``moves`` is provided, moveset-aware predicates check against the
+    actual generated moves. When it is ``None``, they fall back to the
+    full learnset (legacy behavior, used pre-moveset selection).
+    """
+    if item in _ITEM_PRECONDITIONS_MOVESET:
+        return _ITEM_PRECONDITIONS_MOVESET[item](pokemon, moves)
     if item in _TYPE_BOOST_ITEMS:
         boost_type = _TYPE_BOOST_ITEMS[item]
         return boost_type.lower() in {t.lower() for t in pokemon.types}
@@ -345,8 +378,13 @@ def _item_is_activatable(item: str, pokemon: PokemonData) -> bool:
 def _assign_items(
     members_roles: list[list[str]],
     members: list[PokemonData] | None = None,
+    preview_moves: list[list[str]] | None = None,
 ) -> list[str]:
     """Allocate items by role honoring the no-duplicates Item Clause.
+
+    When ``preview_moves`` is provided (a parallel list of generated
+    movesets, one per member), moveset-aware activation predicates use
+    the actual moves. Otherwise they fall back to the full learnset.
 
     Raises:
         TeamBuildError: if the curated pool of real items is exhausted
@@ -359,21 +397,26 @@ def _assign_items(
     for i, roles in enumerate(members_roles):
         primary = roles[0] if roles else "physical_sweeper"
         candidate = _DEFAULT_ITEM_BY_ROLE.get(primary, _FALLBACK_ITEM)
+        moves_for_i = preview_moves[i] if preview_moves is not None else None
         # If this item requires moves the Pokemon doesn't have, skip it immediately
         # and let the fallback chain find something useful.
-        if members is not None and not _item_is_activatable(candidate, members[i]):
+        if members is not None and not _item_is_activatable(
+            candidate, members[i], moves_for_i
+        ):
             candidate = "__skip__"  # sentinel — not a real item name, forces fallback
         if candidate in used or candidate == "__skip__":
-            # Fallback chain: Life Orb → backup pool. Keep walking until
+            # Fallback chain: Choice Scarf → backup pool. Keep walking until
             # we find an unused real item that can also activate.
             chosen: str | None = None
             for alt in (_FALLBACK_ITEM, *_BACKUP_ITEMS):
                 if alt not in used:
                     # Choice items lock the holder into one move — useless
-                    # for setters/redirectors/walls.
+                    # for setters/redirectors/walls/leads.
                     if primary in _NO_CHOICE_ROLES and alt in _CHOICE_ITEMS:
                         continue
-                    if members is None or _item_is_activatable(alt, members[i]):
+                    if members is None or _item_is_activatable(
+                        alt, members[i], moves_for_i
+                    ):
                         chosen = alt
                         break
             if chosen is None:
@@ -465,7 +508,10 @@ def generate_team(
         seen_signatures.add(signature)
         try:
             variant = _build_variant(state, role_map)
-        except ValueError:
+        except (ValueError, TeamBuildError):
+            # ValueError → wrong member count; TeamBuildError → move
+            # selection ran out of moves or items pool exhausted. In
+            # either case skip this state and try the next.
             continue
         score = viability_rater.score_team(variant)
         explanation = viability_rater.generate_explanation(variant, score)
@@ -487,19 +533,69 @@ def _pick_ability(pokemon: PokemonData) -> str:
     return pokemon.abilities[0] if pokemon.abilities else "pressure"
 
 
+def _derive_nature(primary: str, roles: list[str], moves: list[str]) -> str:
+    """Pick a nature from the slot-2 STAB category when possible.
+
+    Sweepers and leads default to a speed-positive nature whose category
+    matches their slot-2 STAB. Walls / TR setters / redirects keep their
+    fixed role-based nature regardless of the moveset, since their job
+    is not to attack.
+
+    WHY: a Pelipper lead with Hurricane (special) was getting Jolly under
+    the role-only mapping, wasting its 95 SpA. Reading the actual STAB
+    category is more accurate than role alone.
+    """
+    if primary == "trick_room_setter":
+        return "Sassy"
+    if primary == "redirect":
+        return "Calm"
+    slot2_cat = (
+        replica_exporter._MOVE_CATEGORY.get(moves[1], "")
+        if len(moves) > 1
+        else ""
+    )
+    if primary in ("physical_sweeper", "lead_support"):
+        if slot2_cat == "special":
+            return "Timid"
+        return "Jolly"  # default for physical or unknown
+    if primary == "special_sweeper":
+        if slot2_cat == "physical":
+            return "Jolly"
+        return "Timid"  # default for special or unknown
+    if primary == "physical_wall":
+        return "Impish"
+    if primary == "special_wall":
+        return "Calm"
+    return _FALLBACK_NATURE
+
+
 def _build_variant(
     team: list[PokemonData], role_map: dict[str, list[str]]
 ) -> TeamVariant:
     members_roles = [role_map.get(p.name, assign_role(p)) for p in team]
-    items = _assign_items(members_roles, team)
 
+    # 1. Pre-compute a preview moveset per Pokemon so item activation
+    #    predicates (Throat Spray needs sound, White Herb needs stat-drop,
+    #    Weakness Policy must avoid setup) can read the actual moves
+    #    instead of guessing from the full learnset.
+    preview_moves = [
+        replica_exporter.select_moves_for_role(pokemon, roles)
+        for pokemon, roles in zip(team, members_roles)
+    ]
+
+    # 2. Assign items using the preview moves.
+    items = _assign_items(members_roles, team, preview_moves=preview_moves)
+
+    # 3. Re-select moves with the actual item context — slot 4's
+    #    Choice+setup guard depends on the assigned item, so a Choice
+    #    Scarf user must drop Swords Dance / Nasty Plot from slot 4.
     members: list[TeamMember] = []
     for pokemon, roles, item in zip(team, members_roles, items):
         primary = roles[0] if roles else "physical_sweeper"
         sp = suggest_sp_distribution(pokemon, primary)
-        nature = _NATURE_BY_ROLE.get(primary, _FALLBACK_NATURE)
         ability = _pick_ability(pokemon)
         moves = replica_exporter.select_moves_for_role(pokemon, roles, item=item)
+        nature = _derive_nature(primary, roles, moves)
         members.append(
             TeamMember(
                 pokemon=pokemon,
