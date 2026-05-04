@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import math
-from collections import Counter
 
 from pokemon_team_builder.config import MAX_SP_TOTAL
 from pokemon_team_builder.domain.models import TeamVariant
@@ -70,18 +69,15 @@ def _sps_points(variant: TeamVariant) -> int:
 
 
 def _items_points(variant: TeamVariant) -> int:
+    # WHY: Item Clause is enforced by construction in `_assign_items`
+    # (raises TeamBuildError on duplicates), so any team that reaches
+    # the rater has 6 distinct items and earns the full _W_ITEMS budget.
+    # The old Life Orb-specific penalty is gone — Life Orb isn't even a
+    # legal Champions item, so it cannot appear here in v1.
     items = [m.item for m in variant.members]
     pts = 0
     if len(set(items)) == len(items):
         pts += _W_ITEMS
-
-    # Penalize repeated "Life Orb" specifically (-3 per extra beyond the
-    # first). This applies even when items aren't all unique.
-    counts = Counter(items)
-    life_orb = counts.get("Life Orb", 0)
-    if life_orb > 1:
-        pts -= 3 * (life_orb - 1)
-
     return max(0, min(_W_ITEMS, pts))
 
 

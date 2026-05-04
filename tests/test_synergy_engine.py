@@ -156,6 +156,44 @@ def test_detect_role_gaps_balanced() -> None:
     assert "sweeper" not in gaps
 
 
+def test_assign_role_mixed_stat_dominant() -> None:
+    """T2: when both Atk and SpA >=100, the dominant stat drives primary role.
+
+    Hydreigon (Atk 105, SpA 125) should resolve to special_sweeper as
+    the primary role, since SpA is clearly higher. The earlier rule
+    appended physical_sweeper unconditionally first, locking the build
+    pipeline into Jolly + physical EVs even on a special attacker.
+    """
+    p = _mk(
+        "hydreigon",
+        ["dark", "dragon"],
+        atk=105,
+        spa=125,
+        spe=98,
+        moves=["draco-meteor", "dark-pulse", "fire-blast"],
+    )
+    roles = assign_role(p)
+    # Both roles still appear (it has 100+ in each), but the dominant
+    # one comes first — that's the one the team builder uses as primary.
+    assert roles[0] == "special_sweeper", roles
+    assert "physical_sweeper" in roles
+
+
+def test_assign_role_mixed_stat_dominant_physical() -> None:
+    """T2 inverse: a 130 Atk / 110 SpA mon resolves to physical_sweeper first."""
+    p = _mk(
+        "salamence-mixed",
+        ["dragon", "flying"],
+        atk=130,
+        spa=110,
+        spe=100,
+        moves=["dragon-claw", "earthquake", "fire-blast"],
+    )
+    roles = assign_role(p)
+    assert roles[0] == "physical_sweeper", roles
+    assert "special_sweeper" in roles
+
+
 def test_score_flexibility() -> None:
     team = [
         _mk("garchomp", ["dragon", "ground"], atk=130, spe=102),

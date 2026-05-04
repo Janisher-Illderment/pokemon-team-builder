@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import pytest
+
 from pokemon_team_builder.config import MAX_SP_TOTAL
+from pokemon_team_builder.domain.exceptions import TeamBuildError
 from pokemon_team_builder.domain.models import (
     BaseStats,
     PokemonData,
@@ -211,6 +214,7 @@ def test_no_illegal_items_in_constants() -> None:
         "Assault Vest",
         "Life Orb",
         "Eject Button",
+        "Loaded Dice",
     }
 
     for role, item in _DEFAULT_ITEM_BY_ROLE.items():
@@ -360,3 +364,348 @@ def test_assign_items_no_synthetic_item_strings() -> None:
         assert not item.startswith("Item-"), (
             f"synthetic placeholder leaked into items: {items}"
         )
+
+
+def test_choice_scarf_not_assigned_to_trick_room_setter() -> None:
+    """Trick Room setters must never receive a Choice item."""
+    from pokemon_team_builder.services.team_generator import (
+        _CHOICE_ITEMS,
+        _assign_items,
+    )
+
+    # Build six trick_room_setter mons. The role-default ("Mental Herb")
+    # is unique to one slot, so the other five must walk the fallback
+    # chain — which historically picks "Choice Scarf" first. With the
+    # fix, no Choice item must be selected for any slot.
+    pokemon = _mk(
+        "tr-mon",
+        ["psychic"],
+        atk=60,
+        spa=120,
+        spe=30,
+        moves=["protect", "trick-room", "psychic", "shadow-ball"],
+    )
+    members = [pokemon] * 6
+    members_roles = [["trick_room_setter"]] * 6
+    items = _assign_items(members_roles, members)
+
+    leaked = [item for item in items if item in _CHOICE_ITEMS]
+    assert not leaked, (
+        f"Choice item assigned to trick_room_setter: {items}"
+    )
+
+
+def test_choice_scarf_not_assigned_to_redirect() -> None:
+    """Redirect roles (Follow Me) must never receive a Choice item."""
+    from pokemon_team_builder.services.team_generator import (
+        _CHOICE_ITEMS,
+        _assign_items,
+    )
+
+    pokemon = _mk(
+        "redirect-mon",
+        ["fairy"],
+        atk=60,
+        spa=100,
+        spd=120,
+        moves=["protect", "follow-me", "moonblast", "helping-hand"],
+    )
+    members = [pokemon] * 6
+    members_roles = [["redirect"]] * 6
+    items = _assign_items(members_roles, members)
+
+    leaked = [item for item in items if item in _CHOICE_ITEMS]
+    assert not leaked, f"Choice item assigned to redirect: {items}"
+
+
+def test_ditto_excluded_from_candidate_pool() -> None:
+    """Ditto must never appear as a generated team member."""
+    anchor = _mk(
+        "charizard",
+        ["fire", "flying"],
+        atk=84,
+        spa=109,
+        spe=100,
+        pid=6,
+        moves=["protect", "flamethrower", "air-slash", "earthquake"],
+    )
+    pool = _diverse_pool()
+    # Inject Ditto into the pool — generator must filter it out.
+    pool.append(
+        _mk(
+            "ditto",
+            ["normal"],
+            hp=48,
+            atk=48,
+            def_=48,
+            spa=48,
+            spd=48,
+            spe=48,
+            moves=["transform"],
+            abilities=["limber"],
+            pid=132,
+        )
+    )
+    variants = generate_team(anchor, pool=pool, num_variants=3)
+    assert variants, "expected at least one variant"
+    for variant in variants:
+        names = [m.pokemon.name for m in variant.members]
+        assert "ditto" not in names, f"ditto leaked into team: {names}"
+
+
+def test_generate_team_raises_for_ditto_anchor() -> None:
+    """generate_team must raise TeamBuildError when anchor is Ditto."""
+    ditto = _mk(
+        "ditto",
+        ["normal"],
+        hp=48,
+        atk=48,
+        def_=48,
+        spa=48,
+        spd=48,
+        spe=48,
+        moves=["transform"],
+        abilities=["limber"],
+        pid=132,
+    )
+    pool = _diverse_pool()
+    with pytest.raises(TeamBuildError, match="Ditto"):
+        generate_team(ditto, pool=pool, num_variants=1)
+
+
+def test_type_boost_item_not_assigned_to_wrong_type() -> None:
+    """Mystic Water must not be assigned to a Fire-type Pokemon."""
+    from pokemon_team_builder.services.team_generator import (
+        _TYPE_BOOST_ITEMS,
+        _assign_items,
+    )
+
+    # Sanity: Mystic Water is a known type-booster.
+    assert _TYPE_BOOST_ITEMS["Mystic Water"] == "water"
+
+    # Six Fire-type mons sharing physical_sweeper — the fallback chain
+    # will walk past Choice Scarf into the type-booster section. The
+    # generator must skip Mystic Water (water) on a Fire-type and pick
+    # something type-appropriate (e.g. Charcoal) or a typeless item.
+    members = [
+        _mk(
+            f"fire-{i}",
+            ["fire"],
+            atk=120,
+            spa=70,
+            spe=90,
+            moves=["protect", "flare-blitz", "earthquake", "rock-slide"],
+            pid=200 + i,
+        )
+        for i in range(6)
+    ]
+    members_roles = [["physical_sweeper"]] * 6
+    items = _assign_items(members_roles, members)
+
+    for pokemon, item in zip(members, items):
+        if item in _TYPE_BOOST_ITEMS:
+            boost_type = _TYPE_BOOST_ITEMS[item]
+            assert boost_type in {t.lower() for t in pokemon.types}, (
+                f"{item} (boosts {boost_type}) assigned to "
+                f"{pokemon.name} (types={pokemon.types})"
+            )
+
+
+# ---------------------------------------------------------------------------
+# fix-logic-v1 — T1, T4, T5, T9 regression tests
+# ---------------------------------------------------------------------------
+
+
+def test_choice_item_not_assigned_to_lead_support() -> None:
+    """T1: lead_support roles must never receive a Choice item.
+
+    Locking a fast support mon into Tailwind / Fake Out wastes its turn
+    cycle — once the buff is up the Pokemon is dead weight. _NO_CHOICE_ROLES
+    must include lead_support so the fallback chain skips Choice Scarf.
+    """
+    from pokemon_team_builder.services.team_generator import (
+        _CHOICE_ITEMS,
+        _assign_items,
+    )
+
+    # Six lead_support mons sharing the role — only one can take the
+    # role default (Focus Sash); the rest walk the fallback chain.
+    pokemon = _mk(
+        "lead-mon",
+        ["fire", "flying"],
+        atk=81,
+        spa=81,
+        spe=126,
+        moves=["protect", "tailwind", "brave-bird", "fake-out"],
+    )
+    members = [pokemon] * 6
+    members_roles = [["lead_support"]] * 6
+    items = _assign_items(members_roles, members)
+
+    leaked = [item for item in items if item in _CHOICE_ITEMS]
+    assert not leaked, f"Choice item assigned to lead_support: {items}"
+
+
+def test_suggest_sp_redirect() -> None:
+    """T4: redirect role uses the bulky template (HP/SpD/Def)."""
+    pokemon = _mk(
+        "amoonguss",
+        ["grass", "poison"],
+        hp=114,
+        spa=85,
+        spe=30,
+        moves=["protect", "rage-powder", "spore", "giga-drain"],
+    )
+    sp = suggest_sp_distribution(pokemon, "redirect")
+    assert sp.hp == 32
+    assert sp.spd == 32
+    assert sp.def_ == 2
+    total = sp.hp + sp.atk + sp.def_ + sp.spa + sp.spd + sp.spe
+    assert total == MAX_SP_TOTAL
+
+
+def test_weakness_policy_not_assigned_with_setup_move() -> None:
+    """T5: a physical_sweeper with Dragon Dance must not get Weakness Policy.
+
+    Setup moves give the +2 manually; layering Weakness Policy on top
+    is a dead-weight redundancy — once setup is up the WP slot does
+    nothing useful.
+    """
+    from pokemon_team_builder.services.team_generator import _assign_items
+
+    # The Pokemon's preview moveset will include "dragon-dance" in slot 4
+    # (physical sweeper role, dragon-dance in pool, item="" so the choice
+    # guard does not trip). _assign_items must see it and refuse WP.
+    pokemon = _mk(
+        "dd-chomp",
+        ["dragon", "ground"],
+        atk=130,
+        spa=80,
+        spe=102,
+        moves=[
+            "protect",
+            "earthquake",
+            "dragon-claw",
+            "dragon-dance",
+            "stone-edge",
+        ],
+    )
+    # Compute the preview moveset the same way _build_variant does.
+    from pokemon_team_builder.services.replica_exporter import (
+        select_moves_for_role,
+    )
+    preview = select_moves_for_role(pokemon, ["physical_sweeper"])
+    assert "dragon-dance" in preview, (
+        "fixture invariant: setup move must end up in preview"
+    )
+
+    items = _assign_items(
+        [["physical_sweeper"]],
+        [pokemon],
+        preview_moves=[preview],
+    )
+    assert items[0] != "Weakness Policy", (
+        f"WP assigned despite setup move in preview: {items}"
+    )
+
+
+def test_white_herb_not_assigned_to_wall_moveset() -> None:
+    """T5: White Herb is gated on the actual moveset, not the learnset.
+
+    A wall has Recover/Roost in its moveset even when its learnset
+    contains an Overheat-class move (which would never be picked).
+    The activatability check must see the picked moveset and skip
+    White Herb in that case.
+    """
+    from pokemon_team_builder.services.team_generator import _assign_items
+    from pokemon_team_builder.services.replica_exporter import (
+        select_moves_for_role,
+    )
+
+    # 6 same-role walls so Rocky Helmet only goes to one slot — the
+    # remaining 5 must walk the fallback chain. None of the picked
+    # movesets will include a stat-drop move, so White Herb must be
+    # rejected even though it sits in _BACKUP_ITEMS.
+    walls = [
+        _mk(
+            f"wall-{i}",
+            ["steel"],
+            hp=100,
+            atk=80,
+            def_=130,
+            spa=60,
+            spd=80,
+            spe=50,
+            moves=[
+                "protect",
+                "iron-head",
+                "earthquake",
+                "stealth-rock",
+                # learnset contains overheat, but the wall picks no
+                # special move and no stat-drop move
+                "overheat",
+            ],
+            pid=300 + i,
+        )
+        for i in range(6)
+    ]
+    preview = [select_moves_for_role(w, ["physical_wall"]) for w in walls]
+    members_roles = [["physical_wall"]] * 6
+    items = _assign_items(members_roles, walls, preview_moves=preview)
+
+    # Sanity: none of the chosen movesets contains a stat-drop move.
+    from pokemon_team_builder.services.team_generator import _STAT_DROP_MOVES
+    for moves in preview:
+        assert not (set(moves) & _STAT_DROP_MOVES), (
+            f"fixture invariant violated: {moves} contains a stat-drop move"
+        )
+
+    assert "White Herb" not in items, (
+        f"White Herb assigned despite no stat-drop move in any preview: "
+        f"{items}"
+    )
+
+
+def test_nature_jolly_for_physical_lead() -> None:
+    """T9: a physical lead derives Jolly from a physical slot-2 STAB."""
+    from pokemon_team_builder.services.team_generator import _derive_nature
+
+    # talonflame-style: slot-2 will be brave-bird (physical).
+    moves = ["protect", "brave-bird", "u-turn", "tailwind"]
+    nature = _derive_nature("lead_support", ["lead_support"], moves)
+    assert nature == "Jolly"
+
+
+def test_nature_timid_for_special_lead() -> None:
+    """T9: a special-leaning lead with Hurricane gets Timid, not Jolly.
+
+    Pelipper is the canonical case: 95 SpA, 50 Atk, but the role-only
+    nature mapping pinned lead_support to Jolly. Reading the slot-2
+    category (Hurricane → special) yields Timid instead.
+    """
+    from pokemon_team_builder.services.team_generator import _derive_nature
+
+    moves = ["protect", "hurricane", "scald", "tailwind"]
+    nature = _derive_nature("lead_support", ["lead_support"], moves)
+    assert nature == "Timid"
+
+
+def test_nature_sassy_for_trick_room_setter_regardless_of_slot2() -> None:
+    """T9: TR setters always get Sassy, ignoring the slot-2 category."""
+    from pokemon_team_builder.services.team_generator import _derive_nature
+
+    # Even with a physical slot-2 move, Sassy must win.
+    moves = ["protect", "iron-head", "trick-room", "earthquake"]
+    nature = _derive_nature(
+        "trick_room_setter", ["trick_room_setter"], moves
+    )
+    assert nature == "Sassy"
+
+
+def test_nature_calm_for_redirect_regardless_of_slot2() -> None:
+    """T9: redirect always gets Calm."""
+    from pokemon_team_builder.services.team_generator import _derive_nature
+
+    moves = ["protect", "iron-head", "follow-me", "earthquake"]
+    nature = _derive_nature("redirect", ["redirect"], moves)
+    assert nature == "Calm"

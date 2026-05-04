@@ -4,5 +4,6 @@
   "physical_wall":     {"hp": 32, "def": 32, "spd": 2},
   "special_wall":      {"hp": 32, "spd": 32, "def": 2},
   "lead_support":      {"spe": 32, "hp": 32, "def": 2},
-  "trick_room_setter": {"hp": 32, "spd": 32, "def": 2}
+  "trick_room_setter": {"hp": 32, "spd": 32, "def": 2},
+  "redirect":          {"hp": 32, "spd": 32, "def": 2}
 }

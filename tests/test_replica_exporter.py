@@ -94,6 +94,7 @@ def test_select_moves_for_role_includes_protect_first() -> None:
         "talonflame",
         ["fire", "flying"],
         moves=[
+            "protect",
             "tailwind",
             "brave-bird",
             "flamethrower",
@@ -293,3 +294,103 @@ def test_select_moves_slot4_uses_secondary_role() -> None:
     # physical_sweeper as primary (atk heuristic), but also redirect role.
     moves = select_moves_for_role(pokemon, ["physical_sweeper", "redirect"])
     assert "follow-me" in moves
+
+
+# ---------------------------------------------------------------------------
+# fix-logic-v1 — T6, T7, T8, T10 regression tests
+# ---------------------------------------------------------------------------
+
+
+def test_fallback_move_raises_when_pool_and_generics_exhausted() -> None:
+    """T6: _fallback_move raises TeamBuildError instead of returning a duplicate.
+
+    Previously the function fell back to ``return "tackle"`` even when
+    every generic ("tackle", "scratch", "pound", "growl", "leer") was
+    already in ``used``, silently emitting a moveset with two copies of
+    "tackle". That is invalid in PikaChampions / Showdown.
+    """
+    from pokemon_team_builder.domain.exceptions import TeamBuildError
+    from pokemon_team_builder.services.replica_exporter import _fallback_move
+
+    pool: list[str] = []
+    used = {"protect", "tackle", "scratch", "pound", "growl", "leer"}
+    with pytest.raises(TeamBuildError, match="move pool"):
+        _fallback_move(pool, used)
+
+
+def test_unknown_category_not_chosen_pass0() -> None:
+    """T7: a move missing from _MOVE_CATEGORY is ineligible during pass 0.
+
+    When the Pokemon's primary attack category is "physical" and a known
+    physical move is available, an uncategorized fallback move must NOT
+    win over it. The earlier guard ``cand_cat and cand_cat != primary_cat``
+    accepted unknown-category moves into pass 0, breaking strict matching.
+    """
+    # Build a fake STAB list with one uncategorized move, then the canonical
+    # categorized one. We don't actually patch the table — instead we
+    # exercise the existing one with a Pokemon whose pool guarantees a
+    # known physical STAB winner over an unknown sibling.
+    pokemon = _mk_pokemon(
+        "physical-fire",
+        ["fire"],
+        moves=[
+            "protect",
+            # ``ember`` is in _STAB_BY_TYPE but ``_MOVE_CATEGORY[ember]`` is
+            # "special" → pass 0 must reject it on a physical attacker.
+            # ``fire-punch`` is physical → that's what slot 2 must pick.
+            "ember",
+            "fire-punch",
+            "earthquake",
+        ],
+    )
+    # Force primary_cat physical: atk equal, spa lower. (The fixture's
+    # _mk_pokemon sets atk=spa=70; we need atk >= spa for physical primary.
+    # _mk_pokemon already does atk=spa, so primary_cat resolves to physical
+    # via the >= tiebreak.)
+    moves = select_moves_for_role(pokemon, ["physical_sweeper"])
+    # Slot 2 (STAB) on a physical attacker must be a categorized physical
+    # STAB, not the special ember nor an unknown move.
+    assert moves[1] == "fire-punch", moves
+
+
+def test_protect_replaced_when_not_in_learnset() -> None:
+    """T8: Pokemon without Protect get a fallback in slot 1, not "protect".
+
+    A handful of legal mons don't learn Protect at all. Hard-coding it
+    in slot 1 produces a moveset that PikaChampions silently rejects.
+    """
+    pokemon = _mk_pokemon(
+        "no-protect",
+        ["normal"],
+        moves=["body-slam", "earthquake", "ice-beam", "tackle"],
+    )
+    moves = select_moves_for_role(pokemon, ["physical_sweeper"])
+    assert moves[0] != "protect", (
+        f"slot 1 emitted 'protect' even though it isn't in the move pool: "
+        f"{moves}"
+    )
+    # Whatever filled slot 1 must come from the move pool.
+    assert moves[0] in pokemon.move_names
+
+
+def test_format_species_kommo_o() -> None:
+    """T10: kommo-o keeps its lowercase ``o`` (Kommo-o, not Kommo-O)."""
+    from pokemon_team_builder.services.replica_exporter import _format_species
+
+    assert _format_species("kommo-o") == "Kommo-o"
+
+
+def test_format_species_ho_oh_and_porygon_z() -> None:
+    """T10: ho-oh → Ho-Oh, porygon-z → Porygon-Z."""
+    from pokemon_team_builder.services.replica_exporter import _format_species
+
+    assert _format_species("ho-oh") == "Ho-Oh"
+    assert _format_species("porygon-z") == "Porygon-Z"
+
+
+def test_format_species_default_capitalize_unchanged() -> None:
+    """T10 sanity: species not in the override table still split-capitalize."""
+    from pokemon_team_builder.services.replica_exporter import _format_species
+
+    assert _format_species("rotom-wash") == "Rotom-Wash"
+    assert _format_species("urshifu-single-strike") == "Urshifu-Single-Strike"
