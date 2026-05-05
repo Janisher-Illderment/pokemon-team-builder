@@ -1,0 +1,574 @@
+{
+  "version": "1.0",
+  "regulation": "M-A",
+  "megas": {
+    "abomasnow": [
+      {
+        "form_id": "abomasnow-mega",
+        "mega_stone": "Abomasite",
+        "types": ["grass", "ice"],
+        "ability": "snow-warning",
+        "stats": {"hp": 90, "atk": 132, "def": 105, "spa": 132, "spd": 105, "spe": 80},
+        "verified": true
+      }
+    ],
+    "absol": [
+      {
+        "form_id": "absol-mega",
+        "mega_stone": "Absolite",
+        "types": ["dark"],
+        "ability": "magic-bounce",
+        "stats": {"hp": 65, "atk": 150, "def": 60, "spa": 100, "spd": 60, "spe": 115},
+        "verified": true
+      }
+    ],
+    "aerodactyl": [
+      {
+        "form_id": "aerodactyl-mega",
+        "mega_stone": "Aerodactylite",
+        "types": ["rock", "flying"],
+        "ability": "tough-claws",
+        "stats": {"hp": 80, "atk": 135, "def": 85, "spa": 70, "spd": 95, "spe": 150},
+        "verified": true
+      }
+    ],
+    "aggron": [
+      {
+        "form_id": "aggron-mega",
+        "mega_stone": "Aggronite",
+        "types": ["steel"],
+        "ability": "filter",
+        "stats": {"hp": 70, "atk": 140, "def": 230, "spa": 60, "spd": 80, "spe": 50},
+        "verified": true
+      }
+    ],
+    "alakazam": [
+      {
+        "form_id": "alakazam-mega",
+        "mega_stone": "Alakazite",
+        "types": ["psychic"],
+        "ability": "trace",
+        "stats": {"hp": 55, "atk": 50, "def": 65, "spa": 175, "spd": 105, "spe": 150},
+        "verified": true
+      }
+    ],
+    "altaria": [
+      {
+        "form_id": "altaria-mega",
+        "mega_stone": "Altarianite",
+        "types": ["dragon", "fairy"],
+        "ability": "pixilate",
+        "stats": {"hp": 75, "atk": 110, "def": 110, "spa": 110, "spd": 105, "spe": 80},
+        "verified": true
+      }
+    ],
+    "ampharos": [
+      {
+        "form_id": "ampharos-mega",
+        "mega_stone": "Ampharosite",
+        "types": ["electric", "dragon"],
+        "ability": "mold-breaker",
+        "stats": {"hp": 90, "atk": 75, "def": 85, "spa": 165, "spd": 90, "spe": 45},
+        "verified": true
+      }
+    ],
+    "audino": [
+      {
+        "form_id": "audino-mega",
+        "mega_stone": "Audinite",
+        "types": ["normal", "fairy"],
+        "ability": "healer",
+        "stats": {"hp": 103, "atk": 60, "def": 126, "spa": 80, "spd": 126, "spe": 50},
+        "verified": true
+      }
+    ],
+    "banette": [
+      {
+        "form_id": "banette-mega",
+        "mega_stone": "Banettite",
+        "types": ["ghost"],
+        "ability": "prankster",
+        "stats": {"hp": 64, "atk": 165, "def": 75, "spa": 93, "spd": 83, "spe": 75},
+        "verified": true
+      }
+    ],
+    "beedrill": [
+      {
+        "form_id": "beedrill-mega",
+        "mega_stone": "Beedrillite",
+        "types": ["bug", "poison"],
+        "ability": "adaptability",
+        "stats": {"hp": 65, "atk": 150, "def": 40, "spa": 15, "spd": 80, "spe": 145},
+        "verified": true
+      }
+    ],
+    "blastoise": [
+      {
+        "form_id": "blastoise-mega",
+        "mega_stone": "Blastoisinite",
+        "types": ["water"],
+        "ability": "mega-launcher",
+        "stats": {"hp": 79, "atk": 103, "def": 120, "spa": 135, "spd": 115, "spe": 78},
+        "verified": true
+      }
+    ],
+    "camerupt": [
+      {
+        "form_id": "camerupt-mega",
+        "mega_stone": "Cameruptite",
+        "types": ["fire", "ground"],
+        "ability": "sheer-force",
+        "stats": {"hp": 70, "atk": 120, "def": 100, "spa": 145, "spd": 105, "spe": 20},
+        "verified": true
+      }
+    ],
+    "chandelure": [
+      {
+        "form_id": "chandelure-mega",
+        "mega_stone": "Chandelurite",
+        "types": ["ghost", "fire"],
+        "ability": "infiltrator",
+        "stats": {"hp": 60, "atk": 75, "def": 110, "spa": 175, "spd": 110, "spe": 90},
+        "verified": true
+      }
+    ],
+    "charizard": [
+      {
+        "form_id": "charizard-mega-x",
+        "mega_stone": "Charizardite X",
+        "types": ["fire", "dragon"],
+        "ability": "tough-claws",
+        "stats": {"hp": 78, "atk": 130, "def": 111, "spa": 130, "spd": 85, "spe": 100},
+        "verified": true
+      },
+      {
+        "form_id": "charizard-mega-y",
+        "mega_stone": "Charizardite Y",
+        "types": ["fire", "flying"],
+        "ability": "drought",
+        "stats": {"hp": 78, "atk": 104, "def": 78, "spa": 159, "spd": 115, "spe": 100},
+        "verified": true
+      }
+    ],
+    "chesnaught": [
+      {
+        "form_id": "chesnaught-mega",
+        "mega_stone": "Chesnaughtite",
+        "types": ["grass", "fighting"],
+        "ability": "bulletproof",
+        "stats": {"hp": 88, "atk": 137, "def": 172, "spa": 74, "spd": 115, "spe": 44},
+        "verified": true
+      }
+    ],
+    "chimecho": [
+      {
+        "form_id": "chimecho-mega",
+        "mega_stone": "Chimechite",
+        "types": ["psychic", "steel"],
+        "ability": "levitate",
+        "stats": {"hp": 75, "atk": 50, "def": 110, "spa": 135, "spd": 120, "spe": 65},
+        "verified": true
+      }
+    ],
+    "clefable": [
+      {
+        "form_id": "clefable-mega",
+        "mega_stone": "Clefablite",
+        "types": ["fairy", "flying"],
+        "ability": "magic-bounce",
+        "stats": {"hp": 95, "atk": 80, "def": 93, "spa": 135, "spd": 110, "spe": 70},
+        "verified": true
+      }
+    ],
+    "crabominable": [
+      {
+        "form_id": "crabominable-mega",
+        "mega_stone": "Crabominite",
+        "types": ["fighting", "ice"],
+        "ability": "iron-fist",
+        "stats": {"hp": 97, "atk": 157, "def": 122, "spa": 62, "spd": 107, "spe": 33},
+        "verified": true
+      }
+    ],
+    "delphox": [
+      {
+        "form_id": "delphox-mega",
+        "mega_stone": "Delphoxite",
+        "types": ["fire", "psychic"],
+        "ability": "levitate",
+        "stats": {"hp": 75, "atk": 69, "def": 72, "spa": 159, "spd": 125, "spe": 134},
+        "verified": true
+      }
+    ],
+    "dragonite": [
+      {
+        "form_id": "dragonite-mega",
+        "mega_stone": "Dragoninite",
+        "types": ["dragon", "flying"],
+        "ability": "multiscale",
+        "stats": {"hp": 91, "atk": 124, "def": 115, "spa": 145, "spd": 125, "spe": 100},
+        "verified": true
+      }
+    ],
+    "drampa": [
+      {
+        "form_id": "drampa-mega",
+        "mega_stone": "Drampanite",
+        "types": ["normal", "dragon"],
+        "ability": "berserk",
+        "stats": {"hp": 78, "atk": 85, "def": 110, "spa": 160, "spd": 116, "spe": 36},
+        "verified": true
+      }
+    ],
+    "emboar": [
+      {
+        "form_id": "emboar-mega",
+        "mega_stone": "Emboarite",
+        "types": ["fire", "fighting"],
+        "ability": "mold-breaker",
+        "stats": {"hp": 110, "atk": 148, "def": 75, "spa": 110, "spd": 110, "spe": 75},
+        "verified": true
+      }
+    ],
+    "excadrill": [
+      {
+        "form_id": "excadrill-mega",
+        "mega_stone": "Excadrite",
+        "types": ["ground", "steel"],
+        "ability": "piercing-drill",
+        "stats": {"hp": 110, "atk": 165, "def": 100, "spa": 65, "spd": 65, "spe": 103},
+        "verified": true
+      }
+    ],
+    "feraligatr": [
+      {
+        "form_id": "feraligatr-mega",
+        "mega_stone": "Feraligite",
+        "types": ["water", "dragon"],
+        "ability": "dragonize",
+        "stats": {"hp": 85, "atk": 160, "def": 125, "spa": 89, "spd": 93, "spe": 78},
+        "verified": true
+      }
+    ],
+    "floette": [
+      {
+        "form_id": "floette-mega",
+        "mega_stone": "Floettite",
+        "types": ["fairy"],
+        "ability": "fairy-aura",
+        "stats": {"hp": 74, "atk": 85, "def": 87, "spa": 155, "spd": 148, "spe": 102},
+        "verified": true
+      }
+    ],
+    "froslass": [
+      {
+        "form_id": "froslass-mega",
+        "mega_stone": "Froslassite",
+        "types": ["ice", "ghost"],
+        "ability": "snow-warning",
+        "stats": {"hp": 70, "atk": 80, "def": 70, "spa": 140, "spd": 100, "spe": 120},
+        "verified": true
+      }
+    ],
+    "gallade": [
+      {
+        "form_id": "gallade-mega",
+        "mega_stone": "Galladite",
+        "types": ["psychic", "fighting"],
+        "ability": "inner-focus",
+        "stats": {"hp": 68, "atk": 165, "def": 95, "spa": 65, "spd": 115, "spe": 110},
+        "verified": true
+      }
+    ],
+    "garchomp": [
+      {
+        "form_id": "garchomp-mega",
+        "mega_stone": "Garchompite",
+        "types": ["dragon", "ground"],
+        "ability": "sand-force",
+        "stats": {"hp": 108, "atk": 170, "def": 115, "spa": 65, "spd": 95, "spe": 102},
+        "verified": true
+      }
+    ],
+    "gardevoir": [
+      {
+        "form_id": "gardevoir-mega",
+        "mega_stone": "Gardevoirite",
+        "types": ["psychic", "fairy"],
+        "ability": "pixilate",
+        "stats": {"hp": 68, "atk": 65, "def": 65, "spa": 165, "spd": 135, "spe": 100},
+        "verified": true
+      }
+    ],
+    "gengar": [
+      {
+        "form_id": "gengar-mega",
+        "mega_stone": "Gengarite",
+        "types": ["ghost", "poison"],
+        "ability": "shadow-tag",
+        "stats": {"hp": 60, "atk": 65, "def": 80, "spa": 170, "spd": 95, "spe": 130},
+        "verified": true
+      }
+    ],
+    "glalie": [
+      {
+        "form_id": "glalie-mega",
+        "mega_stone": "Glalitite",
+        "types": ["ice"],
+        "ability": "refrigerate",
+        "stats": {"hp": 80, "atk": 120, "def": 80, "spa": 120, "spd": 80, "spe": 100},
+        "verified": true
+      }
+    ],
+    "golurk": [
+      {
+        "form_id": "golurk-mega",
+        "mega_stone": "Golurkite",
+        "types": ["ground", "ghost"],
+        "ability": "unseen-fist",
+        "stats": {"hp": 89, "atk": 159, "def": 105, "spa": 70, "spd": 105, "spe": 55},
+        "verified": true
+      }
+    ],
+    "greninja": [
+      {
+        "form_id": "greninja-mega",
+        "mega_stone": "Greninjite",
+        "types": ["water", "dark"],
+        "ability": "protean",
+        "stats": {"hp": 72, "atk": 125, "def": 77, "spa": 133, "spd": 81, "spe": 142},
+        "verified": true
+      }
+    ],
+    "gyarados": [
+      {
+        "form_id": "gyarados-mega",
+        "mega_stone": "Gyaradosite",
+        "types": ["water", "dark"],
+        "ability": "mold-breaker",
+        "stats": {"hp": 95, "atk": 155, "def": 109, "spa": 70, "spd": 130, "spe": 81},
+        "verified": true
+      }
+    ],
+    "hawlucha": [
+      {
+        "form_id": "hawlucha-mega",
+        "mega_stone": "Hawluchanite",
+        "types": ["fighting", "flying"],
+        "ability": "no-guard",
+        "stats": {"hp": 78, "atk": 137, "def": 100, "spa": 74, "spd": 93, "spe": 118},
+        "verified": true
+      }
+    ],
+    "heracross": [
+      {
+        "form_id": "heracross-mega",
+        "mega_stone": "Heracronite",
+        "types": ["bug", "fighting"],
+        "ability": "skill-link",
+        "stats": {"hp": 80, "atk": 185, "def": 115, "spa": 40, "spd": 105, "spe": 75},
+        "verified": true
+      }
+    ],
+    "houndoom": [
+      {
+        "form_id": "houndoom-mega",
+        "mega_stone": "Houndoominite",
+        "types": ["dark", "fire"],
+        "ability": "solar-power",
+        "stats": {"hp": 75, "atk": 90, "def": 90, "spa": 140, "spd": 90, "spe": 115},
+        "verified": false
+      }
+    ],
+    "kangaskhan": [
+      {
+        "form_id": "kangaskhan-mega",
+        "mega_stone": "Kangaskhanite",
+        "types": ["normal"],
+        "ability": "parental-bond",
+        "stats": {"hp": 105, "atk": 125, "def": 100, "spa": 60, "spd": 100, "spe": 100},
+        "verified": true
+      }
+    ],
+    "lopunny": [
+      {
+        "form_id": "lopunny-mega",
+        "mega_stone": "Lopunnite",
+        "types": ["normal", "fighting"],
+        "ability": "scrappy",
+        "stats": {"hp": 76, "atk": 136, "def": 94, "spa": 54, "spd": 96, "spe": 135},
+        "verified": true
+      }
+    ],
+    "lucario": [
+      {
+        "form_id": "lucario-mega",
+        "mega_stone": "Lucarionite",
+        "types": ["fighting", "steel"],
+        "ability": "adaptability",
+        "stats": {"hp": 70, "atk": 145, "def": 88, "spa": 140, "spd": 70, "spe": 112},
+        "verified": true
+      }
+    ],
+    "manectric": [
+      {
+        "form_id": "manectric-mega",
+        "mega_stone": "Manectite",
+        "types": ["electric"],
+        "ability": "intimidate",
+        "stats": {"hp": 70, "atk": 75, "def": 80, "spa": 135, "spd": 80, "spe": 135},
+        "verified": false
+      }
+    ],
+    "medicham": [
+      {
+        "form_id": "medicham-mega",
+        "mega_stone": "Medichamite",
+        "types": ["fighting", "psychic"],
+        "ability": "pure-power",
+        "stats": {"hp": 60, "atk": 100, "def": 85, "spa": 80, "spd": 85, "spe": 100},
+        "verified": true
+      }
+    ],
+    "meganium": [
+      {
+        "form_id": "meganium-mega",
+        "mega_stone": "Meganiumite",
+        "types": ["grass", "fairy"],
+        "ability": "mega-sol",
+        "stats": {"hp": 80, "atk": 92, "def": 115, "spa": 143, "spd": 115, "spe": 80},
+        "verified": true
+      }
+    ],
+    "meowstic": [
+      {
+        "form_id": "meowstic-mega",
+        "mega_stone": "Meowsticite",
+        "types": ["psychic"],
+        "ability": "trace",
+        "stats": {"hp": 74, "atk": 48, "def": 76, "spa": 143, "spd": 101, "spe": 124},
+        "verified": true
+      }
+    ],
+    "pidgeot": [
+      {
+        "form_id": "pidgeot-mega",
+        "mega_stone": "Pidgeotite",
+        "types": ["normal", "flying"],
+        "ability": "no-guard",
+        "stats": {"hp": 83, "atk": 80, "def": 80, "spa": 135, "spd": 80, "spe": 121},
+        "verified": true
+      }
+    ],
+    "pinsir": [
+      {
+        "form_id": "pinsir-mega",
+        "mega_stone": "Pinsirite",
+        "types": ["bug", "flying"],
+        "ability": "aerilate",
+        "stats": {"hp": 65, "atk": 155, "def": 120, "spa": 65, "spd": 90, "spe": 105},
+        "verified": true
+      }
+    ],
+    "sableye": [
+      {
+        "form_id": "sableye-mega",
+        "mega_stone": "Sablenite",
+        "types": ["dark", "ghost"],
+        "ability": "magic-bounce",
+        "stats": {"hp": 50, "atk": 85, "def": 125, "spa": 85, "spd": 115, "spe": 20},
+        "verified": false
+      }
+    ],
+    "scizor": [
+      {
+        "form_id": "scizor-mega",
+        "mega_stone": "Scizorite",
+        "types": ["bug", "steel"],
+        "ability": "technician",
+        "stats": {"hp": 70, "atk": 150, "def": 140, "spa": 65, "spd": 100, "spe": 75},
+        "verified": false
+      }
+    ],
+    "sharpedo": [
+      {
+        "form_id": "sharpedo-mega",
+        "mega_stone": "Sharpedonite",
+        "types": ["water", "dark"],
+        "ability": "speed-boost",
+        "stats": {"hp": 70, "atk": 140, "def": 70, "spa": 110, "spd": 65, "spe": 105},
+        "verified": false
+      }
+    ],
+    "skarmory": [
+      {
+        "form_id": "skarmory-mega",
+        "mega_stone": "Skarmorite",
+        "types": ["steel", "flying"],
+        "ability": "stalwart",
+        "stats": {"hp": 65, "atk": 140, "def": 110, "spa": 40, "spd": 100, "spe": 110},
+        "verified": true
+      }
+    ],
+    "slowbro": [
+      {
+        "form_id": "slowbro-mega",
+        "mega_stone": "Slowbronite",
+        "types": ["water", "psychic"],
+        "ability": "shell-armor",
+        "stats": {"hp": 95, "atk": 75, "def": 180, "spa": 130, "spd": 80, "spe": 30},
+        "verified": false
+      }
+    ],
+    "starmie": [
+      {
+        "form_id": "starmie-mega",
+        "mega_stone": "Starminite",
+        "types": ["water", "psychic"],
+        "ability": "huge-power",
+        "stats": {"hp": 60, "atk": 100, "def": 105, "spa": 130, "spd": 105, "spe": 120},
+        "verified": true
+      }
+    ],
+    "steelix": [
+      {
+        "form_id": "steelix-mega",
+        "mega_stone": "Steelixite",
+        "types": ["steel", "ground"],
+        "ability": "sand-force",
+        "stats": {"hp": 75, "atk": 125, "def": 230, "spa": 55, "spd": 95, "spe": 30},
+        "verified": false
+      }
+    ],
+    "tyranitar": [
+      {
+        "form_id": "tyranitar-mega",
+        "mega_stone": "Tyranitarite",
+        "types": ["rock", "dark"],
+        "ability": "sand-stream",
+        "stats": {"hp": 100, "atk": 164, "def": 150, "spa": 95, "spd": 120, "spe": 71},
+        "verified": false
+      }
+    ],
+    "venusaur": [
+      {
+        "form_id": "venusaur-mega",
+        "mega_stone": "Venusaurite",
+        "types": ["grass", "poison"],
+        "ability": "thick-fat",
+        "stats": {"hp": 80, "atk": 100, "def": 123, "spa": 122, "spd": 120, "spe": 80},
+        "verified": true
+      }
+    ],
+    "victreebel": [
+      {
+        "form_id": "victreebel-mega",
+        "mega_stone": "Victreebelite",
+        "types": ["grass", "poison"],
+        "ability": "innards-out",
+        "stats": {"hp": 80, "atk": 125, "def": 85, "spa": 135, "spd": 95, "spe": 70},
+        "verified": true
+      }
+    ]
+  }
+}

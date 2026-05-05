@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from itertools import combinations
 
-from pokemon_team_builder.domain.models import PokemonData
+from pokemon_team_builder.domain.models import MegaForm, PokemonData
 
 
 # WHY: 18 canonical Pokemon types. Used to enumerate offensive/defensive
@@ -108,6 +108,31 @@ def assign_role(pokemon: PokemonData) -> list[str]:
             seen.add(role)
             deduped.append(role)
     return deduped
+
+
+def assign_role_with_mega(
+    pokemon: PokemonData, mega: MegaForm | None
+) -> list[str]:
+    """Like ``assign_role`` but uses Mega-form stats/types when ``mega`` is set.
+
+    When ``mega is None`` this is a pass-through to ``assign_role`` — no
+    behavioral change for non-mega callers. When a ``MegaForm`` is given
+    we synthesize a temporary ``PokemonData`` whose ``base_stats`` and
+    ``types`` are the mega's, leaving moves and abilities intact.
+
+    WHY: ``assign_role`` is intentionally not modified — its existing
+    contract and tests are stable. Building a synthetic copy keeps role
+    determination consistent regardless of how the stats arrived.
+    """
+    if mega is None:
+        return assign_role(pokemon)
+    # PokemonData is a Pydantic BaseModel; model_copy(update=...) is the
+    # equivalent of dataclasses.replace — it returns a new instance with
+    # the listed fields overridden and is non-mutating.
+    synthetic = pokemon.model_copy(
+        update={"base_stats": mega.stats, "types": list(mega.types)}
+    )
+    return assign_role(synthetic)
 
 
 def analyze_coverage(team: list[PokemonData]) -> CoverageReport:

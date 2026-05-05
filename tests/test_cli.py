@@ -83,7 +83,7 @@ def test_build_charizard_end_to_end(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         cli_main.team_generator,
         "generate_team",
-        lambda anchor, num_variants=3, candidate_loader=None: [_stub_variant(anchor)],
+        lambda anchor, num_variants=3, candidate_loader=None, mega_choice="auto": [_stub_variant(anchor)],
     )
 
     runner = CliRunner()
@@ -103,7 +103,7 @@ def test_build_with_output_writes_file(
     monkeypatch.setattr(
         cli_main.team_generator,
         "generate_team",
-        lambda anchor, num_variants=3, candidate_loader=None: [_stub_variant(anchor)],
+        lambda anchor, num_variants=3, candidate_loader=None, mega_choice="auto": [_stub_variant(anchor)],
     )
 
     out = tmp_path / "team.txt"

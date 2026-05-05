@@ -17,6 +17,24 @@ class BaseStats(BaseModel):
     spe: int = Field(ge=1)
 
 
+class MegaForm(BaseModel):
+    """A single Mega Evolution form for a base species.
+
+    Species with two megas (Charizard X/Y) are represented as two
+    ``MegaForm`` entries, distinguished by ``form_id`` suffix
+    (``charizard-mega-x`` vs ``charizard-mega-y``).
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    form_id: str = Field(min_length=1)
+    mega_stone: str = Field(min_length=1)
+    types: list[str] = Field(min_length=1, max_length=2)
+    ability: str = Field(min_length=1)
+    stats: BaseStats
+    verified: bool = True
+
+
 class PokemonData(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
@@ -27,6 +45,7 @@ class PokemonData(BaseModel):
     move_names: list[str]
     abilities: list[str] = Field(default_factory=list)
     weaknesses: dict[str, float] = Field(default_factory=dict)
+    megas: list[MegaForm] = Field(default_factory=list)
 
 
 class TypeChart(BaseModel):
@@ -74,6 +93,11 @@ class TeamMember(BaseModel):
     ability: str = Field(min_length=1)
     nature: str = Field(min_length=1)
     moves: list[str] = Field(min_length=4, max_length=4)
+    # WHY: when set, the member is Mega-evolved. The exporter uses
+    # ``mega_form.mega_stone`` as the held item; species line keeps the
+    # base form name (Showdown convention — the importer triggers Mega
+    # automatically from the held stone).
+    mega_form: MegaForm | None = None
 
 
 class TeamVariant(BaseModel):

@@ -534,7 +534,15 @@ def _ev_line(sp: SPDistribution) -> str:
 
 def _serialize_member(member: TeamMember) -> str:
     name = _format_species(member.pokemon.name)
-    item = member.item
+    # WHY: when the member is Mega-evolved, the held item is the Mega
+    # Stone and is the authoritative source — read it directly from
+    # ``mega_form`` instead of trusting a possibly-stale ``item`` field.
+    # The species line stays the base form (Showdown convention — the
+    # importer auto-detects Mega from the held stone).
+    if member.mega_form is not None:
+        item = member.mega_form.mega_stone
+    else:
+        item = member.item
     ability = _format_name(member.ability)
     nature = _format_name(member.nature)
 
