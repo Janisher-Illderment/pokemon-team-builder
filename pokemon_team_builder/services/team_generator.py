@@ -31,14 +31,16 @@ from pokemon_team_builder.services.synergy_engine import (
 
 
 _DEFAULT_ITEM_BY_ROLE: dict[str, str] = {
-    # Choice Band / Specs / Assault Vest / Life Orb are NOT in Champions.
-    "physical_sweeper": "Weakness Policy",
-    "special_sweeper": "Throat Spray",
-    "physical_wall": "Rocky Helmet",
+    # NOT in Champions: Choice Band, Choice Specs, Assault Vest, Life Orb,
+    # Weakness Policy, Throat Spray, Rocky Helmet, Clear Amulet, Safety Goggles,
+    # Covert Cloak, Adrenaline Orb.
+    "physical_sweeper": "Scope Lens",
+    "special_sweeper": "Shell Bell",
+    "physical_wall": "Leftovers",
     "special_wall": "Leftovers",
     "lead_support": "Focus Sash",
     "trick_room_setter": "Mental Herb",
-    "redirect": "Clear Amulet",
+    "redirect": "Mental Herb",
 }
 _FALLBACK_ITEM = "Choice Scarf"
 # Champions-legal backup items (Serebii/MetaVGC confirmed). Order is
@@ -51,10 +53,8 @@ _BACKUP_ITEMS: tuple[str, ...] = (
     "Persim Berry",
     "White Herb",
     "Shell Bell",
-    "Covert Cloak",
+    "Focus Sash",
     "Focus Band",
-    "Adrenaline Orb",
-    "Safety Goggles",  # NOT Light Clay — Light Clay is NOT in Champions
     "King's Rock",
     "Mystic Water",
     "Charcoal",
@@ -340,20 +340,10 @@ def _beam_search(
 # is a one-line tuple entry. Predicates that only care about types are
 # kept out of this table — see ``_item_is_activatable`` below.
 _ITEM_PRECONDITIONS_MOVESET: dict[str, Callable[[PokemonData, list[str] | None], bool]] = {
-    # Sound-move items only fire when the holder actually emits a sound move.
-    "Throat Spray": lambda p, moves: bool(
-        frozenset(moves if moves is not None else p.move_names) & _SOUND_MOVES
-    ),
     # White Herb resets stat drops from moves like Overheat / Close Combat.
+    # Throat Spray and Weakness Policy are NOT in Champions — removed.
     "White Herb": lambda p, moves: any(
         m in _STAT_DROP_MOVES for m in (moves if moves is not None else p.move_names)
-    ),
-    # Weakness Policy is dead weight on a Pokemon that boosts itself with
-    # a setup move — the +2 from the Policy collides with the setup line.
-    # When ``moves`` is None we cannot tell, so we allow it (the caller is
-    # asking about pre-moveset eligibility against the learnset).
-    "Weakness Policy": lambda p, moves: not any(
-        m in replica_exporter._SETUP_MOVES for m in (moves or [])
     ),
 }
 

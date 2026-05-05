@@ -290,7 +290,7 @@ def test_pick_ability_empty_list_raises() -> None:
 
 
 def test_throat_spray_not_assigned_without_sound_move() -> None:
-    """special_sweeper without sound moves must not get Throat Spray."""
+    """Throat Spray is not in Champions — special_sweeper default is Shell Bell."""
     from pokemon_team_builder.services.team_generator import _assign_items
 
     # Special-leaning Pokemon (spa > atk) but no sound moves in pool.
@@ -303,8 +303,8 @@ def test_throat_spray_not_assigned_without_sound_move() -> None:
         moves=["protect", "psychic", "shadow-ball", "thunderbolt"],
     )
     items = _assign_items([["special_sweeper"]], [pokemon])
-    assert items[0] != "Throat Spray", (
-        f"Throat Spray assigned despite no sound moves: {items}"
+    assert items[0] == "Shell Bell", (
+        f"special_sweeper default should be Shell Bell (Throat Spray not in Champions): {items}"
     )
 
 
@@ -340,8 +340,8 @@ def test_white_herb_not_assigned_without_stat_drop_move() -> None:
     )
 
 
-def test_throat_spray_assigned_with_sound_move() -> None:
-    """special_sweeper WITH a sound move SHOULD keep Throat Spray."""
+def test_special_sweeper_default_item_is_shell_bell() -> None:
+    """Throat Spray not in Champions — special_sweeper default is Shell Bell."""
     from pokemon_team_builder.services.team_generator import _assign_items
 
     pokemon = _mk(
@@ -353,8 +353,8 @@ def test_throat_spray_assigned_with_sound_move() -> None:
         moves=["protect", "hyper-voice", "psychic", "thunderbolt"],
     )
     items = _assign_items([["special_sweeper"]], [pokemon])
-    assert items[0] == "Throat Spray", (
-        f"Throat Spray not assigned despite hyper-voice in pool: {items}"
+    assert items[0] == "Shell Bell", (
+        f"special_sweeper default should be Shell Bell (Throat Spray not in Champions): {items}"
     )
 
 
