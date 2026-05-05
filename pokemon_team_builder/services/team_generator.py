@@ -606,7 +606,9 @@ def _pick_ability(pokemon: PokemonData) -> str:
     for ability in pokemon.abilities:
         if ability.lower() not in _SITUATIONAL_ABILITIES:
             return ability
-    return pokemon.abilities[0] if pokemon.abilities else "pressure"
+    if not pokemon.abilities:
+        raise TeamBuildError(f"No abilities found for {pokemon.name}")
+    return pokemon.abilities[0]
 
 
 def _derive_nature(primary: str, roles: list[str], moves: list[str]) -> str:

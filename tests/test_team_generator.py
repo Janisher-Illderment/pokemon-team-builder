@@ -273,6 +273,22 @@ def test_ability_skips_sand_veil() -> None:
     assert _pick_ability(pokemon) == "rough-skin"
 
 
+def test_pick_ability_empty_list_raises() -> None:
+    """_pick_ability must raise TeamBuildError when abilities list is empty."""
+    from pokemon_team_builder.services.team_generator import _pick_ability
+    from pokemon_team_builder.domain.exceptions import TeamBuildError
+    from pokemon_team_builder.domain.models import BaseStats
+
+    pokemon = PokemonData(
+        id=99, name="ditto", types=["normal"],
+        base_stats=BaseStats(hp=48, atk=48, **{"def": 48}, spa=48, spd=48, spe=48),
+        move_names=["transform"], abilities=[],
+        weaknesses={},
+    )
+    with pytest.raises(TeamBuildError):
+        _pick_ability(pokemon)
+
+
 def test_throat_spray_not_assigned_without_sound_move() -> None:
     """special_sweeper without sound moves must not get Throat Spray."""
     from pokemon_team_builder.services.team_generator import _assign_items
