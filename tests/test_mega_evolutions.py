@@ -139,18 +139,15 @@ def test_mega_data_integrity() -> None:
                 assert isinstance(stats[stat_name], int) and stats[stat_name] >= 1
 
 
-def test_mega_data_contains_all_35_species() -> None:
-    """Spec R1: 35 mega-eligible species in the M-A pool.
+def test_mega_data_contains_all_56_species() -> None:
+    """Spec R1: 35 mainline + 21 Champions-exclusive mega-eligible species = 56 total.
 
-    Total forms = 36 (one species — Charizard — has X/Y forms; the
-    other 34 each have one form). The design doc lists 37 which appears
-    to be an off-by-one count error; the math (35 + 1 extra Charizard
-    form) is 36.
+    Total forms = 57 (Charizard has X/Y; all others have one form each).
     """
     data = load_mega_evolutions()
-    assert len(data) == 35
+    assert len(data) == 56
     total_forms = sum(len(forms) for forms in data.values())
-    assert total_forms == 36
+    assert total_forms == 57
     # Sanity: Charizard is the only species with two forms.
     multi_form = {sp for sp, forms in data.items() if len(forms) > 1}
     assert multi_form == {"charizard"}
