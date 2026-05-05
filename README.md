@@ -106,7 +106,7 @@ runs are fully offline.
   Pokémon Champions; treat generated sets as starting suggestions.
 - **Legal pool**: `data/legal_pool_mA.json` was built heuristically (~380 entries). Verify against
   the official list at https://pikachampions.com/ before competitive play.
-- **Mega Evolutions**: the 59 Mega forms in Champions are not yet modeled.
+- **Mega Evolutions**: 57 forms (56 species) modeled; 8 entries await in-game stat verification.
 - **Regulation expiry**: Regulation M-A is valid until 2026-06-17. The CLI warns when the
   regulation has expired.
 
@@ -125,7 +125,7 @@ pytest
 pytest --cov
 ```
 
-81 tests, targeting ≥80% line coverage.
+140 tests, targeting ≥80% line coverage.
 
 ---
 
