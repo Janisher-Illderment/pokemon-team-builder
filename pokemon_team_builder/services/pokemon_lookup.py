@@ -7,6 +7,7 @@ from typing import Any, Union
 from pokemon_team_builder.config import TYPE_CHART_FILE
 from pokemon_team_builder.data import pokeapi_client
 from pokemon_team_builder.data.legal_pool_loader import is_legal
+from pokemon_team_builder.data.mega_loader import load_mega_evolutions
 from pokemon_team_builder.domain.exceptions import (
     PokeAPIError,
     PokemonIllegalError,
@@ -215,6 +216,13 @@ def lookup(name_or_id: Union[str, int]) -> PokemonData:
     abilities = _extract_abilities(raw)
     weaknesses = calculate_weaknesses(types)
 
+    # WHY: enrich with Mega-Evolution forms from the static mega data
+    # file. Empty list when the species has no mega — keeps existing
+    # callers unchanged. ``load_mega_evolutions`` is lru_cached so this
+    # is O(1) after the first call.
+    mega_data = load_mega_evolutions()
+    megas = mega_data.get(name.lower(), [])
+
     return PokemonData(
         id=pid,
         name=name.lower(),
@@ -223,4 +231,5 @@ def lookup(name_or_id: Union[str, int]) -> PokemonData:
         move_names=move_names,
         abilities=abilities,
         weaknesses=weaknesses,
+        megas=megas,
     )

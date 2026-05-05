@@ -11,6 +11,7 @@ from pokemon_team_builder.config import (
 from pokemon_team_builder.data.legal_pool_loader import get_all_names
 from pokemon_team_builder.domain.exceptions import TeamBuildError
 from pokemon_team_builder.domain.models import (
+    MegaForm,
     PokemonData,
     SPDistribution,
     TeamMember,
@@ -25,6 +26,7 @@ from pokemon_team_builder.services.synergy_engine import (
     ALL_TYPES,
     analyze_coverage,
     assign_role,
+    assign_role_with_mega,
 )
 
 
@@ -379,12 +381,19 @@ def _assign_items(
     members_roles: list[list[str]],
     members: list[PokemonData] | None = None,
     preview_moves: list[list[str]] | None = None,
+    mega_slot: tuple[int, str] | None = None,
 ) -> list[str]:
     """Allocate items by role honoring the no-duplicates Item Clause.
 
     When ``preview_moves`` is provided (a parallel list of generated
     movesets, one per member), moveset-aware activation predicates use
     the actual moves. Otherwise they fall back to the full learnset.
+
+    When ``mega_slot=(idx, stone_name)`` is provided, the item at index
+    ``idx`` is pre-fixed to ``stone_name``. The stone is added to the
+    ``used`` set so no other slot can collide with it (Item Clause
+    extends to Mega Stones), and the mega-eligible slot is skipped in
+    the role-based allocation loop.
 
     Raises:
         TeamBuildError: if the curated pool of real items is exhausted
@@ -393,8 +402,26 @@ def _assign_items(
             silently drop a mon whose item the importer doesn't know.
     """
     used: set[str] = set()
+    # Pre-fill: the mega slot reserves its stone before any role-based
+    # allocation walks the candidate / fallback chain. Using a dict keyed
+    # by index lets us slot the result back at the exact position once
+    # the loop has filled the rest.
+    pre_assigned: dict[int, str] = {}
+    if mega_slot is not None:
+        slot_idx, stone_name = mega_slot
+        if not 0 <= slot_idx < len(members_roles):
+            raise TeamBuildError(
+                f"mega_slot index {slot_idx} out of range "
+                f"(team size {len(members_roles)})."
+            )
+        pre_assigned[slot_idx] = stone_name
+        used.add(stone_name)
+
     out: list[str] = []
     for i, roles in enumerate(members_roles):
+        if i in pre_assigned:
+            out.append(pre_assigned[i])
+            continue
         primary = roles[0] if roles else "physical_sweeper"
         candidate = _DEFAULT_ITEM_BY_ROLE.get(primary, _FALLBACK_ITEM)
         moves_for_i = preview_moves[i] if preview_moves is not None else None
@@ -443,12 +470,52 @@ def _team_signature(members: Iterable[PokemonData]) -> frozenset[str]:
     return frozenset(m.name for m in members)
 
 
+def _resolve_mega(pokemon: PokemonData, choice: str) -> MegaForm | None:
+    """Pick the right MegaForm (if any) for ``pokemon`` given a CLI choice.
+
+    - ``choice == "off"`` or species has no megas → returns ``None``.
+    - Single-form species + ``choice == "auto"`` → returns the only form.
+    - Multi-form species (Charizard X/Y) + ``choice in {"x","y"}`` →
+      returns the matching form (form_id ends with ``-x`` / ``-y``).
+    - Multi-form species + ``choice == "auto"`` → raises
+      ``TeamBuildError`` asking the user to pick X or Y explicitly. We
+      do not silently default — surface the ambiguity.
+    - Multi-form species + ``choice in {"x","y"}`` with no matching form
+      → raises ``TeamBuildError``.
+    """
+    if choice == "off" or not pokemon.megas:
+        return None
+
+    forms = pokemon.megas
+    if len(forms) == 1 and choice == "auto":
+        return forms[0]
+
+    if choice in ("x", "y"):
+        suffix = "-" + choice
+        for form in forms:
+            if form.form_id.endswith(suffix):
+                return form
+        raise TeamBuildError(
+            f"{pokemon.name} no tiene una forma Mega '{choice}'. "
+            f"Formas disponibles: "
+            f"{', '.join(f.form_id for f in forms)}."
+        )
+
+    # Multi-form species + auto (or unknown choice) → ambiguous.
+    raise TeamBuildError(
+        f"{pokemon.name} tiene varias formas Mega. Usa --mega x o --mega y "
+        f"para seleccionar (formas: "
+        f"{', '.join(f.form_id for f in forms)})."
+    )
+
+
 def generate_team(
     anchor: PokemonData,
     pool: list[PokemonData] | None = None,
     num_variants: int = 3,
     *,
     candidate_loader: Callable[[PokemonData], list[PokemonData]] | None = None,
+    mega_choice: str = "auto",
 ) -> list[TeamVariant]:
     """Generate up to ``num_variants`` 6-mon team variants around ``anchor``.
 
@@ -472,6 +539,11 @@ def generate_team(
             "moveset in Champions."
         )
 
+    # Resolve the anchor's Mega Evolution choice up-front. This raises
+    # TeamBuildError on ambiguity (Charizard auto) before we burn time
+    # building a pool — fail fast with a clear message.
+    anchor_mega = _resolve_mega(anchor, mega_choice)
+
     if pool is None:
         if candidate_loader is not None:
             pool = candidate_loader(anchor)
@@ -483,8 +555,12 @@ def generate_team(
 
     # Precompute roles once per Pokemon — assign_role is pure and pool is
     # fixed for this call. Avoids O(pool × beam_width × steps) recomputation.
+    # The anchor's role is computed against its Mega-form stats when one
+    # was resolved; pool members are always evaluated as their base form.
     all_pokemon = [anchor] + pool
     role_map: dict[str, list[str]] = {p.name: assign_role(p) for p in all_pokemon}
+    if anchor_mega is not None:
+        role_map[anchor.name] = assign_role_with_mega(anchor, anchor_mega)
 
     candidates = _heuristic_filter(anchor, pool, role_map)
     if not candidates:
@@ -507,7 +583,7 @@ def generate_team(
             continue
         seen_signatures.add(signature)
         try:
-            variant = _build_variant(state, role_map)
+            variant = _build_variant(state, role_map, anchor_mega=anchor_mega)
         except (ValueError, TeamBuildError):
             # ValueError → wrong member count; TeamBuildError → move
             # selection ran out of moves or items pool exhausted. In
@@ -570,7 +646,10 @@ def _derive_nature(primary: str, roles: list[str], moves: list[str]) -> str:
 
 
 def _build_variant(
-    team: list[PokemonData], role_map: dict[str, list[str]]
+    team: list[PokemonData],
+    role_map: dict[str, list[str]],
+    *,
+    anchor_mega: MegaForm | None = None,
 ) -> TeamVariant:
     members_roles = [role_map.get(p.name, assign_role(p)) for p in team]
 
@@ -583,17 +662,32 @@ def _build_variant(
         for pokemon, roles in zip(team, members_roles)
     ]
 
-    # 2. Assign items using the preview moves.
-    items = _assign_items(members_roles, team, preview_moves=preview_moves)
+    # 2. Assign items using the preview moves. When a Mega is resolved
+    #    for the anchor (slot 0), pin its stone there before any role-
+    #    based allocation runs — and reserve the stone in ``used`` so
+    #    no other slot can collide.
+    mega_slot = (0, anchor_mega.mega_stone) if anchor_mega is not None else None
+    items = _assign_items(
+        members_roles,
+        team,
+        preview_moves=preview_moves,
+        mega_slot=mega_slot,
+    )
 
     # 3. Re-select moves with the actual item context — slot 4's
     #    Choice+setup guard depends on the assigned item, so a Choice
     #    Scarf user must drop Swords Dance / Nasty Plot from slot 4.
     members: list[TeamMember] = []
-    for pokemon, roles, item in zip(team, members_roles, items):
+    for idx, (pokemon, roles, item) in enumerate(zip(team, members_roles, items)):
         primary = roles[0] if roles else "physical_sweeper"
         sp = suggest_sp_distribution(pokemon, primary)
-        ability = _pick_ability(pokemon)
+        # The anchor mega contributes its own ability and stat block. The
+        # SP template is already keyed off the mega-driven role above, so
+        # the spread targets the mega's offensive profile.
+        if idx == 0 and anchor_mega is not None:
+            ability = anchor_mega.ability
+        else:
+            ability = _pick_ability(pokemon)
         moves = replica_exporter.select_moves_for_role(pokemon, roles, item=item)
         nature = _derive_nature(primary, roles, moves)
         members.append(
@@ -605,6 +699,7 @@ def _build_variant(
                 ability=ability,
                 nature=nature,
                 moves=moves,
+                mega_form=anchor_mega if idx == 0 else None,
             )
         )
     if len(members) != 6:

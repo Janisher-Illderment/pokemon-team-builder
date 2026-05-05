@@ -18,6 +18,7 @@ from pokemon_team_builder.domain.exceptions import (
     PokeAPIError,
     PokemonIllegalError,
     PokemonNotFoundError,
+    TeamBuildError,
 )
 from pokemon_team_builder.domain.models import PokemonData, TeamVariant
 from pokemon_team_builder.services import (
@@ -105,12 +106,25 @@ def cli() -> None:
 )
 @click.option("--force", "-f", is_flag=True, default=False)
 @click.option("--json", "as_json", is_flag=True, default=False)
+@click.option(
+    "--mega",
+    "mega",
+    type=click.Choice(["auto", "off", "x", "y"]),
+    default="auto",
+    show_default=True,
+    help=(
+        "Seleccion de Mega Evolucion para el ancla: 'auto' usa la unica "
+        "forma disponible (o falla si hay X/Y), 'x'/'y' fuerza una de "
+        "las dos formas, 'off' ignora la mega aunque sea elegible."
+    ),
+)
 def build_cmd(
     pokemon_name: str,
     variants: int,
     output: Path | None,
     force: bool,
     as_json: bool,
+    mega: str,
 ) -> None:
     """Genera variantes de equipo en torno al ``pokemon_name`` indicado."""
     check_pool_validity()
@@ -132,7 +146,11 @@ def build_cmd(
             anchor,
             num_variants=variants,
             candidate_loader=_lazy_pool_candidates,
+            mega_choice=mega,
         )
+    except TeamBuildError as exc:
+        _fail(str(exc))
+        return
     except PokeAPIError as exc:
         _fail(f"{exc} Verifica tu conexion o intenta mas tarde.")
         return
