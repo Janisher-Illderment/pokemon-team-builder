@@ -9,4 +9,4 @@ RUN pip install --no-cache-dir ".[web]"
 ENV PORT=8000
 EXPOSE 8000
 
-CMD ["python", "-m", "pokemon_team_builder.main"]
+CMD uvicorn pokemon_team_builder.main:app --host 0.0.0.0 --port ${PORT:-8000}
