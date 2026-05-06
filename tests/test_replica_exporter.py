@@ -516,3 +516,92 @@ def test_flying_no_drizzle_uses_air_slash() -> None:
     )
     moves = select_moves_for_role(p, ["special_sweeper"])
     assert moves[1] == "air-slash"
+
+
+# ---------------------------------------------------------------------------
+# fix-move-item-bugs — Bug 2: Prankster lead support moves
+# ---------------------------------------------------------------------------
+
+
+def test_prankster_lead_gets_thunder_wave() -> None:
+    """lead_support with thunder-wave in pool and no higher-priority lead move → slot4."""
+    p = _mk_pokemon(
+        "klefki", ["steel", "fairy"],
+        moves=["protect", "play-rough", "flash-cannon", "thunder-wave"],
+        abilities=["prankster"],
+    )
+    moves = select_moves_for_role(p, ["lead_support"])
+    assert moves[3] == "thunder-wave"
+
+
+def test_prankster_lead_gets_spiky_shield() -> None:
+    """spiky-shield fills slot4 when thunder-wave not available."""
+    p = _mk_pokemon(
+        "klefki", ["steel", "fairy"],
+        moves=["protect", "play-rough", "flash-cannon", "spiky-shield"],
+        abilities=["prankster"],
+    )
+    moves = select_moves_for_role(p, ["lead_support"])
+    assert moves[3] == "spiky-shield"
+
+
+def test_prankster_lead_gets_encore() -> None:
+    """encore fills slot4 as last Prankster option."""
+    p = _mk_pokemon(
+        "klefki", ["steel", "fairy"],
+        moves=["protect", "play-rough", "flash-cannon", "encore"],
+        abilities=["prankster"],
+    )
+    moves = select_moves_for_role(p, ["lead_support"])
+    assert moves[3] == "encore"
+
+
+# ---------------------------------------------------------------------------
+# fix-move-item-bugs — Bug 3: Slot-4 support-first reorder
+# ---------------------------------------------------------------------------
+
+
+def test_support_role_beats_setup_in_slot4() -> None:
+    """When roles include lead_support and sweeper, tailwind wins over calm-mind."""
+    p = _mk_pokemon(
+        "volcarona", ["bug", "fire"],
+        moves=["protect", "bug-buzz", "flamethrower", "calm-mind", "tailwind"],
+        abilities=["flame-body"],
+    )
+    moves = select_moves_for_role(p, ["special_sweeper", "lead_support"])
+    assert moves[3] == "tailwind"
+
+
+def test_rage_powder_beats_calm_mind() -> None:
+    """Multi-role Pokémon with lead_support/redirect emits rage-powder over calm-mind."""
+    p = _mk_pokemon(
+        "volcarona", ["bug", "fire"],
+        moves=["protect", "bug-buzz", "flamethrower", "calm-mind", "rage-powder"],
+        abilities=["flame-body"],
+    )
+    moves = select_moves_for_role(
+        p, ["special_sweeper", "special_wall", "lead_support", "redirect"]
+    )
+    assert moves[3] == "rage-powder"
+
+
+def test_trick_room_beats_nasty_plot() -> None:
+    """trick_room_setter secondary role: trick-room wins over nasty-plot."""
+    p = _mk_pokemon(
+        "reuniclus", ["psychic"],
+        moves=["protect", "psychic", "shadow-ball", "nasty-plot", "trick-room"],
+        abilities=["magic-guard"],
+    )
+    moves = select_moves_for_role(p, ["special_sweeper", "trick_room_setter"])
+    assert moves[3] == "trick-room"
+
+
+def test_pure_sweeper_keeps_setup_move() -> None:
+    """No support role present → setup move stays in slot4 (no reorder effect)."""
+    p = _mk_pokemon(
+        "garchomp", ["dragon", "ground"],
+        moves=["protect", "dragon-claw", "earthquake", "swords-dance"],
+        abilities=["rough-skin"],
+    )
+    moves = select_moves_for_role(p, ["physical_sweeper"])
+    assert moves[3] == "swords-dance"

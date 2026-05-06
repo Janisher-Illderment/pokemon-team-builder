@@ -438,8 +438,10 @@ def _assign_items(
             for alt in (_FALLBACK_ITEM, *_BACKUP_ITEMS):
                 if alt not in used:
                     # Choice items lock the holder into one move — useless
-                    # for setters/redirectors/walls/leads.
-                    if primary in _NO_CHOICE_ROLES and alt in _CHOICE_ITEMS:
+                    # for setters/redirectors/walls/leads. Check ALL roles,
+                    # not just primary, since e.g. a secondary trick_room_setter
+                    # is equally unable to cycle utility when Choice-locked.
+                    if set(roles) & _NO_CHOICE_ROLES and alt in _CHOICE_ITEMS:
                         continue
                     if members is None or _item_is_activatable(
                         alt, members[i], moves_for_i
@@ -450,7 +452,7 @@ def _assign_items(
                 # Last resort: take any unused item, activation or not — better than nothing
                 for alt in (_FALLBACK_ITEM, *_BACKUP_ITEMS):
                     if alt not in used:
-                        if primary in _NO_CHOICE_ROLES and alt in _CHOICE_ITEMS:
+                        if set(roles) & _NO_CHOICE_ROLES and alt in _CHOICE_ITEMS:
                             continue
                         chosen = alt
                         break

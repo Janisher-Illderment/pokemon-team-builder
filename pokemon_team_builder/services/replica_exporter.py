@@ -44,7 +44,7 @@ _STAB_BY_TYPE: dict[str, tuple[str, ...]] = {
         "leaf-blade",
         "seed-bomb",
     ),
-    "ice": ("ice-beam", "blizzard", "icicle-crash", "ice-punch", "freeze-dry"),
+    "ice": ("ice-beam", "blizzard", "icicle-crash", "ice-punch", "ice-fang", "freeze-dry"),
     "fighting": (
         "close-combat",
         "drain-punch",
@@ -88,6 +88,7 @@ _COVERAGE_PRIORITY: tuple[str, ...] = (
     "rock-slide",
     "flamethrower",
     "energy-ball",
+    "earth-power",  # before earthquake — special, no ally hit
     "earthquake",   # last — hits ally in Doubles unless partner has Ground immunity
 )
 
@@ -141,6 +142,7 @@ _MOVE_CATEGORY: dict[str, str] = {
     "blizzard": "special",
     "icicle-crash": "physical",
     "ice-punch": "physical",
+    "ice-fang": "physical",
     "freeze-dry": "special",
     # fighting
     "close-combat": "physical",
@@ -259,6 +261,7 @@ _MOVE_TYPE: dict[str, str] = {
     "blizzard": "ice",
     "icicle-crash": "ice",
     "ice-punch": "ice",
+    "ice-fang": "ice",
     "freeze-dry": "ice",
     # fighting
     "close-combat": "fighting",
@@ -330,9 +333,19 @@ _SETUP_MOVES: frozenset[str] = frozenset({
 })
 
 
+# Support roles that should be checked first in slot-4 selection. When a
+# Pokémon has both sweeper and support roles, the support move wins slot 4
+# (Rage Powder > Calm Mind, Trick Room > Nasty Plot).
+_SLOT4_SUPPORT_ROLES: frozenset[str] = frozenset({
+    "lead_support", "redirect", "trick_room_setter",
+})
+
 # Role -> ordered list of preferred role moves.
 _ROLE_MOVE_PRIORITY: dict[str, tuple[str, ...]] = {
-    "lead_support": ("tailwind", "fake-out", "follow-me", "rage-powder"),
+    "lead_support": (
+        "tailwind", "fake-out", "follow-me", "rage-powder",
+        "thunder-wave", "spiky-shield", "encore",
+    ),
     "trick_room_setter": ("trick-room",),
     "redirect": ("follow-me", "rage-powder"),
     "physical_sweeper": ("swords-dance", "dragon-dance", "bulk-up"),
@@ -458,11 +471,15 @@ def select_moves_for_role(
         slot3 = _fallback_move(move_pool, used)
     used.add(slot3)
 
-    # Slot 4: role move — walk all assigned roles, not just primary, so a
-    # pokemon with roles ["lead_support", "redirect"] gets follow-me/tailwind
-    # even if the primary-role list is exhausted.
+    # Slot 4: role move — walk all assigned roles, support roles first so that
+    # a Pokemon with both sweeper and support roles emits the support move
+    # (Rage Powder > Calm Mind, Trick Room > Nasty Plot). Order within each
+    # group is preserved from the original roles list.
+    slot4_order = sorted(
+        roles, key=lambda r: (0 if r in _SLOT4_SUPPORT_ROLES else 1, roles.index(r))
+    )
     slot4 = None
-    for role in roles:
+    for role in slot4_order:
         for candidate in _ROLE_MOVE_PRIORITY.get(role, ()):
             if candidate in used:
                 continue

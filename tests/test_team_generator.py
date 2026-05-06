@@ -771,3 +771,48 @@ def test_weather_setter_not_counted_as_pure_sweeper() -> None:
     score = _partial_score(team, role_map)
     # pure_sweeper_count = 2 (weather_setter excluded) → no penalty applied
     assert score > 0  # score would be negative if penalty wrongly applied to 3
+
+
+# ---------------------------------------------------------------------------
+# fix-move-item-bugs — Bug 1: Choice guard any-role
+# ---------------------------------------------------------------------------
+
+
+def test_choice_blocked_when_setter_is_secondary_role() -> None:
+    from pokemon_team_builder.services.team_generator import (
+        _assign_items,
+        _CHOICE_ITEMS,
+    )
+
+    # Member 0 takes Shell Bell (special_sweeper default).
+    # Member 1 has trick_room_setter as secondary role → Choice Scarf must be skipped.
+    items = _assign_items([
+        ["special_sweeper"],
+        ["special_sweeper", "trick_room_setter"],
+    ])
+    assert items[1] not in _CHOICE_ITEMS
+
+
+def test_choice_blocked_when_redirect_is_secondary_role() -> None:
+    from pokemon_team_builder.services.team_generator import (
+        _assign_items,
+        _CHOICE_ITEMS,
+    )
+
+    items = _assign_items([
+        ["special_sweeper"],
+        ["special_sweeper", "redirect"],
+    ])
+    assert items[1] not in _CHOICE_ITEMS
+
+
+def test_pure_sweeper_still_gets_choice_scarf_as_fallback() -> None:
+    from pokemon_team_builder.services.team_generator import _assign_items
+
+    # Member 0 takes Scope Lens (physical_sweeper default).
+    # Member 1 has no no-choice role → Choice Scarf is the first fallback.
+    items = _assign_items([
+        ["physical_sweeper"],
+        ["physical_sweeper"],
+    ])
+    assert items[1] == "Choice Scarf"
