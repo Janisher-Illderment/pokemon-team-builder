@@ -29,9 +29,9 @@
 
 - [x] 5.1 Escribir `Dockerfile` (base `python:3.11-slim`, instala dependencias web, COPY package, CMD uvicorn)
 - [x] 5.2 Añadir `.dockerignore` (excluir `__pycache__`, `.git`, `tests/`, `openspec/`)
-- [ ] 5.3 Verificar build local: `docker build -t poke-builder .` y `GET /health` pasa  ← requiere Docker Desktop
+- [x] 5.3 Verificar build: build OK en Render (Dockerfile idéntico), /health pasa
 - [x] 5.4 Crear `railway.toml` con `[build] builder = "dockerfile"` y `[deploy] healthcheckPath = "/health"`
-- [ ] 5.5 Deploy en Railway: conectar repo, activar auto-deploy desde `master`, verificar URL pública  ← requiere push + cuenta Railway
+- [x] 5.5 Deploy en Render (Railway descartado — fallo platform-side); URL pública activa, /health OK
 
 ## 6. CI
 
