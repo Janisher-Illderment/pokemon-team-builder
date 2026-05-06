@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pokemon Team Builder</title>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body x-data="app()" x-init="init()">
+
+  <header>
+    <h1>Pokemon Team Builder</h1>
+    <p class="subtitle">VGC Doubles · Regulation M-A</p>
+  </header>
+
+  <main>
+    <form @submit.prevent="generate" class="search-form">
+      <input
+        type="text"
+        x-model="anchor"
+        placeholder="Anchor Pokémon (e.g. garchomp)"
+        autocomplete="off"
+        spellcheck="false"
+        :disabled="loading"
+        required
+      />
+      <label class="variants-label">
+        Variants
+        <select x-model="variants" :disabled="loading">
+          <option>1</option><option>2</option>
+          <option selected>3</option><option>4</option><option>5</option>
+        </select>
+      </label>
+      <button type="submit" :disabled="loading">
+        <span x-show="!loading">Generate</span>
+        <span x-show="loading">Loading…</span>
+      </button>
+    </form>
+
+    <p x-show="error" class="error-msg" x-text="error"></p>
+
+    <section x-show="results.length > 0" class="results">
+      <template x-for="(v, i) in results" :key="i">
+        <div class="variant-card" :class="{ recommended: v.recommended }">
+          <div class="variant-header">
+            <span class="variant-title" x-text="'Variant ' + (i+1)"></span>
+            <span x-show="v.recommended" class="badge">Recommended</span>
+            <span class="score" x-text="'Score: ' + v.score"></span>
+            <button class="copy-btn" @click="copy(v.pokepaste, $event)">Copy Pokepaste</button>
+          </div>
+          <div class="members">
+            <template x-for="m in v.members" :key="m.name">
+              <div class="member">
+                <strong x-text="capitalize(m.name)"></strong>
+                <span class="detail" x-text="'@ ' + capitalize(m.item)"></span>
+                <span class="detail" x-text="m.ability + ' · ' + m.nature"></span>
+                <ul class="moves">
+                  <template x-for="mv in m.moves" :key="mv">
+                    <li x-text="capitalize(mv)"></li>
+                  </template>
+                </ul>
+                <div class="roles">
+                  <template x-for="r in m.roles" :key="r">
+                    <span class="role-tag" x-text="r.replace(/_/g,' ')"></span>
+                  </template>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+      </template>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

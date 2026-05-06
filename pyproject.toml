@@ -23,6 +23,11 @@ dev = [
     "respx",
     "pyinstaller>=6.0",
 ]
+web = [
+    "fastapi>=0.111",
+    "uvicorn[standard]>=0.29",
+    "slowapi>=0.1.9",
+]
 
 [project.scripts]
 poke-builder = "pokemon_team_builder.cli.main:cli"

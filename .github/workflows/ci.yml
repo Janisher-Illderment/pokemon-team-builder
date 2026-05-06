@@ -22,3 +22,19 @@ jobs:
 
       - name: Run tests
         run: pytest --tb=short -q
+
+  test-api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -e ".[dev,web]"
+
+      - name: Run API tests
+        run: pytest tests/test_api.py --tb=short -q
