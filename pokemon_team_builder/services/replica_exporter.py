@@ -51,6 +51,7 @@ _STAB_BY_TYPE: dict[str, tuple[str, ...]] = {
         "focus-blast",
         "aura-sphere",
         "brick-break",
+        "dynamic-punch",
     ),
     "poison": ("sludge-bomb", "gunk-shot", "poison-jab", "sludge-wave"),
     "ground": ("earthquake", "earth-power", "high-horsepower", "bulldoze"),
@@ -146,6 +147,7 @@ _MOVE_CATEGORY: dict[str, str] = {
     "drain-punch": "physical",
     "aura-sphere": "special",
     "brick-break": "physical",
+    "dynamic-punch": "physical",
     # poison
     "sludge-bomb": "special",
     "gunk-shot": "physical",
@@ -263,6 +265,7 @@ _MOVE_TYPE: dict[str, str] = {
     "drain-punch": "fighting",
     "aura-sphere": "fighting",
     "brick-break": "fighting",
+    "dynamic-punch": "fighting",
     # poison
     "sludge-bomb": "poison",
     "gunk-shot": "poison",
@@ -310,6 +313,16 @@ _MOVE_TYPE: dict[str, str] = {
 }
 
 _CHOICE_ITEMS: frozenset[str] = frozenset({"Choice Scarf", "Choice Band", "Choice Specs"})
+
+# When a Pokemon has a weather-setting ability, certain moves become strictly
+# better than the default preferred alternative (Blizzard never misses in
+# snow — 110 BP vs 90 BP of Ice Beam with 100% accuracy). Override slot-2
+# when the preferred move is in the Pokemon's actual move pool.
+_ABILITY_STAB_OVERRIDES: dict[str, dict[str, str]] = {
+    "snow-warning": {"ice-beam": "blizzard"},
+    "no-guard": {"close-combat": "dynamic-punch"},
+    "drizzle": {"air-slash": "hurricane"},
+}
 _SETUP_MOVES: frozenset[str] = frozenset({
     "nasty-plot", "calm-mind", "tail-glow",
     "swords-dance", "dragon-dance", "bulk-up",
@@ -404,6 +417,20 @@ def select_moves_for_role(
             break
     if slot2 is None:
         slot2 = _fallback_move(move_pool, used)
+
+    # Ability-aware STAB upgrade: iterate all abilities in order, use the first
+    # one found in _ABILITY_STAB_OVERRIDES (PokeAPI lists abilities as
+    # [slot1, slot2, hidden] — competitive ability is not always at index 0).
+    ability_overrides: dict[str, str] = {}
+    for _ab in pokemon.abilities:
+        _overrides = _ABILITY_STAB_OVERRIDES.get(_ab.lower(), {})
+        if _overrides:
+            ability_overrides = _overrides
+            break
+    upgrade = ability_overrides.get(slot2)
+    if upgrade and upgrade in move_pool and upgrade not in used:
+        slot2 = upgrade
+
     used.add(slot2)
 
     # Slot 3: coverage — skip same-type moves AND moves of the wrong attack

@@ -278,6 +278,16 @@ def _partial_score(
         if count >= 3:
             score -= (count - 2) * 1.5
 
+    _pure_sweeper_roles = {"physical_sweeper", "special_sweeper"}
+    _support_roles = {"lead_support", "redirect", "physical_wall", "special_wall", "trick_room_setter"}
+    pure_sweeper_count = sum(
+        1 for member in partial_team
+        if set(role_map.get(member.name, assign_role(member))).issubset(_pure_sweeper_roles)
+        and not set(role_map.get(member.name, assign_role(member))) & _support_roles
+    )
+    if pure_sweeper_count > 2:
+        score -= (pure_sweeper_count - 2) * 4.0
+
     return score
 
 

@@ -725,3 +725,49 @@ def test_nature_calm_for_redirect_regardless_of_slot2() -> None:
     moves = ["protect", "iron-head", "follow-me", "earthquake"]
     nature = _derive_nature("redirect", ["redirect"], moves)
     assert nature == "Calm"
+
+
+def test_partial_score_penalizes_excess_sweepers() -> None:
+    from pokemon_team_builder.services.team_generator import _partial_score
+
+    # Three pure physical sweepers → penalized
+    sweeper = _mk("sweeper", ["normal"], atk=120, spa=60, spe=100)
+    three_sweepers = [sweeper, sweeper, _mk("sweeper2", ["fire"], atk=120, spa=60, spe=100, pid=2)]
+    role_map_all_sweep = {p.name: ["physical_sweeper"] for p in three_sweepers}
+    score_3_sweepers = _partial_score(three_sweepers, role_map_all_sweep)
+
+    # Two sweepers + one lead → not penalized
+    lead = _mk("lead", ["water"], spe=110, moves=["protect", "tailwind", "surf", "ice-beam"], pid=3)
+    mixed = [sweeper, _mk("sweeper2", ["fire"], atk=120, spa=60, spe=100, pid=2), lead]
+    role_map_mixed = {
+        sweeper.name: ["physical_sweeper"],
+        "sweeper2": ["physical_sweeper"],
+        lead.name: ["lead_support"],
+    }
+    score_mixed = _partial_score(mixed, role_map_mixed)
+
+    assert score_3_sweepers < score_mixed
+
+
+def test_weather_setter_not_counted_as_pure_sweeper() -> None:
+    from pokemon_team_builder.services.team_generator import _partial_score
+
+    # Pokemon with lead_support + special_sweeper is NOT a pure sweeper
+    weather_setter = _mk(
+        "ninetales-alola", ["ice", "fairy"],
+        hp=73, atk=67, def_=75, spa=81, spd=100, spe=109,
+        abilities=["snow-warning"], pid=10,
+    )
+    sweeper1 = _mk("garchomp", ["dragon", "ground"], atk=130, spe=102, pid=11)
+    sweeper2 = _mk("dragonite", ["dragon", "flying"], atk=134, spe=80, pid=12)
+    # weather setter gets lead_support as primary from assign_role
+    # → should not trigger the sweeper penalty
+    team = [weather_setter, sweeper1, sweeper2]
+    role_map = {
+        weather_setter.name: ["lead_support", "special_sweeper"],
+        sweeper1.name: ["physical_sweeper"],
+        sweeper2.name: ["physical_sweeper"],
+    }
+    score = _partial_score(team, role_map)
+    # pure_sweeper_count = 2 (weather_setter excluded) → no penalty applied
+    assert score > 0  # score would be negative if penalty wrongly applied to 3

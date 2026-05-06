@@ -394,3 +394,125 @@ def test_format_species_default_capitalize_unchanged() -> None:
 
     assert _format_species("rotom-wash") == "Rotom-Wash"
     assert _format_species("urshifu-single-strike") == "Urshifu-Single-Strike"
+
+
+def test_snow_warning_prefers_blizzard() -> None:
+    """Snow Warning Pokemon with both Ice Beam and Blizzard in pool → slot2 = blizzard."""
+    ninetales_a = _mk_pokemon(
+        "ninetales-alola",
+        ["ice", "fairy"],
+        moves=["protect", "blizzard", "ice-beam", "moonblast", "dazzling-gleam"],
+        abilities=["snow-warning"],
+    )
+    moves = select_moves_for_role(ninetales_a, ["lead_support", "special_sweeper"])
+    assert moves[1] == "blizzard"
+
+
+def test_snow_warning_fallback_ice_beam() -> None:
+    """Snow Warning Pokemon without Blizzard in pool → slot2 = ice-beam (no crash)."""
+    ninetales_a = _mk_pokemon(
+        "ninetales-alola",
+        ["ice", "fairy"],
+        moves=["protect", "ice-beam", "moonblast", "dazzling-gleam"],
+        abilities=["snow-warning"],
+    )
+    moves = select_moves_for_role(ninetales_a, ["lead_support", "special_sweeper"])
+    assert moves[1] == "ice-beam"
+
+
+def test_no_override_without_weather_ability() -> None:
+    """Ice-type Pokemon without Snow Warning → ice-beam not upgraded to blizzard."""
+    # Jynx is Ice/Psychic special attacker — ice-beam comes first in _STAB_BY_TYPE["ice"]
+    # without snow-warning the override must NOT fire even though blizzard is in pool.
+    jynx = _mk_pokemon(
+        "jynx",
+        ["ice", "psychic"],
+        moves=["protect", "ice-beam", "blizzard", "psychic", "calm-mind"],
+        abilities=["oblivious"],
+    )
+    moves = select_moves_for_role(jynx, ["special_sweeper"])
+    assert moves[1] == "ice-beam"
+
+
+# ---------------------------------------------------------------------------
+# fix-role-balance-2 — ability index bug + new overrides
+# ---------------------------------------------------------------------------
+
+
+def test_ninetales_a_blizzard_via_ability_idx1() -> None:
+    """Snow Warning at index 1 (snow-cloak primary) still upgrades to blizzard."""
+    ninetales_a = _mk_pokemon(
+        "ninetales-alola",
+        ["ice", "fairy"],
+        moves=["protect", "ice-beam", "blizzard", "moonblast"],
+        abilities=["snow-cloak", "snow-warning"],
+    )
+    moves = select_moves_for_role(ninetales_a, ["lead_support", "special_sweeper"])
+    assert moves[1] == "blizzard"
+
+
+def test_machamp_dynamic_punch_via_no_guard_idx1() -> None:
+    """No Guard at index 1 upgrades close-combat to dynamic-punch."""
+    machamp = _mk_pokemon(
+        "machamp",
+        ["fighting"],
+        moves=["protect", "close-combat", "dynamic-punch", "knock-off"],
+        abilities=["guts", "no-guard"],
+    )
+    moves = select_moves_for_role(machamp, ["physical_sweeper"])
+    assert moves[1] == "dynamic-punch"
+
+
+def test_pelipper_hurricane_via_drizzle() -> None:
+    """Drizzle (index 1) upgrades air-slash to hurricane.
+
+    Pool excludes water STAB moves so air-slash wins slot2 first (no water
+    STAB available), then the Drizzle override promotes it to hurricane.
+    """
+    pelipper = _mk_pokemon(
+        "pelipper",
+        ["water", "flying"],
+        moves=["protect", "air-slash", "hurricane"],
+        abilities=["keen-eye", "drizzle"],
+    )
+    moves = select_moves_for_role(pelipper, ["lead_support", "special_sweeper"])
+    assert moves[1] == "hurricane"
+
+
+def test_no_override_no_matching_ability() -> None:
+    """Ability not in _ABILITY_STAB_OVERRIDES → no upgrade applied."""
+    p = _mk_pokemon(
+        "articuno",
+        ["ice", "flying"],
+        moves=["protect", "ice-beam", "blizzard", "hurricane"],
+        abilities=["pressure"],
+    )
+    moves = select_moves_for_role(p, ["special_sweeper"])
+    assert moves[1] == "ice-beam"
+
+
+def test_fighting_no_guard_absent_uses_close_combat() -> None:
+    """Without No Guard, close-combat is chosen over dynamic-punch."""
+    p = _mk_pokemon(
+        "hariyama",
+        ["fighting"],
+        moves=["protect", "close-combat", "dynamic-punch", "knock-off"],
+        abilities=["guts"],
+    )
+    moves = select_moves_for_role(p, ["physical_sweeper"])
+    assert moves[1] == "close-combat"
+
+
+def test_flying_no_drizzle_uses_air_slash() -> None:
+    """Without Drizzle, air-slash is chosen over hurricane (no override fires).
+
+    Pool excludes non-flying STAB so air-slash is the natural first STAB pick.
+    """
+    p = _mk_pokemon(
+        "pelipper",
+        ["water", "flying"],
+        moves=["protect", "air-slash", "hurricane"],
+        abilities=["keen-eye"],
+    )
+    moves = select_moves_for_role(p, ["special_sweeper"])
+    assert moves[1] == "air-slash"

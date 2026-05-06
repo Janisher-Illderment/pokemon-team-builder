@@ -30,13 +30,20 @@ ALL_TYPES: tuple[str, ...] = (
 )
 
 
-# Substring markers for detecting "support-y" moves on a fast Pokemon.
-_LEAD_SUPPORT_MARKERS: tuple[str, ...] = (
-    "tailwind",
-    "follow-me",
-    "rage-powder",
-    "fake-out",
-)
+_AUTO_LEAD_ABILITIES: frozenset[str] = frozenset({
+    "drought", "drizzle", "snow-warning", "sand-stream", "prankster",
+})
+
+# Species whose competitive ability is at a non-zero index in PokeAPI but
+# are definitively weather setters in VGC context.
+_COMPETITIVE_WEATHER_SPECIES: frozenset[str] = frozenset({
+    "ninetales-alola", "pelipper", "politoed", "torkoal",
+})
+
+# Tailwind requires a fast setter (spe >= 90 threshold).
+_TAILWIND_MARKERS: tuple[str, ...] = ("tailwind",)
+# Priority/redirect moves work regardless of Speed — no gate needed.
+_PRIORITY_SUPPORT_MARKERS: tuple[str, ...] = ("fake-out", "follow-me", "rage-powder")
 
 _SWEEPER_ROLES: frozenset[str] = frozenset({"physical_sweeper", "special_sweeper"})
 _SUPPORT_ROLES: frozenset[str] = frozenset({"lead_support", "redirect"})
@@ -68,6 +75,19 @@ def assign_role(pokemon: PokemonData) -> list[str]:
 
     roles: list[str] = []
 
+    # abilities[0] check prevents false positives (e.g. Aurorus whose primary
+    # is Refrigerate, not Snow Warning). Whitelist covers species where the
+    # competitive ability is at a non-zero index in PokeAPI ordering.
+    abilities_lower = [a.lower() for a in pokemon.abilities]
+    if abilities_lower and (
+        abilities_lower[0] in _AUTO_LEAD_ABILITIES
+        or (
+            pokemon.name in _COMPETITIVE_WEATHER_SPECIES
+            and any(a in _AUTO_LEAD_ABILITIES for a in abilities_lower)
+        )
+    ):
+        roles.append("lead_support")
+
     # WHY: when both offensive stats are >=100 the dominant one must come
     # first so it becomes the primary role (drives item, nature, SP). A
     # naïve append-both order made Hydreigon (Atk 105 / SpA 125) build as
@@ -87,7 +107,9 @@ def assign_role(pokemon: PokemonData) -> list[str]:
         roles.append("physical_wall")
     if stats.spd >= 100 and stats.hp >= 80:
         roles.append("special_wall")
-    if stats.spe >= 90 and _move_contains_any(moves, _LEAD_SUPPORT_MARKERS):
+    if stats.spe >= 90 and _move_contains_any(moves, _TAILWIND_MARKERS):
+        roles.append("lead_support")
+    if _move_contains_any(moves, _PRIORITY_SUPPORT_MARKERS):
         roles.append("lead_support")
     if stats.spe <= 60 and "trick-room" in moves:
         roles.append("trick_room_setter")

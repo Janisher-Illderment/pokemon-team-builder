@@ -219,3 +219,107 @@ def test_score_flexibility() -> None:
     score = score_flexibility(team)
     assert isinstance(score, int)
     assert 0 <= score <= 15
+
+
+def test_weather_setter_gets_lead_support_primary() -> None:
+    # Ninetales-A: Snow Warning, SpA 81 (< 100 threshold) → lead_support only
+    # (no sweeper role since neither offensive stat reaches 100)
+    ninetales_a = _mk(
+        "ninetales-alola",
+        ["ice", "fairy"],
+        hp=73, atk=67, def_=75, spa=81, spd=100, spe=109,
+        abilities=["snow-warning"],
+    )
+    roles = assign_role(ninetales_a)
+    assert roles[0] == "lead_support"
+
+
+def test_weather_setter_tyranitar_lead_plus_physical() -> None:
+    # Tyranitar: Sand Stream, Atk 134 >= 100 → lead_support first, physical_sweeper second
+    tyranitar = _mk(
+        "tyranitar",
+        ["rock", "dark"],
+        hp=100, atk=134, def_=110, spa=95, spd=100, spe=61,
+        abilities=["sand-stream"],
+    )
+    roles = assign_role(tyranitar)
+    assert roles[0] == "lead_support"
+    assert "physical_sweeper" in roles
+
+
+def test_non_weather_ability_unaffected() -> None:
+    # Intimidate is not a weather ability → no lead_support injected by weather rule
+    arcanine = _mk(
+        "arcanine",
+        ["fire"],
+        hp=90, atk=110, def_=80, spa=100, spd=80, spe=95,
+        abilities=["intimidate"],
+        moves=["tackle"],
+    )
+    roles = assign_role(arcanine)
+    assert roles[0] != "lead_support" or "tailwind" in arcanine.move_names
+
+
+def test_prankster_primary_is_lead() -> None:
+    # Whimsicott: prankster at abilities[0] → roles[0] == lead_support
+    p = _mk("whimsicott", ["grass", "fairy"], spe=116, abilities=["prankster"])
+    roles = assign_role(p)
+    assert roles[0] == "lead_support"
+
+
+def test_prankster_hidden_not_lead() -> None:
+    # Prankster at index 2 (hidden ability) must NOT trigger lead_support via ability rule
+    p = _mk(
+        "meowstic",
+        ["psychic"],
+        spe=104,
+        abilities=["keen-eye", "infiltrator", "prankster"],
+    )
+    roles = assign_role(p)
+    # lead_support must not be roles[0] unless a move also triggers it
+    # (no moves given here, so the ability rule is the only possible trigger)
+    assert roles[0] != "lead_support"
+
+
+def test_fake_out_slow_mon_is_lead() -> None:
+    # Incineroar: spe=60, fake-out in pool → lead_support (no speed gate for priority)
+    p = _mk(
+        "incineroar",
+        ["fire", "dark"],
+        hp=95, atk=115, def_=90, spa=80, spd=90, spe=60,
+        moves=["fake-out", "protect", "flare-blitz", "knock-off"],
+    )
+    roles = assign_role(p)
+    assert "lead_support" in roles
+
+
+def test_tailwind_slow_not_lead() -> None:
+    # spe=50, only tailwind — must NOT get lead_support (speed gate applies to tailwind)
+    p = _mk("bronzong", ["steel", "psychic"], spe=33, moves=["tailwind", "gyro-ball"])
+    roles = assign_role(p)
+    assert "lead_support" not in roles
+
+
+def test_aurorus_not_weather_setter() -> None:
+    # Aurorus: abilities[0]=refrigerate, snow-warning at idx 1, NOT in whitelist
+    # → no lead_support injected by weather/ability rule
+    p = _mk(
+        "aurorus",
+        ["rock", "ice"],
+        hp=123, atk=77, def_=72, spa=99, spd=92, spe=58,
+        abilities=["refrigerate", "snow-warning"],
+    )
+    roles = assign_role(p)
+    assert "lead_support" not in roles
+
+
+def test_ninetales_alola_whitelist_lead() -> None:
+    # Ninetales-A: snow-cloak primary, snow-warning idx 1, but species in whitelist
+    p = _mk(
+        "ninetales-alola",
+        ["ice", "fairy"],
+        hp=73, atk=67, def_=75, spa=81, spd=100, spe=109,
+        abilities=["snow-cloak", "snow-warning"],
+    )
+    roles = assign_role(p)
+    assert roles[0] == "lead_support"
