@@ -87,6 +87,7 @@
     <main x-data="app()" x-init="init()">
       <form @submit.prevent="generate" class="search-form">
         <input
+          id="anchor-input"
           type="text"
           x-model="anchor"
           placeholder="Anchor Pokémon (ej: garchomp)"
@@ -242,7 +243,7 @@
       </section>
 
       <!-- Import PokePaste -->
-      <section class="import-section">
+      <section id="import-section" class="import-section">
         <h2 class="import-title">Importar PokePaste</h2>
         <textarea
           x-model="importPaste"
@@ -372,11 +373,12 @@ Jolly Nature
     <!-- Top Teams del Meta -->
     <section x-data="metaTeams()" class="meta-section">
       <button class="meta-toggle" @click="expand()">
-        <span>🏆 Top Teams del Meta (M-A)</span>
+        <span>Top Teams del Meta (M-A)</span>
         <span x-show="!open">▼</span>
         <span x-show="open">▲</span>
       </button>
       <div x-show="open" x-transition>
+        <p class="meta-note">Fuente: LabMaus (VGC Reg M-A). Equipos Champions-compatibles se pueden importar directamente; otros mostrarán un error de pool.</p>
         <div x-show="loading" class="meta-loading">Cargando…</div>
         <p x-show="error" class="error-msg" x-text="error"></p>
         <p x-show="!loading && !error && teams.length === 0 && stale" class="meta-empty">

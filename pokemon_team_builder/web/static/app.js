@@ -29,6 +29,12 @@ function app() {
         const r = await fetch('/legal-pool');
         if (r.ok) { const d = await r.json(); this.legalPool = d.names || []; }
       } catch {}
+      window.addEventListener('meta-prefill-import', (e) => {
+        this.importPaste = e.detail.paste || '';
+        this.importError = '';
+        const el = document.getElementById('import-section');
+        if (el) el.scrollIntoView({ behavior: 'smooth' });
+      });
     },
 
     async generate() {
@@ -341,14 +347,24 @@ function metaTeams() {
 
     spriteUrl(name) { return spriteUrl(name); },
 
-    importTeam(team) {
+    async importTeam(team) {
       if (team.pokepaste_url && team.pokepaste_url.startsWith('https://pokepast.es/')) {
-        // Dispatch to global app importPaste
-        const evt = new CustomEvent('meta-import-pokepaste', { detail: { url: team.pokepaste_url } });
-        document.dispatchEvent(evt);
+        try {
+          const rawUrl = team.pokepaste_url.replace(/\/$/, '') + '/raw';
+          const res = await fetch(rawUrl);
+          if (res.ok) {
+            const paste = await res.text();
+            window.dispatchEvent(new CustomEvent('meta-prefill-import', { detail: { paste } }));
+          }
+        } catch {}
       } else if (team.members && team.members.length > 0) {
-        const evt = new CustomEvent('meta-import-anchor', { detail: { name: team.members[0].name } });
-        document.dispatchEvent(evt);
+        // Fallback: pre-fill anchor with first member name
+        const anchorEl = document.getElementById('anchor-input');
+        if (anchorEl) {
+          anchorEl.value = team.members[0].name;
+          anchorEl.dispatchEvent(new Event('input'));
+          anchorEl.scrollIntoView({ behavior: 'smooth' });
+        }
       }
     },
   };
