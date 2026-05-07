@@ -182,6 +182,7 @@ def _variant_to_out(v: TeamVariant, *, format_mode: str = "bo1") -> VariantOut:
             sp_distribution=_build_sp_dict(m.sp_distribution),
             ev_note=ev_explainer.explain(m, _speed_db, _meta_svc),
             move_names=m.pokemon.move_names,
+            mega_form_id=m.mega_form.form_id if m.mega_form else None,
         )
         for m in v.members
     ]

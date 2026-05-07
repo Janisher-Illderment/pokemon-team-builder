@@ -1,7 +1,7 @@
 {
   "regulation": "M-A",
   "valid_until": "2026-06-17",
-  "note": "Pool oficial de Pokemon Champions Regulation M-A. Fuente: wikidex.net/wiki/Lista_de_Pokemon_de_Pokemon_Champions + sheet de Champions speed tiers. 202 entradas.",
+  "note": "Pool oficial de Pokemon Champions Regulation M-A. Fuente: wikidex.net + sheet Champions speed tiers. 201 entradas.",
   "pokemon": [
     {
       "id": 3,
@@ -734,10 +734,6 @@
     {
       "id": 977,
       "name": "dondozo"
-    },
-    {
-      "id": 978,
-      "name": "tatsugiri"
     },
     {
       "id": 981,

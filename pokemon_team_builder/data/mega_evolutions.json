@@ -1149,6 +1149,82 @@
         },
         "verified": true
       }
+    ],
+    "glimmora": [
+      {
+        "form_id": "glimmora-mega",
+        "mega_stone": "Glimmoranite",
+        "types": [
+          "rock",
+          "poison"
+        ],
+        "ability": "adaptability",
+        "stats": {
+          "hp": 83,
+          "atk": 90,
+          "def": 105,
+          "spa": 150,
+          "spd": 96,
+          "spe": 101
+        },
+        "verified": true
+      }
+    ],
+    "scovillain": [
+      {
+        "form_id": "scovillain-mega",
+        "mega_stone": "Scovillainite",
+        "types": [
+          "grass",
+          "fire"
+        ],
+        "ability": "spicy-spray",
+        "stats": {
+          "hp": 65,
+          "atk": 138,
+          "def": 85,
+          "spa": 138,
+          "spd": 85,
+          "spe": 75
+        },
+        "verified": true
+      }
+    ],
+    "raichu": [
+      {
+        "form_id": "raichu-mega-x",
+        "mega_stone": "Raichunite X",
+        "types": [
+          "electric"
+        ],
+        "ability": "static",
+        "stats": {
+          "hp": 60,
+          "atk": 135,
+          "def": 95,
+          "spa": 90,
+          "spd": 95,
+          "spe": 110
+        },
+        "verified": false
+      },
+      {
+        "form_id": "raichu-mega-y",
+        "mega_stone": "Raichunite Y",
+        "types": [
+          "electric"
+        ],
+        "ability": "lightning-rod",
+        "stats": {
+          "hp": 60,
+          "atk": 100,
+          "def": 55,
+          "spa": 160,
+          "spd": 80,
+          "spe": 130
+        },
+        "verified": false
+      }
     ]
   }
 }

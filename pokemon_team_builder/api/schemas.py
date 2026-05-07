@@ -22,6 +22,7 @@ class MemberOut(BaseModel):
     sp_distribution: dict[str, int] = {}
     ev_note: str = ""
     move_names: list[str] = []
+    mega_form_id: str | None = None
 
 
 class VariantOut(BaseModel):
