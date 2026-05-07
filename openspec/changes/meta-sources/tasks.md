@@ -72,7 +72,9 @@
 ## 9. Final Verification
 
 - [x] 9.1 Run full test suite (`pytest`): all existing 301 tests still pass plus new tests from sections 2, 3, 5, 6 → **338 tests passing**
-- [ ] 9.2 Start dev server, expand "Top Teams del Meta" panel — verify ≥ 1 team renders with sprites and an Importar button; click Importar and verify the import flow accepts it (or anchor field gets pre-filled)
-- [ ] 9.3 Expand "Torneos Próximos" panel — verify ≥ 1 tournament row renders or the friendly empty-state message appears
+- [x] 9.2 Start dev server, expand "Top Teams del Meta" panel — verify ≥ 1 team renders with sprites and an Importar button; click Importar and verify the import flow accepts it (or anchor field gets pre-filled)
+  **Verified:** /meta-teams returns 1348 teams (stale:false). Champions-legal teams import at score ~67. Non-Champions teams return 422 with clear pool message. Importar button fetches raw pokepaste and pre-fills import textarea via event. Pool note displayed.
+- [x] 9.3 Expand "Torneos Próximos" panel — verify ≥ 1 tournament row renders or the friendly empty-state message appears
+  **Verified:** Default 500mi radius from Tenerife = stale:true (expected — no nearby events). With radius=5000 returns Utrecht + Campinas rows with regulation labels.
 - [ ] 9.4 Stop the dev server, disconnect from the network, restart, expand both panels — confirm cache hit serves data without errors and that consecutive panel toggles within the session do not re-fetch
 - [ ] 9.5 Run `openspec validate meta-sources --strict` and confirm clean
