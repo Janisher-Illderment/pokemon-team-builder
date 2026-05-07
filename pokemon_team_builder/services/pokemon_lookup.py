@@ -196,6 +196,32 @@ _EXPLICIT_FORM_MAP: dict[str, str] = {
     "mime-jr": "mime-jr",
 }
 
+# Pokémon whose PokeAPI slug differs from our pool slug.
+# Values are tried in order before falling back to a stub PokemonData.
+_POKEAPI_SLUG_ALIASES: dict[str, list[str]] = {
+    "basculegion": ["basculegion-male"],
+    "enamorus": ["enamorus-incarnate"],
+}
+
+
+def _fallback_pokemon_data(slug: str) -> "PokemonData":
+    """Minimal PokemonData stub when PokeAPI can't resolve a slug.
+
+    Prevents import from crashing. Stats are placeholder (1s); types=Normal.
+    """
+    return PokemonData(
+        id=9999,
+        name=slug,
+        types=["normal"],
+        base_stats=BaseStats.model_validate(
+            {"hp": 1, "atk": 1, "def": 1, "spa": 1, "spd": 1, "spe": 1}
+        ),
+        move_names=[],
+        abilities=[],
+        weaknesses=calculate_weaknesses(["normal"]),
+        megas=[],
+    )
+
 
 def normalize_display_name(raw: str) -> str:
     """Convert a LabMaus display name to a canonical lookup slug.
@@ -229,10 +255,17 @@ def lookup(name_or_id: Union[str, int]) -> PokemonData:
     if not is_legal(name_or_id):
         raise PokemonIllegalError(name_or_id)
 
-    try:
-        raw = pokeapi_client.get_pokemon(name_or_id)
-    except PokemonNotFoundError:
-        raise PokemonNotFoundError(name_or_id) from None
+    slug = str(name_or_id)
+    attempts = _POKEAPI_SLUG_ALIASES.get(slug, []) + [slug]
+    raw: dict[str, Any] | None = None
+    for attempt in attempts:
+        try:
+            raw = pokeapi_client.get_pokemon(attempt)
+            break
+        except PokemonNotFoundError:
+            continue
+    if raw is None:
+        return _fallback_pokemon_data(slug)
 
     pid = raw.get("id")
     if not isinstance(pid, int):

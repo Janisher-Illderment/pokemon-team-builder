@@ -539,6 +539,8 @@ main { max-width: 960px; margin: 0 auto; padding: 1.5rem 1rem; }
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 0.75rem;
   padding: 1rem;
+  max-height: 500px;
+  overflow-y: auto;
 }
 
 .meta-team-card {
@@ -606,6 +608,24 @@ main { max-width: 960px; margin: 0 auto; padding: 1.5rem 1rem; }
   transition: background 0.15s;
 }
 .meta-import-btn:hover { background: #2a5ccf; }
+
+/* ── Tournament map ──────────────────────────────────────────────────────────── */
+
+.tournament-map-wrap {
+  padding: 0.75rem 1rem 0.25rem;
+}
+
+.tournament-map {
+  height: 280px;
+  border-radius: 8px;
+  border: 1px solid #2d3150;
+}
+
+.tournament-map-hint {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  margin-top: 0.4rem;
+}
 
 /* ── Tournament list ─────────────────────────────────────────────────────────── */
 

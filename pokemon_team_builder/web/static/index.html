@@ -6,6 +6,8 @@
   <title>Pokemon Team Builder</title>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
   <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
 
@@ -415,7 +417,11 @@ Jolly Nature
         <span x-show="!open">▼</span>
         <span x-show="open">▲</span>
       </button>
-      <div x-show="open" x-transition>
+      <div x-show="open" x-transition x-init="$watch('open', v => v && initMap())">
+        <div class="tournament-map-wrap">
+          <div id="tournament-map" class="tournament-map"></div>
+          <p class="tournament-map-hint">Haz clic en el mapa para buscar torneos cerca de esa zona.</p>
+        </div>
         <div x-show="loading" class="meta-loading">Cargando…</div>
         <p x-show="error" class="error-msg" x-text="error"></p>
         <p x-show="!loading && !error && items.length === 0 && stale" class="meta-empty">

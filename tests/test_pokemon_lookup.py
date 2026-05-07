@@ -90,11 +90,12 @@ def test_lookup_mewtwo_raises_illegal(
         pokemon_lookup.lookup("mewtwo")
 
 
-def test_lookup_nonexistent_raises_not_found(
+def test_lookup_pokeapi_404_returns_fallback(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    # We assume the name passes legality (e.g., legal pool would have it),
-    # but PokeAPI says 404.
+    # When PokeAPI 404s for all alias attempts, lookup() returns a minimal
+    # fallback PokemonData instead of crashing. Prevents import from dying
+    # on newly-added Pokémon whose PokeAPI slug hasn't been mapped yet.
     monkeypatch.setattr(pokemon_lookup, "is_legal", lambda _: True)
 
     def _raise_404(name_or_id: Any) -> Any:
@@ -104,8 +105,10 @@ def test_lookup_nonexistent_raises_not_found(
         pokemon_lookup.pokeapi_client, "get_pokemon", _raise_404
     )
 
-    with pytest.raises(PokemonNotFoundError):
-        pokemon_lookup.lookup("xyz_nonexistent")
+    result = pokemon_lookup.lookup("xyz_nonexistent")
+    assert result.name == "xyz_nonexistent"
+    assert result.types == ["normal"]
+    assert result.id == 9999
 
 
 def test_lookup_iron_valiant_is_illegal_paradox() -> None:

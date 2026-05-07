@@ -295,10 +295,7 @@ function savedTeams() {
       this._persist();
     },
 
-    spriteUrl(name) {
-      const id = name.toLowerCase().replace(/-/g, '');
-      return `https://play.pokemonshowdown.com/sprites/dex/${id}.png`;
-    },
+    spriteUrl(name) { return spriteUrl(name); },
 
     async copyPaste(pokepaste, event) {
       try {
@@ -313,8 +310,13 @@ function savedTeams() {
 }
 
 function spriteUrl(name) {
-  const id = name.toLowerCase().replace(/-/g, '');
-  return `https://play.pokemonshowdown.com/sprites/dex/${id}.png`;
+  const regional = ['-alola', '-galar', '-hisui', '-paldea'];
+  let base = name.toLowerCase();
+  let suffix = '';
+  for (const s of regional) {
+    if (base.endsWith(s)) { suffix = s; base = base.slice(0, -s.length); break; }
+  }
+  return `https://play.pokemonshowdown.com/sprites/dex/${base.replace(/-/g, '')}${suffix}.png`;
 }
 
 function metaTeams() {
@@ -378,23 +380,54 @@ function tournaments() {
     error: false,
     items: [],
     stale: false,
+    lat: null,
+    lon: null,
+    _map: null,
+    _marker: null,
 
     async expand() {
       this.open = !this.open;
       if (this.open && !this.loaded) {
-        this.loading = true;
-        this.error = false;
-        try {
-          const res = await fetch('/tournaments');
-          const data = await res.json();
-          this.items = data.tournaments || [];
-          this.stale = data.stale || false;
-          this.loaded = true;
-        } catch (e) {
-          this.error = 'Error al cargar torneos.';
-        } finally {
-          this.loading = false;
+        await this.fetchTournaments();
+      }
+    },
+
+    initMap() {
+      if (this._map) return;
+      const mapEl = document.getElementById('tournament-map');
+      if (!mapEl || typeof L === 'undefined') return;
+      const defaultLat = 40.4168, defaultLon = -3.7038; // Madrid
+      this._map = L.map(mapEl).setView([defaultLat, defaultLon], 5);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+        maxZoom: 18,
+      }).addTo(this._map);
+      this._map.on('click', async (e) => {
+        this.lat = e.latlng.lat;
+        this.lon = e.latlng.lng;
+        if (this._marker) this._map.removeLayer(this._marker);
+        this._marker = L.marker([this.lat, this.lon]).addTo(this._map);
+        await this.fetchTournaments();
+      });
+    },
+
+    async fetchTournaments() {
+      this.loading = true;
+      this.error = false;
+      try {
+        let url = '/tournaments';
+        if (this.lat !== null && this.lon !== null) {
+          url += `?lat=${this.lat.toFixed(4)}&lon=${this.lon.toFixed(4)}`;
         }
+        const res = await fetch(url);
+        const data = await res.json();
+        this.items = data.tournaments || [];
+        this.stale = data.stale || false;
+        this.loaded = true;
+      } catch (e) {
+        this.error = 'Error al cargar torneos.';
+      } finally {
+        this.loading = false;
       }
     },
   };
