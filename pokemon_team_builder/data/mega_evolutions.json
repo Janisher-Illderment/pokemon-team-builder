@@ -1189,42 +1189,6 @@
         },
         "verified": true
       }
-    ],
-    "raichu": [
-      {
-        "form_id": "raichu-mega-x",
-        "mega_stone": "Raichunite X",
-        "types": [
-          "electric"
-        ],
-        "ability": "static",
-        "stats": {
-          "hp": 60,
-          "atk": 135,
-          "def": 95,
-          "spa": 90,
-          "spd": 95,
-          "spe": 110
-        },
-        "verified": false
-      },
-      {
-        "form_id": "raichu-mega-y",
-        "mega_stone": "Raichunite Y",
-        "types": [
-          "electric"
-        ],
-        "ability": "lightning-rod",
-        "stats": {
-          "hp": 60,
-          "atk": 100,
-          "def": 55,
-          "spa": 160,
-          "spd": 80,
-          "spe": 130
-        },
-        "verified": false
-      }
     ]
   }
 }
