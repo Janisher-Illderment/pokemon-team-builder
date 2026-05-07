@@ -58,9 +58,9 @@
 - Test: test_cli_mega_flag_passed_to_generate_team
 
 ## Acceptance criteria
-- [ ] pytest tests/ -q → all pass
-- [ ] Gengar anchor → Gengarite item, special_sweeper role
-- [ ] Charizard --mega x → Charizardite X, Fire/Dragon role
-- [ ] Charizard --mega auto → TeamBuildError with clear message
-- [ ] Non-mega anchor → behavior unchanged vs v0.2.0
-- [ ] PokePaste: species = base form, item = mega stone
+- [x] pytest tests/ -q → all pass
+- [x] Gengar anchor → Gengarite item, special_sweeper role
+- [x] Charizard --mega x → Charizardite X, Fire/Dragon role
+- [x] Charizard --mega auto → TeamBuildError with clear message
+- [x] Non-mega anchor → behavior unchanged vs v0.2.0
+- [x] PokePaste: species = base form, item = mega stone
