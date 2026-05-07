@@ -605,3 +605,50 @@ def test_pure_sweeper_keeps_setup_move() -> None:
     )
     moves = select_moves_for_role(p, ["physical_sweeper"])
     assert moves[3] == "swords-dance"
+
+
+# ---------------------------------------------------------------------------
+# Meta-moves integration tests
+# ---------------------------------------------------------------------------
+
+def test_meta_move_preferred_for_stab_slot2() -> None:
+    """Meta move matching STAB + category should win slot 2."""
+    p = _mk_pokemon(
+        "rillaboom", ["grass"],
+        moves=["protect", "wood-hammer", "grassy-glide", "earthquake", "fake-out"],
+        abilities=["grassy-surge"],
+    )
+    # grassy-glide is the meta STAB move (popular grass physical)
+    moves = select_moves_for_role(
+        p, ["physical_sweeper"], meta_moves=["grassy-glide", "wood-hammer"]
+    )
+    assert moves[1] == "grassy-glide"
+
+
+def test_meta_move_preferred_for_coverage_slot3() -> None:
+    """Meta coverage move should win slot 3 over static table."""
+    p = _mk_pokemon(
+        "rillaboom", ["grass"],
+        moves=["protect", "wood-hammer", "earthquake", "drain-punch", "fake-out"],
+        abilities=["grassy-surge"],
+    )
+    moves = select_moves_for_role(
+        p, ["physical_sweeper"], meta_moves=["wood-hammer", "drain-punch"]
+    )
+    # drain-punch is non-STAB coverage; should be picked over static table
+    assert "drain-punch" in moves
+
+
+def test_meta_move_not_in_pool_falls_back() -> None:
+    """Meta move not in move_names → falls back to static table without error."""
+    p = _mk_pokemon(
+        "rillaboom", ["grass"],
+        moves=["protect", "wood-hammer", "earthquake", "fake-out"],
+        abilities=["grassy-surge"],
+    )
+    # "leaf-storm" not in move_names
+    moves = select_moves_for_role(
+        p, ["physical_sweeper"], meta_moves=["leaf-storm"]
+    )
+    assert len(moves) == 4
+    assert moves[0] == "protect"

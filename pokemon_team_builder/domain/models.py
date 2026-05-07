@@ -105,3 +105,4 @@ class TeamVariant(BaseModel):
     score: float = 0.0
     score_explanation: str = ""
     is_recommended: bool = False
+    lead_flexibility_ratio: float = 0.0

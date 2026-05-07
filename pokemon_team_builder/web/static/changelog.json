@@ -1,0 +1,73 @@
+[
+  {
+    "version": "0.5.0",
+    "date": "2026-05-07",
+    "highlights": "Team editor: edición inline y import de PokePaste externo",
+    "changes": [
+      { "type": "feat", "text": "PATCH /edit-member: edita un miembro (move, item o swap de Pokémon) sin regenerar el equipo entero" },
+      { "type": "feat", "text": "POST /import: acepta PokePaste externo (LabMaus, Showdown) y devuelve score + análisis" },
+      { "type": "feat", "text": "Botones 'Editar moves', 'Editar item', 'Swap' inline en cada miembro de la variant card" },
+      { "type": "feat", "text": "Sección 'Importar PokePaste' con textarea, warnings amarillos y card de equipo importado" },
+      { "type": "feat", "text": "Detección de Mega forms en PokePaste (Charizard-Mega-X → base form + mega_stone correcto)" },
+      { "type": "feat", "text": "GET /legal-pool: lista de los 167 Pokémon del pool M-A para el selector de Swap" },
+      { "type": "feat", "text": "move_names incluido en MemberOut: el frontend puede poblar el select de moves sin request extra" }
+    ]
+  },
+  {
+    "version": "0.4.0",
+    "date": "2026-05-07",
+    "highlights": "Format awareness: Bo3 mode, matchup analyzer",
+    "changes": [
+      { "type": "feat", "text": "Bo3/Bo1 toggle en el formulario: cambia el modo de puntuación del equipo" },
+      { "type": "feat", "text": "Puntuación Bo3: cobertura(30) + flex_lead(25) + diversidad_cores(15) + SPs(15) + items(15)" },
+      { "type": "feat", "text": "lead_flexibility_score: badge de porcentaje en cada variante Bo3 (% de combos de 4 con control de velocidad)" },
+      { "type": "feat", "text": "Deprioritización cheese en Bo3: Destiny Bond, Mirror Coat, Counter, Memento, Perish Song excluidos del slot 4" },
+      { "type": "feat", "text": "POST /analyze-matchup: analiza qué miembro del equipo mejor maneja una amenaza (pokémon o arquetipo)" },
+      { "type": "feat", "text": "Arquetipos soportados: trick room, tailwind, rain, sun, sand, snow, redirect, hyper offense, stall" },
+      { "type": "feat", "text": "Panel de análisis de matchup en la UI: selector de variante, input de amenaza, handlers y ajustes sugeridos" },
+      { "type": "fix", "text": "Sprites de Pokémon Gen 7+ (ej: Kommo-o): cambiado a /sprites/dex/ con normalización de nombres (sin guiones)" }
+    ]
+  },
+  {
+    "version": "0.3.0",
+    "date": "2026-05-07",
+    "highlights": "EV precision: speed tiers y cálculo de daño",
+    "changes": [
+      { "type": "feat", "text": "speed_tiers.json: 159 Pokémon del pool con base Speed real extraída del Google Sheet oficial de Champions" },
+      { "type": "feat", "text": "SpeedTierDB: calcula velocidad a nivel 50 con fórmula exacta (SP*8 EVs, natura, IV=31)" },
+      { "type": "feat", "text": "ev_note de velocidad: nombra Pokémon específicos superados y no alcanzados — ej. '32 Spe+ supera a Aerodactyl (150) — no alcanza a Noivern (158)'" },
+      { "type": "feat", "text": "Calculadora de daño: fórmula gen3+ a nivel 50, cobertura de los 18 tipos con movimientos representativos en español" },
+      { "type": "feat", "text": "ev_note defensivo: identifica la mayor debilidad de tipo y calcula si el spread aguanta el ataque representativo — ej. '32 HP aguanta con holgura el Terremoto (23–27%)'" },
+      { "type": "feat", "text": "Sprites en tarjetas de resultados: imagen del Pokémon encima del nombre en cada miembro" },
+      { "type": "fix", "text": "Sprites achatados corregidos: dimensiones cuadradas con object-fit: contain y image-rendering: pixelated" },
+      { "type": "feat", "text": "Changelog accesible desde el header: modal con historial de versiones" }
+    ]
+  },
+  {
+    "version": "0.2.0",
+    "date": "2026-05-07",
+    "highlights": "Meta integration, EV display & team presets",
+    "changes": [
+      { "type": "feat", "text": "MunchStats meta integration: items, moves y teammates priorizados según datos reales de torneo (Champions Reg M-A + VGC fallback)" },
+      { "type": "feat", "text": "Grid de SPs en cada miembro: visualización compacta de los 6 stats con valores y celdas apagadas cuando el valor es 0" },
+      { "type": "feat", "text": "ev_note explicativo en español: justifica las dos mayores asignaciones de SPs (ej. '32 Atk para daño máximo')" },
+      { "type": "feat", "text": "Team presets: guarda hasta 20 equipos en localStorage con nombre editable, color, timestamp y sprites" },
+      { "type": "feat", "text": "Afinidad de teammates: candidatos meta-relevantes reciben +3.0 puntos en el filtro heurístico" },
+      { "type": "feat", "text": "Copy Pokepaste en panel de equipos guardados" },
+      { "type": "fix", "text": "Movimientos meta con tipo desconocido ya no son descartados incorrectamente del slot STAB" }
+    ]
+  },
+  {
+    "version": "0.1.0",
+    "date": "2026-04-20",
+    "highlights": "MVP — generador de equipos VGC",
+    "changes": [
+      { "type": "feat", "text": "Generador de equipos con anchor Pokémon y N variantes (1–5)" },
+      { "type": "feat", "text": "Motor de sinergia: tipo, roles, cobertura ofensiva/defensiva" },
+      { "type": "feat", "text": "Soporte de Mega Evoluciones (Regulation M-A)" },
+      { "type": "feat", "text": "Exportación a formato Pokepaste con Copy to clipboard" },
+      { "type": "feat", "text": "Pool legal Reg M-A (167 Pokémon) con validación en cada request" },
+      { "type": "feat", "text": "Distribución de SPs por plantillas de rol (attacker, bulky, support)" }
+    ]
+  }
+]

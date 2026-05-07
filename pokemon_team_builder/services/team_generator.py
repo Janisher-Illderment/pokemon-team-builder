@@ -22,6 +22,7 @@ from pokemon_team_builder.services import (
     replica_exporter,
     viability_rater,
 )
+from pokemon_team_builder.services.meta_service import MetaService
 from pokemon_team_builder.services.synergy_engine import (
     ALL_TYPES,
     analyze_coverage,
@@ -29,33 +30,40 @@ from pokemon_team_builder.services.synergy_engine import (
     assign_role_with_mega,
 )
 
+_meta_service = MetaService()
+
 
 _DEFAULT_ITEM_BY_ROLE: dict[str, str] = {
-    # NOT in Champions: Choice Band, Choice Specs, Assault Vest, Life Orb,
-    # Weakness Policy, Throat Spray, Rocky Helmet, Clear Amulet, Safety Goggles,
-    # Covert Cloak, Adrenaline Orb.
-    "physical_sweeper": "Scope Lens",
-    "special_sweeper": "Shell Bell",
-    "physical_wall": "Leftovers",
+    # Champions-confirmed. NOT in Champions: Choice Band, Choice Specs,
+    # Assault Vest, Life Orb, Eject Button, Safety Goggles, Covert Cloak,
+    # Adrenaline Orb. (Weakness Policy, Throat Spray, Rocky Helmet, Clear
+    # Amulet ARE confirmed in Champions as of Reg M-A.)
+    "physical_sweeper": "Weakness Policy",
+    "special_sweeper": "Throat Spray",
+    "physical_wall": "Rocky Helmet",
     "special_wall": "Leftovers",
     "lead_support": "Focus Sash",
     "trick_room_setter": "Mental Herb",
-    "redirect": "Mental Herb",
+    "redirect": "Clear Amulet",
 }
 _FALLBACK_ITEM = "Choice Scarf"
 # Champions-legal backup items (Serebii/MetaVGC confirmed). Order is
-# preference: utility first, then type-boosting items so that even six
-# same-role mons can each receive a distinct, importable item.
+# preference: utility items first (≥10), then type-boosting items so that
+# even six same-role mons can each receive a distinct, importable item.
+# Items in _DEFAULT_ITEM_BY_ROLE are excluded to avoid duplication.
 _BACKUP_ITEMS: tuple[str, ...] = (
     "Sitrus Berry",
     "Lum Berry",
     "Scope Lens",
+    "Power Herb",
     "Persim Berry",
     "White Herb",
     "Shell Bell",
-    "Focus Sash",
+    "Oran Berry",
     "Focus Band",
     "King's Rock",
+    "Bright Powder",
+    "Quick Claw",
     "Mystic Water",
     "Charcoal",
     "Magnet",
@@ -99,6 +107,13 @@ _STAT_DROP_MOVES: frozenset[str] = frozenset({
 _CHOICE_ITEMS: frozenset[str] = frozenset(
     {"Choice Scarf", "Choice Band", "Choice Specs"}
 )
+
+# Mirrors replica_exporter._SETUP_MOVES — needed for Weakness Policy predicate.
+_SETUP_MOVES: frozenset[str] = frozenset({
+    "nasty-plot", "calm-mind", "tail-glow",
+    "swords-dance", "dragon-dance", "bulk-up",
+    "quiver-dance", "shell-smash", "coil", "hone-claws", "work-up",
+})
 
 # Roles where ANY Choice item is forbidden — locking these into a single
 # move makes the Pokemon useless for the rest of the match (TR setter
@@ -210,6 +225,8 @@ def _heuristic_filter(
       - bring a role that complements the anchor's primary role
         (e.g., a sweeper anchor pairs well with a lead/wall).
     Always exclude the anchor itself and exact type-list duplicates.
+    Candidates that are meta-frequent teammates of the anchor receive
+    a +3.0 affinity bonus from MunchStats data.
     """
     anchor_weak = {
         t for t, mult in anchor.weaknesses.items() if mult >= 2.0
@@ -217,6 +234,12 @@ def _heuristic_filter(
     anchor_roles = set(role_map.get(anchor.name, assign_role(anchor)))
     anchor_is_sweeper = bool(
         anchor_roles & {"physical_sweeper", "special_sweeper"}
+    )
+
+    # Fetch meta teammates once for the anchor; degrade gracefully to empty.
+    anchor_meta = _meta_service.get(anchor.name)
+    meta_teammates: set[str] = (
+        set(anchor_meta.teammates) if anchor_meta is not None else set()
     )
 
     scored: list[tuple[float, PokemonData]] = []
@@ -243,6 +266,8 @@ def _heuristic_filter(
             cand_roles & {"physical_sweeper", "special_sweeper"}
         ):
             score += 0.5
+        if cand.name in meta_teammates:
+            score += 3.0
         # Small base weight so candidates with no specific synergy still
         # have a chance to be considered, ensuring we always have enough
         # to assemble a 6-mon team.
@@ -351,9 +376,17 @@ def _beam_search(
 # kept out of this table — see ``_item_is_activatable`` below.
 _ITEM_PRECONDITIONS_MOVESET: dict[str, Callable[[PokemonData, list[str] | None], bool]] = {
     # White Herb resets stat drops from moves like Overheat / Close Combat.
-    # Throat Spray and Weakness Policy are NOT in Champions — removed.
     "White Herb": lambda p, moves: any(
         m in _STAT_DROP_MOVES for m in (moves if moves is not None else p.move_names)
+    ),
+    # Throat Spray boosts Special Attack on sound moves. Skip if no sound move.
+    "Throat Spray": lambda p, moves: any(
+        m in _SOUND_MOVES for m in (moves if moves is not None else p.move_names)
+    ),
+    # Weakness Policy activates on super-effective hits — redundant if the
+    # holder already has a setup move (which already boosts the relevant stat).
+    "Weakness Policy": lambda p, moves: not any(
+        m in _SETUP_MOVES for m in (moves if moves is not None else p.move_names)
     ),
 }
 
@@ -382,6 +415,7 @@ def _assign_items(
     members: list[PokemonData] | None = None,
     preview_moves: list[list[str]] | None = None,
     mega_slot: tuple[int, str] | None = None,
+    meta_items_by_member: list[list[str]] | None = None,
 ) -> list[str]:
     """Allocate items by role honoring the no-duplicates Item Clause.
 
@@ -423,14 +457,31 @@ def _assign_items(
             out.append(pre_assigned[i])
             continue
         primary = roles[0] if roles else "physical_sweeper"
-        candidate = _DEFAULT_ITEM_BY_ROLE.get(primary, _FALLBACK_ITEM)
         moves_for_i = preview_moves[i] if preview_moves is not None else None
-        # If this item requires moves the Pokemon doesn't have, skip it immediately
-        # and let the fallback chain find something useful.
-        if members is not None and not _item_is_activatable(
-            candidate, members[i], moves_for_i
-        ):
-            candidate = "__skip__"  # sentinel — not a real item name, forces fallback
+
+        # Try meta items first (ranked by usage), subject to all existing guards.
+        candidate: str | None = None
+        meta_items = meta_items_by_member[i] if meta_items_by_member is not None else []
+        for meta_item in meta_items:
+            if meta_item in used:
+                continue
+            if set(roles) & _NO_CHOICE_ROLES and meta_item in _CHOICE_ITEMS:
+                continue
+            if members is not None and not _item_is_activatable(
+                meta_item, members[i], moves_for_i
+            ):
+                continue
+            candidate = meta_item
+            break
+
+        # Fall back to role-based default if no meta item worked.
+        if candidate is None:
+            candidate = _DEFAULT_ITEM_BY_ROLE.get(primary, _FALLBACK_ITEM)
+            if members is not None and not _item_is_activatable(
+                candidate, members[i], moves_for_i
+            ):
+                candidate = "__skip__"
+
         if candidate in used or candidate == "__skip__":
             # Fallback chain: Choice Scarf → backup pool. Keep walking until
             # we find an unused real item that can also activate.
@@ -518,6 +569,7 @@ def generate_team(
     *,
     candidate_loader: Callable[[PokemonData], list[PokemonData]] | None = None,
     mega_choice: str = "auto",
+    format_mode: str = "bo1",
 ) -> list[TeamVariant]:
     """Generate up to ``num_variants`` 6-mon team variants around ``anchor``.
 
@@ -585,16 +637,16 @@ def generate_team(
             continue
         seen_signatures.add(signature)
         try:
-            variant = _build_variant(state, role_map, anchor_mega=anchor_mega)
+            variant = _build_variant(state, role_map, anchor_mega=anchor_mega, format_mode=format_mode)
         except (ValueError, TeamBuildError):
             # ValueError → wrong member count; TeamBuildError → move
             # selection ran out of moves or items pool exhausted. In
             # either case skip this state and try the next.
             continue
-        score = viability_rater.score_team(variant)
+        score, flex_ratio = viability_rater.score_team(variant, format_mode)
         explanation = viability_rater.generate_explanation(variant, score)
         variant = variant.model_copy(
-            update={"score": score, "score_explanation": explanation}
+            update={"score": score, "score_explanation": explanation, "lead_flexibility_ratio": flex_ratio}
         )
         variants.append(variant)
         if len(variants) >= num_variants:
@@ -654,28 +706,39 @@ def _build_variant(
     role_map: dict[str, list[str]],
     *,
     anchor_mega: MegaForm | None = None,
+    format_mode: str = "bo1",
 ) -> TeamVariant:
     members_roles = [role_map.get(p.name, assign_role(p)) for p in team]
+
+    # Fetch meta data for each team member once (None on failure — all logic
+    # is advisory and falls back gracefully when meta is unavailable).
+    meta_entries = [_meta_service.get(p.name) for p in team]
+    meta_items_by_member = [
+        (e.items if e is not None else []) for e in meta_entries
+    ]
+    meta_moves_by_member = [
+        (e.moves if e is not None else []) for e in meta_entries
+    ]
 
     # 1. Pre-compute a preview moveset per Pokemon so item activation
     #    predicates (Throat Spray needs sound, White Herb needs stat-drop,
     #    Weakness Policy must avoid setup) can read the actual moves
     #    instead of guessing from the full learnset.
     preview_moves = [
-        replica_exporter.select_moves_for_role(pokemon, roles)
-        for pokemon, roles in zip(team, members_roles)
+        replica_exporter.select_moves_for_role(
+            pokemon, roles, meta_moves=meta_moves_by_member[i], format_mode=format_mode
+        )
+        for i, (pokemon, roles) in enumerate(zip(team, members_roles))
     ]
 
-    # 2. Assign items using the preview moves. When a Mega is resolved
-    #    for the anchor (slot 0), pin its stone there before any role-
-    #    based allocation runs — and reserve the stone in ``used`` so
-    #    no other slot can collide.
+    # 2. Assign items using the preview moves and meta items.
     mega_slot = (0, anchor_mega.mega_stone) if anchor_mega is not None else None
     items = _assign_items(
         members_roles,
         team,
         preview_moves=preview_moves,
         mega_slot=mega_slot,
+        meta_items_by_member=meta_items_by_member,
     )
 
     # 3. Re-select moves with the actual item context — slot 4's
@@ -692,7 +755,9 @@ def _build_variant(
             ability = anchor_mega.ability
         else:
             ability = _pick_ability(pokemon)
-        moves = replica_exporter.select_moves_for_role(pokemon, roles, item=item)
+        moves = replica_exporter.select_moves_for_role(
+            pokemon, roles, item=item, meta_moves=meta_moves_by_member[idx], format_mode=format_mode
+        )
         nature = _derive_nature(primary, roles, moves)
         members.append(
             TeamMember(

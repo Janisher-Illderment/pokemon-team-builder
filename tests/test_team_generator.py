@@ -290,7 +290,7 @@ def test_pick_ability_empty_list_raises() -> None:
 
 
 def test_throat_spray_not_assigned_without_sound_move() -> None:
-    """Throat Spray is not in Champions — special_sweeper default is Shell Bell."""
+    """Throat Spray requires a sound move — falls back to Choice Scarf without one."""
     from pokemon_team_builder.services.team_generator import _assign_items
 
     # Special-leaning Pokemon (spa > atk) but no sound moves in pool.
@@ -303,8 +303,8 @@ def test_throat_spray_not_assigned_without_sound_move() -> None:
         moves=["protect", "psychic", "shadow-ball", "thunderbolt"],
     )
     items = _assign_items([["special_sweeper"]], [pokemon])
-    assert items[0] == "Shell Bell", (
-        f"special_sweeper default should be Shell Bell (Throat Spray not in Champions): {items}"
+    assert items[0] != "Throat Spray", (
+        f"Throat Spray must not be assigned without a sound move: {items}"
     )
 
 
@@ -340,8 +340,8 @@ def test_white_herb_not_assigned_without_stat_drop_move() -> None:
     )
 
 
-def test_special_sweeper_default_item_is_shell_bell() -> None:
-    """Throat Spray not in Champions — special_sweeper default is Shell Bell."""
+def test_special_sweeper_default_item_is_throat_spray() -> None:
+    """Throat Spray is the default for special_sweeper when the mon has a sound move."""
     from pokemon_team_builder.services.team_generator import _assign_items
 
     pokemon = _mk(
@@ -353,8 +353,8 @@ def test_special_sweeper_default_item_is_shell_bell() -> None:
         moves=["protect", "hyper-voice", "psychic", "thunderbolt"],
     )
     items = _assign_items([["special_sweeper"]], [pokemon])
-    assert items[0] == "Shell Bell", (
-        f"special_sweeper default should be Shell Bell (Throat Spray not in Champions): {items}"
+    assert items[0] == "Throat Spray", (
+        f"special_sweeper with hyper-voice should get Throat Spray: {items}"
     )
 
 
@@ -816,3 +816,84 @@ def test_pure_sweeper_still_gets_choice_scarf_as_fallback() -> None:
         ["physical_sweeper"],
     ])
     assert items[1] == "Choice Scarf"
+
+
+# ---------------------------------------------------------------------------
+# Meta-service integration tests
+# ---------------------------------------------------------------------------
+
+def test_assign_items_prefers_meta_item() -> None:
+    from unittest.mock import patch
+    from pokemon_team_builder.services.team_generator import _assign_items
+    from pokemon_team_builder.services.meta_service import MetaEntry
+
+    meta_entry = MetaEntry(items=["Sitrus Berry"], moves=[], teammates=[])
+    with patch(
+        "pokemon_team_builder.services.team_generator._meta_service"
+    ) as mock_svc:
+        mock_svc.get.return_value = meta_entry
+        items = _assign_items(
+            [["physical_sweeper"]],
+            meta_items_by_member=[["Sitrus Berry"]],
+        )
+    assert items[0] == "Sitrus Berry"
+
+
+def test_assign_items_skips_meta_item_on_clause_conflict() -> None:
+    from unittest.mock import patch
+    from pokemon_team_builder.services.team_generator import _assign_items
+
+    # Both members get the same meta item → second should fall back.
+    items = _assign_items(
+        [["physical_sweeper"], ["special_sweeper"]],
+        meta_items_by_member=[["Sitrus Berry"], ["Sitrus Berry"]],
+    )
+    assert items[0] == "Sitrus Berry"
+    assert items[1] != "Sitrus Berry"
+
+
+def test_heuristic_filter_meta_teammate_bonus() -> None:
+    from unittest.mock import patch
+    from pokemon_team_builder.services.team_generator import _heuristic_filter
+    from pokemon_team_builder.services.meta_service import MetaEntry
+
+    anchor = _mk("rillaboom", ["grass"], spe=85)
+    ally = _mk("ally", ["water"], spe=80)       # meta teammate
+    other = _mk("other", ["fire"], spe=90)      # not meta teammate
+
+    role_map = {
+        "rillaboom": ["physical_sweeper"],
+        "ally": ["lead_support"],
+        "other": ["physical_sweeper"],
+    }
+    meta_entry = MetaEntry(items=[], moves=[], teammates=["ally"])
+    with patch(
+        "pokemon_team_builder.services.team_generator._meta_service"
+    ) as mock_svc:
+        mock_svc.get.return_value = meta_entry
+        result = _heuristic_filter(anchor, [ally, other], role_map)
+
+    names = [p.name for p in result]
+    assert names.index("ally") < names.index("other"), \
+        "meta teammate 'ally' should rank above 'other'"
+
+
+def test_heuristic_filter_no_meta_unchanged() -> None:
+    from unittest.mock import patch
+    from pokemon_team_builder.services.team_generator import _heuristic_filter
+
+    anchor = _mk("rillaboom", ["grass"], spe=85)
+    cand1 = _mk("water_mon", ["water"], spe=80)
+    cand2 = _mk("fire_mon", ["fire"], spe=90)
+    role_map = {
+        "rillaboom": ["physical_sweeper"],
+        "water_mon": ["lead_support"],
+        "fire_mon": ["physical_sweeper"],
+    }
+    with patch(
+        "pokemon_team_builder.services.team_generator._meta_service"
+    ) as mock_svc:
+        mock_svc.get.return_value = None
+        # should not raise, returns candidates ordered by synergy only
+        result = _heuristic_filter(anchor, [cand1, cand2], role_map)
+    assert len(result) == 2

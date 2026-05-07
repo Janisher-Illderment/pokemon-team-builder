@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,71 +7,369 @@
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
   <link rel="stylesheet" href="style.css" />
 </head>
-<body x-data="app()" x-init="init()">
+<body>
 
-  <header>
-    <h1>Pokemon Team Builder</h1>
-    <p class="subtitle">VGC Doubles · Regulation M-A</p>
-  </header>
+  <!-- Presets component wraps everything so saveTeam() can reach it -->
+  <div x-data="savedTeams()" x-init="init()">
 
-  <main>
-    <form @submit.prevent="generate" class="search-form">
-      <input
-        type="text"
-        x-model="anchor"
-        placeholder="Anchor Pokémon (e.g. garchomp)"
-        autocomplete="off"
-        spellcheck="false"
-        :disabled="loading"
-        required
-      />
-      <label class="variants-label">
-        Variants
-        <select x-model="variants" :disabled="loading">
-          <option>1</option><option>2</option>
-          <option selected>3</option><option>4</option><option>5</option>
-        </select>
-      </label>
-      <button type="submit" :disabled="loading">
-        <span x-show="!loading">Generate</span>
-        <span x-show="loading">Loading…</span>
-      </button>
-    </form>
+    <header>
+      <h1>Pokemon Team Builder</h1>
+      <p class="subtitle">VGC Doubles · Regulation M-A</p>
+      <div class="header-actions">
+        <button class="presets-toggle" @click="showPanel = !showPanel">
+          📦 Equipos guardados (<span x-text="presets.length"></span>)
+        </button>
+        <button class="changelog-toggle" @click="showChangelog = !showChangelog">📋 Changelog</button>
+      </div>
+    </header>
 
-    <p x-show="error" class="error-msg" x-text="error"></p>
-
-    <section x-show="results.length > 0" class="results">
-      <template x-for="(v, i) in results" :key="i">
-        <div class="variant-card" :class="{ recommended: v.recommended }">
-          <div class="variant-header">
-            <span class="variant-title" x-text="'Variant ' + (i+1)"></span>
-            <span x-show="v.recommended" class="badge">Recommended</span>
-            <span class="score" x-text="'Score: ' + v.score"></span>
-            <button class="copy-btn" @click="copy(v.pokepaste, $event)">Copy Pokepaste</button>
-          </div>
-          <div class="members">
-            <template x-for="m in v.members" :key="m.name">
-              <div class="member">
-                <strong x-text="capitalize(m.name)"></strong>
-                <span class="detail" x-text="'@ ' + capitalize(m.item)"></span>
-                <span class="detail" x-text="m.ability + ' · ' + m.nature"></span>
-                <ul class="moves">
-                  <template x-for="mv in m.moves" :key="mv">
-                    <li x-text="capitalize(mv)"></li>
-                  </template>
-                </ul>
-                <div class="roles">
-                  <template x-for="r in m.roles" :key="r">
-                    <span class="role-tag" x-text="r.replace(/_/g,' ')"></span>
-                  </template>
-                </div>
+    <!-- Changelog modal -->
+    <div class="changelog-backdrop" x-show="showChangelog" @click.self="showChangelog = false" x-transition>
+      <div class="changelog-modal">
+        <div class="changelog-header">
+          <h2>Changelog</h2>
+          <button class="changelog-close" @click="showChangelog = false">✕</button>
+        </div>
+        <div class="changelog-body">
+          <template x-for="entry in changelog" :key="entry.version">
+            <div class="cl-entry">
+              <div class="cl-version-row">
+                <span class="cl-version" x-text="'v' + entry.version"></span>
+                <span class="cl-date" x-text="entry.date"></span>
+                <span class="cl-highlight" x-text="entry.highlights"></span>
               </div>
+              <ul class="cl-changes">
+                <template x-for="(c, i) in entry.changes" :key="i">
+                  <li>
+                    <span class="cl-type" :class="'cl-type--' + c.type" x-text="c.type"></span>
+                    <span x-text="c.text"></span>
+                  </li>
+                </template>
+              </ul>
+            </div>
+          </template>
+        </div>
+      </div>
+    </div>
+
+    <!-- Saved teams panel -->
+    <div class="presets-panel" x-show="showPanel" x-transition>
+      <p x-show="saveWarning" class="save-warning" x-text="saveWarning"></p>
+      <p x-show="presets.length === 0" class="empty-state">No hay equipos guardados aún</p>
+      <template x-for="p in presets" :key="p.id">
+        <div class="preset-card">
+          <div class="preset-header">
+            <span class="color-dot" :style="'background:' + p.color" @click="cycleColor(p.id)" title="Cambiar color"></span>
+            <input class="preset-name" :value="p.name"
+              @change="rename(p.id, $event.target.value)"
+              @keydown.enter="$event.target.blur()" />
+            <span class="preset-ts" x-text="p.timestamp"></span>
+            <span class="preset-score" x-text="'Score: ' + p.score"></span>
+          </div>
+          <div class="preset-sprites">
+            <template x-for="name in p.members" :key="name">
+              <span class="sprite-wrap" :title="name">
+                <img :src="spriteUrl(name)" :alt="name" class="sprite-img"
+                  @error="$event.target.style.display='none'; $event.target.nextElementSibling.style.display='inline'" />
+                <span class="sprite-fallback" style="display:none" x-text="name"></span>
+              </span>
             </template>
+          </div>
+          <div class="preset-actions">
+            <button class="copy-btn" @click="copyPaste(p.pokepaste, $event)">Copy Pokepaste</button>
+            <button class="delete-btn" @click="remove(p.id)">Eliminar</button>
           </div>
         </div>
       </template>
-    </section>
-  </main>
+    </div>
+
+    <!-- Main generator -->
+    <main x-data="app()" x-init="init()">
+      <form @submit.prevent="generate" class="search-form">
+        <input
+          type="text"
+          x-model="anchor"
+          placeholder="Anchor Pokémon (ej: garchomp)"
+          autocomplete="off"
+          spellcheck="false"
+          :disabled="loading"
+          required
+        />
+        <label class="variants-label">
+          Variantes
+          <select x-model="variants" :disabled="loading">
+            <option>1</option><option>2</option>
+            <option selected>3</option><option>4</option><option>5</option>
+          </select>
+        </label>
+        <div class="format-toggle">
+          <label :class="{ active: format === 'bo1' }">
+            <input type="radio" value="bo1" x-model="format" :disabled="loading" /> Bo1
+          </label>
+          <label :class="{ active: format === 'bo3' }">
+            <input type="radio" value="bo3" x-model="format" :disabled="loading" /> Bo3
+          </label>
+        </div>
+        <button type="submit" :disabled="loading">
+          <span x-show="!loading">Generar</span>
+          <span x-show="loading">Cargando…</span>
+        </button>
+      </form>
+
+      <p x-show="error" class="error-msg" x-text="error"></p>
+
+      <section x-show="results.length > 0" class="results">
+        <template x-for="(v, i) in results" :key="i">
+          <div class="variant-card" :class="{ recommended: v.recommended }">
+            <div class="variant-header">
+              <span class="variant-title" x-text="'Variante ' + (i+1)"></span>
+              <span x-show="v.recommended" class="badge">Recomendado</span>
+              <span class="score" x-text="'Score: ' + v.score"></span>
+              <span x-show="v.format_mode === 'bo3'" class="badge badge-flex"
+                x-text="'Flex: ' + Math.round(v.lead_flexibility_score * 100) + '%'"></span>
+              <button class="copy-btn" @click="copy(v.pokepaste, $event)">Copy Pokepaste</button>
+              <button class="save-btn" @click="saveTeam(v)">💾 Guardar</button>
+            </div>
+            <div class="members">
+              <template x-for="(m, mi) in v.members" :key="m.name">
+                <div class="member">
+                  <img :src="memberSprite(m.name)" :alt="m.name" class="member-sprite"
+                    @error="$event.target.style.display='none'" />
+                  <strong x-text="capitalize(m.name)"></strong>
+                  <span class="detail" x-text="'@ ' + capitalize(m.item)"></span>
+                  <span class="detail" x-text="m.ability + ' · ' + m.nature"></span>
+                  <ul class="moves">
+                    <template x-for="mv in m.moves" :key="mv">
+                      <li x-text="capitalize(mv)"></li>
+                    </template>
+                  </ul>
+                  <!-- SP distribution grid -->
+                  <div class="sp-grid">
+                    <template x-for="s in spGrid(m)" :key="s.key">
+                      <div class="sp-cell" :class="{ 'sp-zero': !s.active }">
+                        <span class="sp-label" x-text="s.stat"></span>
+                        <span class="sp-val" x-text="s.val"></span>
+                      </div>
+                    </template>
+                  </div>
+                  <p x-show="m.ev_note" class="ev-note" x-text="m.ev_note"></p>
+                  <div class="roles">
+                    <template x-for="r in m.roles" :key="r">
+                      <span class="role-tag" x-text="r.replace(/_/g,' ')"></span>
+                    </template>
+                  </div>
+                  <!-- Edit buttons -->
+                  <div class="edit-actions" x-show="!editState || !(editState.variantIndex === i && editState.memberIndex === mi)">
+                    <button class="edit-btn" @click="startEdit(i, mi, 'move_swap')" :disabled="editLoading">Editar moves</button>
+                    <button class="edit-btn" @click="startEdit(i, mi, 'item_swap')" :disabled="editLoading">Editar item</button>
+                    <button class="edit-btn" @click="startEdit(i, mi, 'pokemon_swap')" :disabled="editLoading">Swap</button>
+                  </div>
+                  <!-- Inline editor panel -->
+                  <div class="editor-panel"
+                    x-show="editState && editState.variantIndex === i && editState.memberIndex === mi"
+                    x-transition>
+                    <!-- move_swap -->
+                    <template x-if="editState && editState.variantIndex === i && editState.memberIndex === mi && editState.kind === 'move_swap'">
+                      <div class="editor-form">
+                        <label>Slot
+                          <select x-model="editState.slot">
+                            <template x-for="(mv, si) in m.moves" :key="si">
+                              <option :value="si" x-text="(si+1) + ': ' + capitalize(mv)"></option>
+                            </template>
+                          </select>
+                        </label>
+                        <label>Move
+                          <select x-model="editState.move">
+                            <template x-for="mn in (m.move_names || m.moves)" :key="mn">
+                              <option :value="mn" x-text="capitalize(mn)"></option>
+                            </template>
+                          </select>
+                        </label>
+                        <button @click="submitEdit()" :disabled="editLoading">
+                          <span x-show="!editLoading">Aplicar</span>
+                          <span x-show="editLoading">…</span>
+                        </button>
+                        <button @click="cancelEdit()" :disabled="editLoading">Cancelar</button>
+                      </div>
+                    </template>
+                    <!-- item_swap -->
+                    <template x-if="editState && editState.variantIndex === i && editState.memberIndex === mi && editState.kind === 'item_swap'">
+                      <div class="editor-form">
+                        <label>Item
+                          <input type="text" x-model="editState.item" list="item-list" placeholder="ej: Sitrus Berry" />
+                          <datalist id="item-list">
+                            <option value="Sitrus Berry" /><option value="Lum Berry" />
+                            <option value="Oran Berry" /><option value="Focus Sash" />
+                            <option value="Rocky Helmet" /><option value="Leftovers" />
+                            <option value="Mental Herb" /><option value="Clear Amulet" />
+                            <option value="Weakness Policy" /><option value="Throat Spray" />
+                            <option value="Choice Scarf" /><option value="Power Herb" />
+                            <option value="Bright Powder" /><option value="Quick Claw" />
+                          </datalist>
+                        </label>
+                        <button @click="submitEdit()" :disabled="editLoading">
+                          <span x-show="!editLoading">Aplicar</span>
+                          <span x-show="editLoading">…</span>
+                        </button>
+                        <button @click="cancelEdit()" :disabled="editLoading">Cancelar</button>
+                      </div>
+                    </template>
+                    <!-- pokemon_swap -->
+                    <template x-if="editState && editState.variantIndex === i && editState.memberIndex === mi && editState.kind === 'pokemon_swap'">
+                      <div class="editor-form">
+                        <label>Pokémon
+                          <select x-model="editState.pokemon">
+                            <option value="">— Seleccionar —</option>
+                            <template x-for="pn in legalPool.filter(n => !v.members.some((mm, mmi) => mm.name === n && mmi !== mi))" :key="pn">
+                              <option :value="pn" x-text="capitalize(pn)"></option>
+                            </template>
+                          </select>
+                        </label>
+                        <button @click="submitEdit()" :disabled="editLoading || !editState.pokemon">
+                          <span x-show="!editLoading">Aplicar</span>
+                          <span x-show="editLoading">…</span>
+                        </button>
+                        <button @click="cancelEdit()" :disabled="editLoading">Cancelar</button>
+                      </div>
+                    </template>
+                    <p x-show="editError" class="error-msg" x-text="editError"></p>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+        </template>
+      </section>
+
+      <!-- Import PokePaste -->
+      <section class="import-section">
+        <h2 class="import-title">Importar PokePaste</h2>
+        <textarea
+          x-model="importPaste"
+          rows="8"
+          class="import-textarea"
+          placeholder="Pega aquí un PokePaste de 6 miembros...
+Ejemplo:
+Garchomp @ Rocky Helmet
+Ability: Rough Skin
+EVs: 252 Atk / 4 HP / 252 Spe
+Jolly Nature
+- Earthquake
+- Dragon Claw
+- Rock Slide
+- Protect"
+          :disabled="importLoading"
+        ></textarea>
+        <button class="import-btn" @click="importTeam()" :disabled="importLoading || !importPaste.trim()">
+          <span x-show="!importLoading">Analizar</span>
+          <span x-show="importLoading">Importando…</span>
+        </button>
+        <p x-show="importError" class="error-msg" x-text="importError"></p>
+      </section>
+
+      <!-- Imported variants -->
+      <section x-show="importedVariants.length > 0" class="results import-results">
+        <h2 class="import-results-title">Equipos importados</h2>
+        <template x-for="(v, i) in importedVariants" :key="i">
+          <div class="variant-card import-card" :class="{ recommended: v.recommended }">
+            <div class="variant-header">
+              <span class="variant-title">Equipo importado</span>
+              <span class="badge">Importado</span>
+              <span class="score" x-text="'Score: ' + v.score"></span>
+              <button class="copy-btn" @click="copy(v.pokepaste, $event)">Copy Pokepaste</button>
+              <button class="save-btn" @click="saveTeam(v)">💾 Guardar</button>
+            </div>
+            <template x-if="v.import_warnings && v.import_warnings.length > 0">
+              <ul class="import-warnings">
+                <template x-for="(w, wi) in v.import_warnings" :key="wi">
+                  <li x-text="w"></li>
+                </template>
+              </ul>
+            </template>
+            <div class="members">
+              <template x-for="(m, mi) in v.members" :key="m.name">
+                <div class="member">
+                  <img :src="memberSprite(m.name)" :alt="m.name" class="member-sprite"
+                    @error="$event.target.style.display='none'" />
+                  <strong x-text="capitalize(m.name)"></strong>
+                  <span class="detail" x-text="'@ ' + capitalize(m.item)"></span>
+                  <span class="detail" x-text="m.ability + ' · ' + m.nature"></span>
+                  <ul class="moves">
+                    <template x-for="mv in m.moves" :key="mv">
+                      <li x-text="capitalize(mv)"></li>
+                    </template>
+                  </ul>
+                  <div class="sp-grid">
+                    <template x-for="s in spGrid(m)" :key="s.key">
+                      <div class="sp-cell" :class="{ 'sp-zero': !s.active }">
+                        <span class="sp-label" x-text="s.stat"></span>
+                        <span class="sp-val" x-text="s.val"></span>
+                      </div>
+                    </template>
+                  </div>
+                  <div class="roles">
+                    <template x-for="r in m.roles" :key="r">
+                      <span class="role-tag" x-text="r.replace(/_/g,' ')"></span>
+                    </template>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+        </template>
+      </section>
+
+      <!-- Matchup analyzer -->
+      <section x-show="results.length > 0" class="matchup-section">
+        <h2 class="matchup-title">Analizar matchup</h2>
+        <div class="matchup-form">
+          <select x-model="matchupVariantIndex" class="matchup-variant-select">
+            <template x-for="(v, i) in results" :key="i">
+              <option :value="i" x-text="'Variante ' + (i+1)"></option>
+            </template>
+          </select>
+          <input type="text" x-model="matchupThreat"
+            placeholder="Amenaza (ej: trick room, incineroar)"
+            class="matchup-input" @keydown.enter.prevent="analyzeMatchup()" />
+          <button @click="analyzeMatchup()" :disabled="matchupLoading || !matchupThreat.trim()">
+            <span x-show="!matchupLoading">Analizar</span>
+            <span x-show="matchupLoading">Analizando…</span>
+          </button>
+        </div>
+        <p x-show="matchupError" class="error-msg" x-text="matchupError"></p>
+        <div x-show="matchupResult" class="matchup-result">
+          <p class="matchup-summary" x-text="matchupResult && matchupResult.weakness_summary"></p>
+          <div class="matchup-handlers">
+            <div class="handler-card" x-show="matchupResult && matchupResult.primary_handler">
+              <span class="handler-label">Handler principal</span>
+              <strong x-text="matchupResult && capitalize(matchupResult.primary_handler)"></strong>
+              <p x-text="matchupResult && matchupResult.primary_handler_explanation"></p>
+            </div>
+            <div class="handler-card" x-show="matchupResult && matchupResult.secondary_handler">
+              <span class="handler-label">Handler secundario</span>
+              <strong x-text="matchupResult && capitalize(matchupResult.secondary_handler)"></strong>
+              <p x-text="matchupResult && matchupResult.secondary_handler_explanation"></p>
+            </div>
+          </div>
+          <template x-if="matchupResult && matchupResult.adjustments.length > 0">
+            <div class="matchup-adjustments">
+              <h3>Ajustes sugeridos</h3>
+              <template x-for="(adj, i) in matchupResult.adjustments" :key="i">
+                <div class="adjustment-item">
+                  <span class="adj-type-badge" :class="'adj-type--' + adj.type.replace('_','-')"
+                    x-text="adj.type.replace(/_/g,' ')"></span>
+                  <span><strong x-text="capitalize(adj.target)"></strong>:
+                    <span x-text="capitalize(adj.change)"></span></span>
+                  <span class="adj-reason" x-text="adj.reason"></span>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+      </section>
+    </main>
+
+  </div><!-- end savedTeams wrapper -->
 
   <script src="app.js"></script>
 </body>

@@ -126,13 +126,13 @@ def _weak_variant() -> TeamVariant:
 
 def test_score_balanced_team_above_75() -> None:
     variant = _balanced_variant()
-    score = score_team(variant)
+    score, _ = score_team(variant)
     assert score >= 75
 
 
 def test_score_weak_team_below_50() -> None:
     variant = _weak_variant()
-    score = score_team(variant)
+    score, _ = score_team(variant)
     assert score < 50
 
 

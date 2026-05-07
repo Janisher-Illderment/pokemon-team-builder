@@ -357,7 +357,8 @@ def test_assign_items_mega_slot_other_slots_normal() -> None:
     )
     assert items[0] == "Charizardite Y"
     # Slot 1 (and onwards) gets the role default first, then fallbacks.
-    assert items[1] == "Scope Lens"  # physical_sweeper default (Weakness Policy not in Champions)
+    # physical_sweeper default is Weakness Policy (Champions-confirmed).
+    assert items[1] == "Weakness Policy"
 
 
 # ---------------------------------------------------------------------------

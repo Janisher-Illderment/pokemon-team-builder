@@ -371,8 +371,18 @@ def _first_available(candidates: tuple[str, ...], move_pool: list[str]) -> str |
     return None
 
 
+_BO3_CHEESE_MOVES = frozenset({
+    "destiny-bond", "mirror-coat", "counter", "memento", "perish-song",
+})
+
+
 def select_moves_for_role(
-    pokemon: PokemonData, roles: list[str], *, item: str = ""
+    pokemon: PokemonData,
+    roles: list[str],
+    *,
+    item: str = "",
+    meta_moves: list[str] | None = None,
+    format_mode: str = "bo1",
 ) -> list[str]:
     """Pick exactly 4 moves for a Pokemon given its assigned roles.
 
@@ -404,30 +414,46 @@ def select_moves_for_role(
         else "special"
     )
 
-    # Slot 2: STAB — prefer a move matching the primary attack category first,
-    # then fall back to any available STAB (e.g. a physical sweeper may know
-    # only special STAB, which is better than nothing).
+    # Slot 2: STAB — try meta moves that are STAB for this pokémon and
+    # category-matching first; then fall through to the static STAB table.
+    own_types_lower = {t.lower() for t in pokemon.types}
     slot2 = None
-    for pass_num in range(2):
-        for ptype in pokemon.types:
-            for candidate in _STAB_BY_TYPE.get(ptype.lower(), ()):
-                if candidate in used or candidate not in move_pool:
-                    continue
-                cand_cat = _MOVE_CATEGORY.get(candidate, "")
-                # WHY: ``cand_cat == ""`` means we have no category metadata
-                # for this move. The earlier guard ``cand_cat and cand_cat
-                # != primary_cat`` would let it through pass 0, which is
-                # too permissive — an unknown move could pre-empt a
-                # category-matching one. Treat unknown as ineligible in
-                # pass 0; pass 1 still picks it up.
-                if pass_num == 0 and cand_cat != primary_cat:
-                    continue  # first pass: category-matching only
-                slot2 = candidate
-                break
+    if meta_moves:
+        for candidate in meta_moves:
+            if candidate in used or candidate not in move_pool:
+                continue
+            cand_type = _MOVE_TYPE.get(candidate, "")
+            # Only skip when we know the type and it isn't STAB;
+            # unknown types (not in table) are allowed through.
+            if cand_type and cand_type not in own_types_lower:
+                continue
+            cand_cat = _MOVE_CATEGORY.get(candidate, "")
+            if cand_cat and cand_cat != primary_cat:
+                continue  # category mismatch in strict pass
+            slot2 = candidate
+            break
+
+    if slot2 is None:
+        for pass_num in range(2):
+            for ptype in pokemon.types:
+                for candidate in _STAB_BY_TYPE.get(ptype.lower(), ()):
+                    if candidate in used or candidate not in move_pool:
+                        continue
+                    cand_cat = _MOVE_CATEGORY.get(candidate, "")
+                    # WHY: ``cand_cat == ""`` means we have no category metadata
+                    # for this move. The earlier guard ``cand_cat and cand_cat
+                    # != primary_cat`` would let it through pass 0, which is
+                    # too permissive — an unknown move could pre-empt a
+                    # category-matching one. Treat unknown as ineligible in
+                    # pass 0; pass 1 still picks it up.
+                    if pass_num == 0 and cand_cat != primary_cat:
+                        continue  # first pass: category-matching only
+                    slot2 = candidate
+                    break
+                if slot2:
+                    break
             if slot2:
                 break
-        if slot2:
-            break
     if slot2 is None:
         slot2 = _fallback_move(move_pool, used)
 
@@ -446,27 +472,41 @@ def select_moves_for_role(
 
     used.add(slot2)
 
-    # Slot 3: coverage — skip same-type moves AND moves of the wrong attack
-    # category (no Earthquake on a special attacker, no Ice Beam on a physical
-    # one). Two-pass: strict category filter first, any coverage second.
-    own_types = {t.lower() for t in pokemon.types}
+    # Slot 3: coverage — try meta moves that are non-STAB and category-matching
+    # first; then fall through to the static coverage table.
     slot3 = None
-    for pass_num in range(2):
-        for candidate in _COVERAGE_PRIORITY:
+    if meta_moves:
+        for candidate in meta_moves:
             if candidate in used or candidate not in move_pool:
                 continue
-            candidate_type = _MOVE_TYPE.get(candidate, "")
-            if candidate_type and candidate_type in own_types:
-                continue
+            cand_type = _MOVE_TYPE.get(candidate, "")
+            if cand_type and cand_type in own_types_lower:
+                continue  # skip STAB moves
             cand_cat = _MOVE_CATEGORY.get(candidate, "")
-            # See slot-2 comment: unknown category is treated as ineligible
-            # in pass 0 so a categorized move always wins the strict pass.
-            if pass_num == 0 and cand_cat != primary_cat:
-                continue  # first pass: category-matching only
+            if cand_cat and cand_cat != primary_cat:
+                continue  # category mismatch
+            # accept meta coverage move
             slot3 = candidate
             break
-        if slot3:
-            break
+
+    own_types = own_types_lower  # alias kept for readability in guards below
+    if slot3 is None:
+        for pass_num in range(2):
+            for candidate in _COVERAGE_PRIORITY:
+                if candidate in used or candidate not in move_pool:
+                    continue
+                candidate_type = _MOVE_TYPE.get(candidate, "")
+                if candidate_type and candidate_type in own_types:
+                    continue
+                cand_cat = _MOVE_CATEGORY.get(candidate, "")
+                # See slot-2 comment: unknown category is treated as ineligible
+                # in pass 0 so a categorized move always wins the strict pass.
+                if pass_num == 0 and cand_cat != primary_cat:
+                    continue  # first pass: category-matching only
+                slot3 = candidate
+                break
+            if slot3:
+                break
     if slot3 is None:
         slot3 = _fallback_move(move_pool, used)
     used.add(slot3)
@@ -485,13 +525,16 @@ def select_moves_for_role(
                 continue
             if item in _CHOICE_ITEMS and candidate in _SETUP_MOVES:
                 continue  # locked-in setup is useless with a Choice item
+            if format_mode == "bo3" and candidate in _BO3_CHEESE_MOVES:
+                continue  # open sheet: cheese moves are dead weight in Bo3
             if candidate in move_pool:
                 slot4 = candidate
                 break
         if slot4 is not None:
             break
     if slot4 is None:
-        slot4 = _fallback_move(move_pool, used)
+        exclude = _BO3_CHEESE_MOVES if format_mode == "bo3" else frozenset()
+        slot4 = _fallback_move(move_pool, used | exclude)
     used.add(slot4)
 
     return [slot1, slot2, slot3, slot4]

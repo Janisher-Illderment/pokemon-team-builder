@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import itertools
 import math
 
 from pokemon_team_builder.config import MAX_SP_TOTAL
-from pokemon_team_builder.domain.models import TeamVariant
+from pokemon_team_builder.domain.models import TeamMember, TeamVariant
 from pokemon_team_builder.services.synergy_engine import (
     analyze_coverage,
     score_flexibility,
@@ -16,8 +17,53 @@ _W_ROLES = 35
 _W_SPS = 15
 _W_ITEMS = 15
 
+# Bo3 weights (coverage 30; roles replaced by lead_flex + core_div)
+_W_COVERAGE_BO3 = 30
+_W_LEAD_FLEX = 25
+_W_CORE_DIV = 15
+
 _SWEEPER_ROLES = frozenset({"physical_sweeper", "special_sweeper"})
 _SUPPORT_ROLES = frozenset({"lead_support", "redirect"})
+
+_LEAD_VIABLE_MOVES = frozenset({
+    "tailwind", "trick-room", "fake-out", "extreme-speed", "quick-attack",
+    "helping-hand", "thunder-wave", "icy-wind", "follow-me", "rage-powder",
+})
+
+_BO3_SWEEPER_ROLES = frozenset({"physical_sweeper", "special_sweeper"})
+_BO3_SUPPORT_ROLES = frozenset({"lead_support", "redirect", "trick_room_setter"})
+
+
+def _lead_flexibility_points(members: list[TeamMember]) -> tuple[float, float]:
+    """Return (raw_ratio 0-1, points) for Bo3 lead flexibility.
+
+    Iterates all C(6,4)=15 combinations; a combo is lead-viable if at least
+    one member has a speed-control or redirect move in its moveset.
+    Returns (viable/15, ratio * _W_LEAD_FLEX).
+    """
+    viable = 0
+    total = 0
+    for combo in itertools.combinations(members, 4):
+        total += 1
+        for m in combo:
+            if any(mv in _LEAD_VIABLE_MOVES for mv in m.moves):
+                viable += 1
+                break
+    ratio = viable / total if total else 0.0
+    return ratio, ratio * _W_LEAD_FLEX
+
+
+def _core_diversity_points(members: list[TeamMember]) -> float:
+    """Count distinct sweeper–support pairs; return up to _W_CORE_DIV points."""
+    cores = 0
+    for a, b in itertools.combinations(members, 2):
+        a_is_sweeper = bool(set(a.role) & _BO3_SWEEPER_ROLES)
+        b_is_sweeper = bool(set(b.role) & _BO3_SWEEPER_ROLES)
+        a_is_support = bool(set(a.role) & _BO3_SUPPORT_ROLES)
+        b_is_support = bool(set(b.role) & _BO3_SUPPORT_ROLES)
+        if (a_is_sweeper and b_is_support) or (b_is_sweeper and a_is_support):
+            cores += 1
+    return min(cores / 3, 1.0) * _W_CORE_DIV
 
 
 def _coverage_points(variant: TeamVariant) -> int:
@@ -81,19 +127,33 @@ def _items_points(variant: TeamVariant) -> int:
     return max(0, min(_W_ITEMS, pts))
 
 
-def score_team(variant: TeamVariant) -> float:
+def score_team(variant: TeamVariant, format_mode: str = "bo1") -> tuple[float, float]:
     """Score a 6-member team variant on a 0-100 scale.
 
-    Components: type coverage (35), role balance (35), SP allocation (15),
-    item diversity (15). Each is clamped to its own budget; the total is
-    the sum, also clamped to [0, 100].
+    Returns (total_score, lead_flexibility_ratio).
+    lead_flexibility_ratio is 0.0 in Bo1 mode.
+
+    Bo1: coverage(35) + roles(35) + sp(15) + items(15)
+    Bo3: coverage(30) + lead_flex(25) + core_div(15) + sp(15) + items(15)
     """
-    coverage = _coverage_points(variant)
-    roles = _roles_points(variant)
     sps = _sps_points(variant)
     items = _items_points(variant)
-    total = float(coverage + roles + sps + items)
-    return max(0.0, min(100.0, total))
+
+    if format_mode == "bo3":
+        coverage = max(0, min(_W_COVERAGE_BO3,
+            _W_COVERAGE_BO3
+            - len(analyze_coverage([m.pokemon for m in variant.members]).offensive_gaps) * 2
+            - len(analyze_coverage([m.pokemon for m in variant.members]).defensive_weaknesses) * 3
+        ))
+        flex_ratio, flex_pts = _lead_flexibility_points(variant.members)
+        core_pts = _core_diversity_points(variant.members)
+        total = float(coverage + flex_pts + core_pts + sps + items)
+        return max(0.0, min(100.0, total)), flex_ratio
+    else:
+        coverage = _coverage_points(variant)
+        roles = _roles_points(variant)
+        total = float(coverage + roles + sps + items)
+        return max(0.0, min(100.0, total)), 0.0
 
 
 def generate_explanation(variant: TeamVariant, score: float) -> str:
@@ -129,12 +189,7 @@ def generate_explanation(variant: TeamVariant, score: float) -> str:
 
 
 def rank_variants(variants: list[TeamVariant]) -> list[TeamVariant]:
-    """Return a new list ordered by score desc, with the top one recommended.
-
-    Tiebreak chain (all descending): total score → coverage pts → roles pts
-    → SP pts → original input order. The first entry is marked recommended.
-    Returns model_copy instances so callers don't observe in-place mutation.
-    """
+    """Return a new list ordered by score desc, with the top one recommended."""
     if not variants:
         return []
 
@@ -145,7 +200,7 @@ def rank_variants(variants: list[TeamVariant]) -> list[TeamVariant]:
             -_coverage_points(v),
             -_roles_points(v),
             -_sps_points(v),
-            idx,  # stable on full tie
+            idx,
         )
 
     indexed = list(enumerate(variants))
