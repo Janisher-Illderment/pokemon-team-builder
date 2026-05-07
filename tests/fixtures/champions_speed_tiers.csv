@@ -1,0 +1,728 @@
+#,Pokemon,Base Speed,Spread,Speed Stat (Lv50)
+1,Mega Absol Z,151,252 EVs / +Spe,223
+2,Mega Garchomp Z,151,252 EVs / +Spe,223
+3,Mega Lucario Z,151,252 EVs / +Spe,223
+4,Mega Aerodactyl,150,252 EVs / +Spe,222
+5,Mega Alakazam,150,252 EVs / +Spe,222
+6,Mega Beedrill,145,252 EVs / +Spe,216
+7,Dragapult,142,252 EVs / +Spe,213
+8,Mega Greninja,142,252 EVs / +Spe,213
+9,Mega Lopunny,135,252 EVs / +Spe,205
+10,Mega Delphox,134,252 EVs / +Spe,204
+11,Mega Absol Z,151,252 EVs / Neutral,203
+12,Mega Garchomp Z,151,252 EVs / Neutral,203
+13,Mega Lucario Z,151,252 EVs / Neutral,203
+14,Mega Aerodactyl,150,252 EVs / Neutral,202
+15,Mega Alakazam,150,252 EVs / Neutral,202
+16,Aerodactyl,130,252 EVs / +Spe,200
+17,Jolteon,130,252 EVs / +Spe,200
+18,Mega Gengar,130,252 EVs / +Spe,200
+19,Mega Raichu Y,130,252 EVs / +Spe,200
+20,Mega Beedrill,145,252 EVs / Neutral,197
+21,Talonflame,126,252 EVs / +Spe,195
+22,Dragapult,142,252 EVs / Neutral,194
+23,Mega Greninja,142,252 EVs / Neutral,194
+24,Weavile,125,252 EVs / +Spe,194
+25,Mega Meowstic,124,252 EVs / +Spe,193
+26,Meowscarada,123,252 EVs / +Spe,192
+27,Noivern,123,252 EVs / +Spe,192
+28,Greninja,122,252 EVs / +Spe,191
+29,Alakazam,120,252 EVs / +Spe,189
+30,Mega Froslass,120,252 EVs / +Spe,189
+31,Mega Starmie,120,252 EVs / +Spe,189
+32,Sneasler,120,252 EVs / +Spe,189
+33,Hawlucha,118,252 EVs / +Spe,187
+34,Mega Hawlucha,118,252 EVs / +Spe,187
+35,Mega Lopunny,135,252 EVs / Neutral,187
+36,Mega Delphox,134,252 EVs / Neutral,186
+37,Whimsicott,116,252 EVs / +Spe,184
+38,Mega Absol,115,252 EVs / +Spe,183
+39,Mega Houndoom,115,252 EVs / +Spe,183
+40,Starmie,115,252 EVs / +Spe,183
+41,Aerodactyl,130,252 EVs / Neutral,182
+42,Jolteon,130,252 EVs / Neutral,182
+43,Mega Gengar,130,252 EVs / Neutral,182
+44,Mega Raichu Y,130,252 EVs / Neutral,182
+45,Serperior,113,252 EVs / +Spe,181
+46,Lycanroc,112,252 EVs / +Spe,180
+47,Mega Lucario,112,252 EVs / +Spe,180
+48,Maushold,111,252 EVs / +Spe,179
+49,Espeon,110,252 EVs / +Spe,178
+50,Froslass,110,252 EVs / +Spe,178
+51,Gengar,110,252 EVs / +Spe,178
+52,Mega Gallade,110,252 EVs / +Spe,178
+53,Mega Metagross,110,252 EVs / +Spe,178
+54,Mega Raichu X,110,252 EVs / +Spe,178
+55,Mega Skarmory,110,252 EVs / +Spe,178
+56,Raichu,110,252 EVs / +Spe,178
+57,Raichu-Alola,110,252 EVs / +Spe,178
+58,Talonflame,126,252 EVs / Neutral,178
+59,Zoroark-Hisui,110,252 EVs / +Spe,178
+60,Ninetales-Alola,109,252 EVs / +Spe,177
+61,Weavile,125,252 EVs / Neutral,177
+62,Infernape,108,252 EVs / +Spe,176
+63,Mega Meowstic,124,252 EVs / Neutral,176
+64,Meowscarada,123,252 EVs / Neutral,175
+65,Noivern,123,252 EVs / Neutral,175
+66,Greninja,122,252 EVs / Neutral,174
+67,Alakazam,120,252 EVs / Neutral,172
+68,Lopunny,105,252 EVs / +Spe,172
+69,Mega Froslass,120,252 EVs / Neutral,172
+70,Mega Pinsir,105,252 EVs / +Spe,172
+71,Mega Starmie,120,252 EVs / Neutral,172
+72,Pawmot,105,252 EVs / +Spe,172
+73,Sneasler,120,252 EVs / Neutral,172
+74,Zoroark,105,252 EVs / +Spe,172
+75,Delphox,104,252 EVs / +Spe,171
+76,Mega Absol Z,151,0 EVs / Neutral,171
+77,Mega Garchomp Z,151,0 EVs / Neutral,171
+78,Mega Lucario Z,151,0 EVs / Neutral,171
+79,Meowstic,104,252 EVs / +Spe,171
+80,Emolga,103,252 EVs / +Spe,170
+81,Hawlucha,118,252 EVs / Neutral,170
+82,Mega Aerodactyl,150,0 EVs / Neutral,170
+83,Mega Alakazam,150,0 EVs / Neutral,170
+84,Mega Excadrill,103,252 EVs / +Spe,170
+85,Mega Hawlucha,118,252 EVs / Neutral,170
+86,Furfrou,102,252 EVs / +Spe,169
+87,Garchomp,102,252 EVs / +Spe,169
+88,Mega Floette,102,252 EVs / +Spe,169
+89,Mega Glimmora,101,252 EVs / +Spe,168
+90,Whimsicott,116,252 EVs / Neutral,168
+91,Charizard,100,252 EVs / +Spe,167
+92,Mega Absol,115,252 EVs / Neutral,167
+93,Mega Charizard X,100,252 EVs / +Spe,167
+94,Mega Charizard Y,100,252 EVs / +Spe,167
+95,Mega Dragonite,100,252 EVs / +Spe,167
+96,Mega Gardevoir,100,252 EVs / +Spe,167
+97,Mega Houndoom,115,252 EVs / Neutral,167
+98,Mega Kangaskhan,100,252 EVs / +Spe,167
+99,Ninetales,100,252 EVs / +Spe,167
+100,Palafin,100,252 EVs / +Spe,167
+101,Starmie,115,252 EVs / Neutral,167
+102,Typhlosion,100,252 EVs / +Spe,167
+103,Volcarona,100,252 EVs / +Spe,167
+104,Hydreigon,98,252 EVs / +Spe,165
+105,Mega Beedrill,145,0 EVs / Neutral,165
+106,Serperior,113,252 EVs / Neutral,165
+107,Lycanroc,112,252 EVs / Neutral,164
+108,Mega Lucario,112,252 EVs / Neutral,164
+109,Maushold,111,252 EVs / Neutral,163
+110,Morpeko,97,252 EVs / +Spe,163
+111,Dragapult,142,0 EVs / Neutral,162
+112,Espeon,110,252 EVs / Neutral,162
+113,Froslass,110,252 EVs / Neutral,162
+114,Gengar,110,252 EVs / Neutral,162
+115,Mega Gallade,110,252 EVs / Neutral,162
+116,Mega Greninja,142,0 EVs / Neutral,162
+117,Mega Metagross,110,252 EVs / Neutral,162
+118,Mega Raichu X,110,252 EVs / Neutral,162
+119,Mega Skarmory,110,252 EVs / Neutral,162
+120,Mimikyu,96,252 EVs / +Spe,162
+121,Raichu,110,252 EVs / Neutral,162
+122,Raichu-Alola,110,252 EVs / Neutral,162
+123,Zoroark-Hisui,110,252 EVs / Neutral,162
+124,Arcanine,95,252 EVs / +Spe,161
+125,Gliscor,95,252 EVs / +Spe,161
+126,Houndoom,95,252 EVs / +Spe,161
+127,Leafeon,95,252 EVs / +Spe,161
+128,Ninetales-Alola,109,252 EVs / Neutral,161
+129,Typhlosion-Hisui,95,252 EVs / +Spe,161
+130,Infernape,108,252 EVs / Neutral,160
+131,Tinkaton,94,252 EVs / +Spe,160
+132,Krookodile,92,252 EVs / +Spe,158
+133,Mega Garchomp,92,252 EVs / +Spe,158
+134,Mega Tatsugiri,92,252 EVs / +Spe,158
+135,Lopunny,105,252 EVs / Neutral,157
+136,Mega Pinsir,105,252 EVs / Neutral,157
+137,Pawmot,105,252 EVs / Neutral,157
+138,Rotom,91,252 EVs / +Spe,157
+139,Zoroark,105,252 EVs / Neutral,157
+140,Arcanine-Hisui,90,252 EVs / +Spe,156
+141,Delphox,104,252 EVs / Neutral,156
+142,Kangaskhan,90,252 EVs / +Spe,156
+143,Lucario,90,252 EVs / +Spe,156
+144,Mega Chandelure,90,252 EVs / +Spe,156
+145,Meowstic,104,252 EVs / Neutral,156
+146,Pikachu,90,252 EVs / +Spe,156
+147,Emolga,103,252 EVs / Neutral,155
+148,Mega Excadrill,103,252 EVs / Neutral,155
+149,Mega Lopunny,135,0 EVs / Neutral,155
+150,Vivillon,89,252 EVs / +Spe,155
+151,Excadrill,88,252 EVs / +Spe,154
+152,Furfrou,102,252 EVs / Neutral,154
+153,Garchomp,102,252 EVs / Neutral,154
+154,Mega Delphox,134,0 EVs / Neutral,154
+155,Mega Floette,102,252 EVs / Neutral,154
+156,Mega Glimmora,101,252 EVs / Neutral,153
+157,Charizard,100,252 EVs / Neutral,152
+158,Mega Charizard X,100,252 EVs / Neutral,152
+159,Mega Charizard Y,100,252 EVs / Neutral,152
+160,Mega Dragonite,100,252 EVs / Neutral,152
+161,Mega Gardevoir,100,252 EVs / Neutral,152
+162,Mega Kangaskhan,100,252 EVs / Neutral,152
+163,Ninetales,100,252 EVs / Neutral,152
+164,Palafin,100,252 EVs / Neutral,152
+165,Typhlosion,100,252 EVs / Neutral,152
+166,Volcarona,100,252 EVs / Neutral,152
+167,Aerodactyl,130,0 EVs / Neutral,150
+168,Archaludon,85,252 EVs / +Spe,150
+169,Ceruledge,85,252 EVs / +Spe,150
+170,Heracross,85,252 EVs / +Spe,150
+171,Hydreigon,98,252 EVs / Neutral,150
+172,Jolteon,130,0 EVs / Neutral,150
+173,Kleavor,85,252 EVs / +Spe,150
+174,Kommo-o,85,252 EVs / +Spe,150
+175,Mega Gengar,130,0 EVs / Neutral,150
+176,Mega Raichu Y,130,0 EVs / Neutral,150
+177,Pinsir,85,252 EVs / +Spe,150
+178,Quaquaval,85,252 EVs / +Spe,150
+179,Samurott-Hisui,85,252 EVs / +Spe,150
+180,Morpeko,97,252 EVs / Neutral,149
+181,Mimikyu,96,252 EVs / Neutral,148
+182,Arcanine,95,252 EVs / Neutral,147
+183,Gliscor,95,252 EVs / Neutral,147
+184,Houndoom,95,252 EVs / Neutral,147
+185,Leafeon,95,252 EVs / Neutral,147
+186,Tatsugiri,82,252 EVs / +Spe,147
+187,Typhlosion-Hisui,95,252 EVs / Neutral,147
+188,Gyarados,81,252 EVs / +Spe,146
+189,Mega Gyarados,81,252 EVs / +Spe,146
+190,Milotic,81,252 EVs / +Spe,146
+191,Talonflame,126,0 EVs / Neutral,146
+192,Tinkaton,94,252 EVs / Neutral,146
+193,Altaria,80,252 EVs / +Spe,145
+194,Chandelure,80,252 EVs / +Spe,145
+195,Dragonite,80,252 EVs / +Spe,145
+196,Gallade,80,252 EVs / +Spe,145
+197,Gardevoir,80,252 EVs / +Spe,145
+198,Goodra,80,252 EVs / +Spe,145
+199,Mamoswine,80,252 EVs / +Spe,145
+200,Mega Altaria,80,252 EVs / +Spe,145
+201,Mega Meganium,80,252 EVs / +Spe,145
+202,Mega Venusaur,80,252 EVs / +Spe,145
+203,Meganium,80,252 EVs / +Spe,145
+204,Venusaur,80,252 EVs / +Spe,145
+205,Weavile,125,0 EVs / Neutral,145
+206,Krookodile,92,252 EVs / Neutral,144
+207,Mega Garchomp,92,252 EVs / Neutral,144
+208,Mega Meowstic,124,0 EVs / Neutral,144
+209,Mega Tatsugiri,92,252 EVs / Neutral,144
+210,Vanilluxe,79,252 EVs / +Spe,144
+211,Basculegion,78,252 EVs / +Spe,143
+212,Blastoise,78,252 EVs / +Spe,143
+213,Diggersby,78,252 EVs / +Spe,143
+214,Feraligatr,78,252 EVs / +Spe,143
+215,Mega Blastoise,78,252 EVs / +Spe,143
+216,Mega Feraligatr,78,252 EVs / +Spe,143
+217,Meowscarada,123,0 EVs / Neutral,143
+218,Noivern,123,0 EVs / Neutral,143
+219,Rotom,91,252 EVs / Neutral,143
+220,Arcanine-Hisui,90,252 EVs / Neutral,142
+221,Greninja,122,0 EVs / Neutral,142
+222,Kangaskhan,90,252 EVs / Neutral,142
+223,Lucario,90,252 EVs / Neutral,142
+224,Mega Chandelure,90,252 EVs / Neutral,142
+225,Pikachu,90,252 EVs / Neutral,142
+226,Vivillon,89,252 EVs / Neutral,141
+227,Alakazam,120,0 EVs / Neutral,140
+228,Excadrill,88,252 EVs / Neutral,140
+229,Mega Froslass,120,0 EVs / Neutral,140
+230,Mega Starmie,120,0 EVs / Neutral,140
+231,Sneasler,120,0 EVs / Neutral,140
+232,Absol,75,252 EVs / +Spe,139
+233,Armarouge,75,252 EVs / +Spe,139
+234,Beedrill,75,252 EVs / +Spe,139
+235,Garbodor,75,252 EVs / +Spe,139
+236,Klefki,75,252 EVs / +Spe,139
+237,Mega Emboar,75,252 EVs / +Spe,139
+238,Mega Heracross,75,252 EVs / +Spe,139
+239,Mega Scizor,75,252 EVs / +Spe,139
+240,Mega Scovillain,75,252 EVs / +Spe,139
+241,Scovillain,75,252 EVs / +Spe,139
+242,Hawlucha,118,0 EVs / Neutral,138
+243,Mega Hawlucha,118,0 EVs / Neutral,138
+244,Archaludon,85,252 EVs / Neutral,137
+245,Ceruledge,85,252 EVs / Neutral,137
+246,Heracross,85,252 EVs / Neutral,137
+247,Kleavor,85,252 EVs / Neutral,137
+248,Kommo-o,85,252 EVs / Neutral,137
+249,Pinsir,85,252 EVs / Neutral,137
+250,Quaquaval,85,252 EVs / Neutral,137
+251,Samurott-Hisui,85,252 EVs / Neutral,137
+252,Tsareena,72,252 EVs / +Spe,136
+253,Whimsicott,116,0 EVs / Neutral,136
+254,Mega Absol,115,0 EVs / Neutral,135
+255,Mega Houndoom,115,0 EVs / Neutral,135
+256,Mega Tyranitar,71,252 EVs / +Spe,135
+257,Sandaconda,71,252 EVs / +Spe,135
+258,Starmie,115,0 EVs / Neutral,135
+259,Tyrantrum,71,252 EVs / +Spe,135
+260,Decidueye,70,252 EVs / +Spe,134
+261,Glimmora,70,252 EVs / +Spe,134
+262,Mega Clefable,70,252 EVs / +Spe,134
+263,Mega Victreebel,70,252 EVs / +Spe,134
+264,Metagross,70,252 EVs / +Spe,134
+265,Mr. Rime,70,252 EVs / +Spe,134
+266,Politoed,70,252 EVs / +Spe,134
+267,Polteageist,70,252 EVs / +Spe,134
+268,Samurott,70,252 EVs / +Spe,134
+269,Sinistcha,70,252 EVs / +Spe,134
+270,Skarmory,70,252 EVs / +Spe,134
+271,Tatsugiri,82,252 EVs / Neutral,134
+272,Victreebel,70,252 EVs / +Spe,134
+273,Gyarados,81,252 EVs / Neutral,133
+274,Mega Gyarados,81,252 EVs / Neutral,133
+275,Milotic,81,252 EVs / Neutral,133
+276,Serperior,113,0 EVs / Neutral,133
+277,Altaria,80,252 EVs / Neutral,132
+278,Chandelure,80,252 EVs / Neutral,132
+279,Dragonite,80,252 EVs / Neutral,132
+280,Gallade,80,252 EVs / Neutral,132
+281,Gardevoir,80,252 EVs / Neutral,132
+282,Goodra,80,252 EVs / Neutral,132
+283,Lycanroc,112,0 EVs / Neutral,132
+284,Mamoswine,80,252 EVs / Neutral,132
+285,Mega Altaria,80,252 EVs / Neutral,132
+286,Mega Lucario,112,0 EVs / Neutral,132
+287,Mega Meganium,80,252 EVs / Neutral,132
+288,Mega Venusaur,80,252 EVs / Neutral,132
+289,Meganium,80,252 EVs / Neutral,132
+290,Venusaur,80,252 EVs / Neutral,132
+291,Maushold,111,0 EVs / Neutral,131
+292,Vanilluxe,79,252 EVs / Neutral,131
+293,Basculegion,78,252 EVs / Neutral,130
+294,Blastoise,78,252 EVs / Neutral,130
+295,Corviknight,67,252 EVs / +Spe,130
+296,Diggersby,78,252 EVs / Neutral,130
+297,Espeon,110,0 EVs / Neutral,130
+298,Feraligatr,78,252 EVs / Neutral,130
+299,Froslass,110,0 EVs / Neutral,130
+300,Gengar,110,0 EVs / Neutral,130
+301,Mega Blastoise,78,252 EVs / Neutral,130
+302,Mega Feraligatr,78,252 EVs / Neutral,130
+303,Mega Gallade,110,0 EVs / Neutral,130
+304,Mega Metagross,110,0 EVs / Neutral,130
+305,Mega Raichu X,110,0 EVs / Neutral,130
+306,Mega Skarmory,110,0 EVs / Neutral,130
+307,Raichu,110,0 EVs / Neutral,130
+308,Raichu-Alola,110,0 EVs / Neutral,130
+309,Zoroark-Hisui,110,0 EVs / Neutral,130
+310,Ninetales-Alola,109,0 EVs / Neutral,129
+311,Skeledirge,66,252 EVs / +Spe,129
+312,Emboar,65,252 EVs / +Spe,128
+313,Flareon,65,252 EVs / +Spe,128
+314,Glaceon,65,252 EVs / +Spe,128
+315,Infernape,108,0 EVs / Neutral,128
+316,Orthworm,65,252 EVs / +Spe,128
+317,Pelipper,65,252 EVs / +Spe,128
+318,Scizor,65,252 EVs / +Spe,128
+319,Umbreon,65,252 EVs / +Spe,128
+320,Vaporeon,65,252 EVs / +Spe,128
+321,Absol,75,252 EVs / Neutral,127
+322,Alcremie,64,252 EVs / +Spe,127
+323,Armarouge,75,252 EVs / Neutral,127
+324,Beedrill,75,252 EVs / Neutral,127
+325,Chesnaught,64,252 EVs / +Spe,127
+326,Garbodor,75,252 EVs / Neutral,127
+327,Klefki,75,252 EVs / Neutral,127
+328,Mega Emboar,75,252 EVs / Neutral,127
+329,Mega Heracross,75,252 EVs / Neutral,127
+330,Mega Scizor,75,252 EVs / Neutral,127
+331,Mega Scovillain,75,252 EVs / Neutral,127
+332,Scovillain,75,252 EVs / Neutral,127
+333,Lopunny,105,0 EVs / Neutral,125
+334,Mega Pinsir,105,0 EVs / Neutral,125
+335,Pawmot,105,0 EVs / Neutral,125
+336,Zoroark,105,0 EVs / Neutral,125
+337,Delphox,104,0 EVs / Neutral,124
+338,Meowstic,104,0 EVs / Neutral,124
+339,Tsareena,72,252 EVs / Neutral,124
+340,Tyranitar,61,252 EVs / +Spe,124
+341,Abomasnow,60,252 EVs / +Spe,123
+342,Aegislash,60,252 EVs / +Spe,123
+343,Clefable,60,252 EVs / +Spe,123
+344,Decidueye-Hisui,60,252 EVs / +Spe,123
+345,Emolga,103,0 EVs / Neutral,123
+346,Empoleon,60,252 EVs / +Spe,123
+347,Farigiraf,60,252 EVs / +Spe,123
+348,Grimmsnarl,60,252 EVs / +Spe,123
+349,Incineroar,60,252 EVs / +Spe,123
+350,Mega Excadrill,103,0 EVs / Neutral,123
+351,Mega Tyranitar,71,252 EVs / Neutral,123
+352,Oranguru,60,252 EVs / +Spe,123
+353,Primarina,60,252 EVs / +Spe,123
+354,Sandaconda,71,252 EVs / Neutral,123
+355,Sylveon,60,252 EVs / +Spe,123
+356,Toucannon,60,252 EVs / +Spe,123
+357,Tyrantrum,71,252 EVs / Neutral,123
+358,Clawitzer,59,252 EVs / +Spe,122
+359,Decidueye,70,252 EVs / Neutral,122
+360,Furfrou,102,0 EVs / Neutral,122
+361,Garchomp,102,0 EVs / Neutral,122
+362,Glimmora,70,252 EVs / Neutral,122
+363,Mega Clefable,70,252 EVs / Neutral,122
+364,Mega Floette,102,0 EVs / Neutral,122
+365,Mega Victreebel,70,252 EVs / Neutral,122
+366,Metagross,70,252 EVs / Neutral,122
+367,Mr. Rime,70,252 EVs / Neutral,122
+368,Politoed,70,252 EVs / Neutral,122
+369,Polteageist,70,252 EVs / Neutral,122
+370,Samurott,70,252 EVs / Neutral,122
+371,Sinistcha,70,252 EVs / Neutral,122
+372,Skarmory,70,252 EVs / Neutral,122
+373,Victreebel,70,252 EVs / Neutral,122
+374,Aurorus,58,252 EVs / +Spe,121
+375,Mega Glimmora,101,0 EVs / Neutral,121
+376,Charizard,100,0 EVs / Neutral,120
+377,Mega Charizard X,100,0 EVs / Neutral,120
+378,Mega Charizard Y,100,0 EVs / Neutral,120
+379,Mega Dragonite,100,0 EVs / Neutral,120
+380,Mega Gardevoir,100,0 EVs / Neutral,120
+381,Mega Kangaskhan,100,0 EVs / Neutral,120
+382,Ninetales,100,0 EVs / Neutral,120
+383,Palafin,100,0 EVs / Neutral,120
+384,Typhlosion,100,0 EVs / Neutral,120
+385,Volcarona,100,0 EVs / Neutral,120
+386,Corviknight,67,252 EVs / Neutral,119
+387,Hydreigon,98,0 EVs / Neutral,118
+388,Skeledirge,66,252 EVs / Neutral,118
+389,Torterra,56,252 EVs / +Spe,118
+390,Trevenant,56,252 EVs / +Spe,118
+391,Ampharos,55,252 EVs / +Spe,117
+392,Emboar,65,252 EVs / Neutral,117
+393,Flareon,65,252 EVs / Neutral,117
+394,Glaceon,65,252 EVs / Neutral,117
+395,Golurk,55,252 EVs / +Spe,117
+396,Hydrapple,55,252 EVs / +Spe,117
+397,Mega Golurk,55,252 EVs / +Spe,117
+398,Morpeko,97,0 EVs / Neutral,117
+399,Orthworm,65,252 EVs / Neutral,117
+400,Pelipper,65,252 EVs / Neutral,117
+401,Scizor,65,252 EVs / Neutral,117
+402,Umbreon,65,252 EVs / Neutral,117
+403,Vaporeon,65,252 EVs / Neutral,117
+404,Alcremie,64,252 EVs / Neutral,116
+405,Chesnaught,64,252 EVs / Neutral,116
+406,Gourgeist,54,252 EVs / +Spe,116
+407,Mimikyu,96,0 EVs / Neutral,116
+408,Arcanine,95,0 EVs / Neutral,115
+409,Gliscor,95,0 EVs / Neutral,115
+410,Houndoom,95,0 EVs / Neutral,115
+411,Leafeon,95,0 EVs / Neutral,115
+412,Typhlosion-Hisui,95,0 EVs / Neutral,115
+413,Floette,52,252 EVs / +Spe,114
+414,Tinkaton,94,0 EVs / Neutral,114
+415,Tyranitar,61,252 EVs / Neutral,113
+416,Abomasnow,60,252 EVs / Neutral,112
+417,Aegislash,60,252 EVs / Neutral,112
+418,Aggron,50,252 EVs / +Spe,112
+419,Audino,50,252 EVs / +Spe,112
+420,Azumarill,50,252 EVs / +Spe,112
+421,Clefable,60,252 EVs / Neutral,112
+422,Decidueye-Hisui,60,252 EVs / Neutral,112
+423,Empoleon,60,252 EVs / Neutral,112
+424,Farigiraf,60,252 EVs / Neutral,112
+425,Grimmsnarl,60,252 EVs / Neutral,112
+426,Incineroar,60,252 EVs / Neutral,112
+427,Kingambit,50,252 EVs / +Spe,112
+428,Krookodile,92,0 EVs / Neutral,112
+429,Mega Aggron,50,252 EVs / +Spe,112
+430,Mega Audino,50,252 EVs / +Spe,112
+431,Mega Garchomp,92,0 EVs / Neutral,112
+432,Mega Tatsugiri,92,0 EVs / Neutral,112
+433,Oranguru,60,252 EVs / Neutral,112
+434,Primarina,60,252 EVs / Neutral,112
+435,Sableye,50,252 EVs / +Spe,112
+436,Sylveon,60,252 EVs / Neutral,112
+437,Toucannon,60,252 EVs / Neutral,112
+438,Ursaluna,50,252 EVs / +Spe,112
+439,Clawitzer,59,252 EVs / Neutral,111
+440,Rotom,91,0 EVs / Neutral,111
+441,Arcanine-Hisui,90,0 EVs / Neutral,110
+442,Aurorus,58,252 EVs / Neutral,110
+443,Ditto,48,252 EVs / +Spe,110
+444,Kangaskhan,90,0 EVs / Neutral,110
+445,Lucario,90,0 EVs / Neutral,110
+446,Mega Chandelure,90,0 EVs / Neutral,110
+447,Pikachu,90,0 EVs / Neutral,110
+448,Vivillon,89,0 EVs / Neutral,109
+449,Excadrill,88,0 EVs / Neutral,108
+450,Hippowdon,47,252 EVs / +Spe,108
+451,Torterra,56,252 EVs / Neutral,108
+452,Trevenant,56,252 EVs / Neutral,108
+453,Ampharos,55,252 EVs / Neutral,107
+454,Golurk,55,252 EVs / Neutral,107
+455,Hydrapple,55,252 EVs / Neutral,107
+456,Mega Golurk,55,252 EVs / Neutral,107
+457,Conkeldurr,45,252 EVs / +Spe,106
+458,Gourgeist,54,252 EVs / Neutral,106
+459,Mega Ampharos,45,252 EVs / +Spe,106
+460,Archaludon,85,0 EVs / Neutral,105
+461,Ceruledge,85,0 EVs / Neutral,105
+462,Heracross,85,0 EVs / Neutral,105
+463,Kleavor,85,0 EVs / Neutral,105
+464,Kommo-o,85,0 EVs / Neutral,105
+465,Mega Chesnaught,44,252 EVs / +Spe,105
+466,Pinsir,85,0 EVs / Neutral,105
+467,Quaquaval,85,0 EVs / Neutral,105
+468,Samurott-Hisui,85,0 EVs / Neutral,105
+469,Crabominable,43,252 EVs / +Spe,104
+470,Floette,52,252 EVs / Neutral,104
+471,Araquanid,42,252 EVs / +Spe,103
+472,Aggron,50,252 EVs / Neutral,102
+473,Audino,50,252 EVs / Neutral,102
+474,Azumarill,50,252 EVs / Neutral,102
+475,Kingambit,50,252 EVs / Neutral,102
+476,Mega Aggron,50,252 EVs / Neutral,102
+477,Mega Audino,50,252 EVs / Neutral,102
+478,Sableye,50,252 EVs / Neutral,102
+479,Tatsugiri,82,0 EVs / Neutral,102
+480,Ursaluna,50,252 EVs / Neutral,102
+481,Gyarados,81,0 EVs / Neutral,101
+482,Mega Gyarados,81,0 EVs / Neutral,101
+483,Milotic,81,0 EVs / Neutral,101
+484,Rhyperior,40,252 EVs / +Spe,101
+485,Altaria,80,0 EVs / Neutral,100
+486,Chandelure,80,0 EVs / Neutral,100
+487,Ditto,48,252 EVs / Neutral,100
+488,Dragonite,80,0 EVs / Neutral,100
+489,Gallade,80,0 EVs / Neutral,100
+490,Gardevoir,80,0 EVs / Neutral,100
+491,Goodra,80,0 EVs / Neutral,100
+492,Mamoswine,80,0 EVs / Neutral,100
+493,Mega Altaria,80,0 EVs / Neutral,100
+494,Mega Meganium,80,0 EVs / Neutral,100
+495,Mega Venusaur,80,0 EVs / Neutral,100
+496,Meganium,80,0 EVs / Neutral,100
+497,Venusaur,80,0 EVs / Neutral,100
+498,Hippowdon,47,252 EVs / Neutral,99
+499,Vanilluxe,79,0 EVs / Neutral,99
+500,Basculegion,78,0 EVs / Neutral,98
+501,Blastoise,78,0 EVs / Neutral,98
+502,Diggersby,78,0 EVs / Neutral,98
+503,Feraligatr,78,0 EVs / Neutral,98
+504,Mega Blastoise,78,0 EVs / Neutral,98
+505,Mega Feraligatr,78,0 EVs / Neutral,98
+506,Conkeldurr,45,252 EVs / Neutral,97
+507,Mega Ampharos,45,252 EVs / Neutral,97
+508,Drampa,36,252 EVs / +Spe,96
+509,Mega Chesnaught,44,252 EVs / Neutral,96
+510,Mega Drampa,36,252 EVs / +Spe,96
+511,Absol,75,0 EVs / Neutral,95
+512,Armarouge,75,0 EVs / Neutral,95
+513,Beedrill,75,0 EVs / Neutral,95
+514,Crabominable,43,252 EVs / Neutral,95
+515,Dondozo,35,252 EVs / +Spe,95
+516,Garbodor,75,0 EVs / Neutral,95
+517,Garganacl,35,252 EVs / +Spe,95
+518,Klefki,75,0 EVs / Neutral,95
+519,Mega Emboar,75,0 EVs / Neutral,95
+520,Mega Heracross,75,0 EVs / Neutral,95
+521,Mega Scizor,75,0 EVs / Neutral,95
+522,Mega Scovillain,75,0 EVs / Neutral,95
+523,Mudsdale,35,252 EVs / +Spe,95
+524,Scovillain,75,0 EVs / Neutral,95
+525,Spiritomb,35,252 EVs / +Spe,95
+526,Toxapex,35,252 EVs / +Spe,95
+527,Araquanid,42,252 EVs / Neutral,94
+528,Mega Crabominable,33,252 EVs / +Spe,93
+529,Rhyperior,40,252 EVs / Neutral,92
+530,Stunfisk,32,252 EVs / +Spe,92
+531,Tsareena,72,0 EVs / Neutral,92
+532,Mega Tyranitar,71,0 EVs / Neutral,91
+533,Sandaconda,71,0 EVs / Neutral,91
+534,Tyrantrum,71,0 EVs / Neutral,91
+535,Appletun,30,252 EVs / +Spe,90
+536,Decidueye,70,0 EVs / Neutral,90
+537,Glimmora,70,0 EVs / Neutral,90
+538,Mega Abomasnow,30,252 EVs / +Spe,90
+539,Mega Clefable,70,0 EVs / Neutral,90
+540,Mega Slowbro,30,252 EVs / +Spe,90
+541,Mega Steelix,30,252 EVs / +Spe,90
+542,Mega Victreebel,70,0 EVs / Neutral,90
+543,Metagross,70,0 EVs / Neutral,90
+544,Mr. Rime,70,0 EVs / Neutral,90
+545,Politoed,70,0 EVs / Neutral,90
+546,Polteageist,70,0 EVs / Neutral,90
+547,Runerigus,30,252 EVs / +Spe,90
+548,Samurott,70,0 EVs / Neutral,90
+549,Sinistcha,70,0 EVs / Neutral,90
+550,Skarmory,70,0 EVs / Neutral,90
+551,Slowbro,30,252 EVs / +Spe,90
+552,Slowbro-Galar,30,252 EVs / +Spe,90
+553,Slowking,30,252 EVs / +Spe,90
+554,Snorlax,30,252 EVs / +Spe,90
+555,Steelix,30,252 EVs / +Spe,90
+556,Victreebel,70,0 EVs / Neutral,90
+557,Hatterene,29,252 EVs / +Spe,89
+558,Drampa,36,252 EVs / Neutral,88
+559,Mega Drampa,36,252 EVs / Neutral,88
+560,Corviknight,67,0 EVs / Neutral,87
+561,Dondozo,35,252 EVs / Neutral,87
+562,Garganacl,35,252 EVs / Neutral,87
+563,Mudsdale,35,252 EVs / Neutral,87
+564,Spiritomb,35,252 EVs / Neutral,87
+565,Toxapex,35,252 EVs / Neutral,87
+566,Skeledirge,66,0 EVs / Neutral,86
+567,Emboar,65,0 EVs / Neutral,85
+568,Flareon,65,0 EVs / Neutral,85
+569,Glaceon,65,0 EVs / Neutral,85
+570,Mega Crabominable,33,252 EVs / Neutral,85
+571,Orthworm,65,0 EVs / Neutral,85
+572,Pelipper,65,0 EVs / Neutral,85
+573,Scizor,65,0 EVs / Neutral,85
+574,Umbreon,65,0 EVs / Neutral,85
+575,Vaporeon,65,0 EVs / Neutral,85
+576,Alcremie,64,0 EVs / Neutral,84
+577,Chesnaught,64,0 EVs / Neutral,84
+578,Stunfisk,32,252 EVs / Neutral,84
+579,Appletun,30,252 EVs / Neutral,82
+580,Mega Abomasnow,30,252 EVs / Neutral,82
+581,Mega Slowbro,30,252 EVs / Neutral,82
+582,Mega Steelix,30,252 EVs / Neutral,82
+583,Runerigus,30,252 EVs / Neutral,82
+584,Slowbro,30,252 EVs / Neutral,82
+585,Slowbro-Galar,30,252 EVs / Neutral,82
+586,Slowking,30,252 EVs / Neutral,82
+587,Snorlax,30,252 EVs / Neutral,82
+588,Steelix,30,252 EVs / Neutral,82
+589,Hatterene,29,252 EVs / Neutral,81
+590,Tyranitar,61,0 EVs / Neutral,81
+591,Abomasnow,60,0 EVs / Neutral,80
+592,Aegislash,60,0 EVs / Neutral,80
+593,Clefable,60,0 EVs / Neutral,80
+594,Decidueye-Hisui,60,0 EVs / Neutral,80
+595,Empoleon,60,0 EVs / Neutral,80
+596,Farigiraf,60,0 EVs / Neutral,80
+597,Grimmsnarl,60,0 EVs / Neutral,80
+598,Incineroar,60,0 EVs / Neutral,80
+599,Oranguru,60,0 EVs / Neutral,80
+600,Primarina,60,0 EVs / Neutral,80
+601,Sylveon,60,0 EVs / Neutral,80
+602,Toucannon,60,0 EVs / Neutral,80
+603,Clawitzer,59,0 EVs / Neutral,79
+604,Mega Sableye,20,252 EVs / +Spe,79
+605,Torkoal,20,252 EVs / +Spe,79
+606,Aurorus,58,0 EVs / Neutral,78
+607,Corviknight,67,0 EVs / -Spe,78
+608,Skeledirge,66,0 EVs / -Spe,77
+609,Emboar,65,0 EVs / -Spe,76
+610,Flareon,65,0 EVs / -Spe,76
+611,Glaceon,65,0 EVs / -Spe,76
+612,Orthworm,65,0 EVs / -Spe,76
+613,Pelipper,65,0 EVs / -Spe,76
+614,Scizor,65,0 EVs / -Spe,76
+615,Torterra,56,0 EVs / Neutral,76
+616,Trevenant,56,0 EVs / Neutral,76
+617,Umbreon,65,0 EVs / -Spe,76
+618,Vaporeon,65,0 EVs / -Spe,76
+619,Alcremie,64,0 EVs / -Spe,75
+620,Ampharos,55,0 EVs / Neutral,75
+621,Chesnaught,64,0 EVs / -Spe,75
+622,Golurk,55,0 EVs / Neutral,75
+623,Hydrapple,55,0 EVs / Neutral,75
+624,Mega Golurk,55,0 EVs / Neutral,75
+625,Gourgeist,54,0 EVs / Neutral,74
+626,Abomasnow,60,0 EVs / -Spe,72
+627,Aegislash,60,0 EVs / -Spe,72
+628,Clefable,60,0 EVs / -Spe,72
+629,Decidueye-Hisui,60,0 EVs / -Spe,72
+630,Empoleon,60,0 EVs / -Spe,72
+631,Farigiraf,60,0 EVs / -Spe,72
+632,Floette,52,0 EVs / Neutral,72
+633,Grimmsnarl,60,0 EVs / -Spe,72
+634,Incineroar,60,0 EVs / -Spe,72
+635,Mega Sableye,20,252 EVs / Neutral,72
+636,Oranguru,60,0 EVs / -Spe,72
+637,Primarina,60,0 EVs / -Spe,72
+638,Sylveon,60,0 EVs / -Spe,72
+639,Torkoal,20,252 EVs / Neutral,72
+640,Toucannon,60,0 EVs / -Spe,72
+641,Tyranitar,61,0 EVs / -Spe,72
+642,Clawitzer,59,0 EVs / -Spe,71
+643,Aggron,50,0 EVs / Neutral,70
+644,Audino,50,0 EVs / Neutral,70
+645,Aurorus,58,0 EVs / -Spe,70
+646,Azumarill,50,0 EVs / Neutral,70
+647,Kingambit,50,0 EVs / Neutral,70
+648,Mega Aggron,50,0 EVs / Neutral,70
+649,Mega Audino,50,0 EVs / Neutral,70
+650,Sableye,50,0 EVs / Neutral,70
+651,Ursaluna,50,0 EVs / Neutral,70
+652,Ditto,48,0 EVs / Neutral,68
+653,Torterra,56,0 EVs / -Spe,68
+654,Trevenant,56,0 EVs / -Spe,68
+655,Ampharos,55,0 EVs / -Spe,67
+656,Golurk,55,0 EVs / -Spe,67
+657,Hippowdon,47,0 EVs / Neutral,67
+658,Hydrapple,55,0 EVs / -Spe,67
+659,Mega Golurk,55,0 EVs / -Spe,67
+660,Gourgeist,54,0 EVs / -Spe,66
+661,Conkeldurr,45,0 EVs / Neutral,65
+662,Mega Ampharos,45,0 EVs / Neutral,65
+663,Floette,52,0 EVs / -Spe,64
+664,Mega Chesnaught,44,0 EVs / Neutral,64
+665,Aggron,50,0 EVs / -Spe,63
+666,Audino,50,0 EVs / -Spe,63
+667,Azumarill,50,0 EVs / -Spe,63
+668,Crabominable,43,0 EVs / Neutral,63
+669,Kingambit,50,0 EVs / -Spe,63
+670,Mega Aggron,50,0 EVs / -Spe,63
+671,Mega Audino,50,0 EVs / -Spe,63
+672,Sableye,50,0 EVs / -Spe,63
+673,Ursaluna,50,0 EVs / -Spe,63
+674,Araquanid,42,0 EVs / Neutral,62
+675,Ditto,48,0 EVs / -Spe,61
+676,Hippowdon,47,0 EVs / -Spe,60
+677,Rhyperior,40,0 EVs / Neutral,60
+678,Conkeldurr,45,0 EVs / -Spe,58
+679,Mega Ampharos,45,0 EVs / -Spe,58
+680,Mega Chesnaught,44,0 EVs / -Spe,57
+681,Crabominable,43,0 EVs / -Spe,56
+682,Drampa,36,0 EVs / Neutral,56
+683,Mega Drampa,36,0 EVs / Neutral,56
+684,Araquanid,42,0 EVs / -Spe,55
+685,Dondozo,35,0 EVs / Neutral,55
+686,Garganacl,35,0 EVs / Neutral,55
+687,Mudsdale,35,0 EVs / Neutral,55
+688,Spiritomb,35,0 EVs / Neutral,55
+689,Toxapex,35,0 EVs / Neutral,55
+690,Rhyperior,40,0 EVs / -Spe,54
+691,Mega Crabominable,33,0 EVs / Neutral,53
+692,Stunfisk,32,0 EVs / Neutral,52
+693,Appletun,30,0 EVs / Neutral,50
+694,Drampa,36,0 EVs / -Spe,50
+695,Mega Abomasnow,30,0 EVs / Neutral,50
+696,Mega Drampa,36,0 EVs / -Spe,50
+697,Mega Slowbro,30,0 EVs / Neutral,50
+698,Mega Steelix,30,0 EVs / Neutral,50
+699,Runerigus,30,0 EVs / Neutral,50
+700,Slowbro,30,0 EVs / Neutral,50
+701,Slowbro-Galar,30,0 EVs / Neutral,50
+702,Slowking,30,0 EVs / Neutral,50
+703,Snorlax,30,0 EVs / Neutral,50
+704,Steelix,30,0 EVs / Neutral,50
+705,Dondozo,35,0 EVs / -Spe,49
+706,Garganacl,35,0 EVs / -Spe,49
+707,Hatterene,29,0 EVs / Neutral,49
+708,Mudsdale,35,0 EVs / -Spe,49
+709,Spiritomb,35,0 EVs / -Spe,49
+710,Toxapex,35,0 EVs / -Spe,49
+711,Mega Crabominable,33,0 EVs / -Spe,47
+712,Stunfisk,32,0 EVs / -Spe,46
+713,Appletun,30,0 EVs / -Spe,45
+714,Mega Abomasnow,30,0 EVs / -Spe,45
+715,Mega Slowbro,30,0 EVs / -Spe,45
+716,Mega Steelix,30,0 EVs / -Spe,45
+717,Runerigus,30,0 EVs / -Spe,45
+718,Slowbro,30,0 EVs / -Spe,45
+719,Slowbro-Galar,30,0 EVs / -Spe,45
+720,Slowking,30,0 EVs / -Spe,45
+721,Snorlax,30,0 EVs / -Spe,45
+722,Steelix,30,0 EVs / -Spe,45
+723,Hatterene,29,0 EVs / -Spe,44
+724,Mega Sableye,20,0 EVs / Neutral,40
+725,Torkoal,20,0 EVs / Neutral,40
+726,Mega Sableye,20,0 EVs / -Spe,36
+727,Torkoal,20,0 EVs / -Spe,36

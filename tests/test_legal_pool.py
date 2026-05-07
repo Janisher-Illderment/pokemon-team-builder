@@ -1,7 +1,11 @@
+import csv
 import importlib
+import re
 import subprocess
 import sys
+import unicodedata
 from datetime import date
+from pathlib import Path
 
 import pytest
 
@@ -93,6 +97,38 @@ def test_import_does_not_write_to_stderr() -> None:
         check=True,
     )
     assert result.stderr == ""
+
+
+_SHEET_PATH = Path(__file__).parent / "fixtures" / "champions_speed_tiers.csv"
+
+
+def _sheet_base_slugs() -> list[str]:
+    """Return one slug per base (non-Mega) Pokémon from the Champions speed tiers sheet."""
+    seen: set[str] = set()
+    result: list[str] = []
+    with _SHEET_PATH.open(encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            name = row["Pokemon"]
+            if name.startswith("Mega "):
+                continue
+            slug = unicodedata.normalize("NFKD", name)
+            slug = "".join(c for c in slug if not unicodedata.combining(c))
+            slug = re.sub(r"[\s._:]+", "-", slug.lower())
+            slug = re.sub(r"-+", "-", slug).strip("-")
+            if slug not in seen:
+                seen.add(slug)
+                result.append(slug)
+    return result
+
+
+def test_pool_covers_all_sheet_base_forms() -> None:
+    """Every base Pokémon in the Champions speed tiers sheet must be in the legal pool.
+
+    If this test fails after updating the sheet, add the missing entries to
+    legal_pool_mA.json and speed_tiers.json.
+    """
+    missing = [slug for slug in _sheet_base_slugs() if not is_legal(slug)]
+    assert missing == [], f"In sheet but not in pool: {missing}"
 
 
 def test_check_pool_validity_warns_when_expired(
