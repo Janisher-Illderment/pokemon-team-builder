@@ -139,15 +139,15 @@ def test_mega_data_integrity() -> None:
                 assert isinstance(stats[stat_name], int) and stats[stat_name] >= 1
 
 
-def test_mega_data_contains_all_56_species() -> None:
-    """Spec R1: 35 mainline + 21 Champions-exclusive mega-eligible species = 56 total.
+def test_mega_data_contains_all_57_species() -> None:
+    """Spec R1: 35 mainline + 21 Champions-exclusive + 1 added (Metagross) = 57 total.
 
-    Total forms = 57 (Charizard has X/Y; all others have one form each).
+    Total forms = 58 (Charizard has X/Y; all others have one form each).
     """
     data = load_mega_evolutions()
-    assert len(data) == 56
+    assert len(data) == 57
     total_forms = sum(len(forms) for forms in data.values())
-    assert total_forms == 57
+    assert total_forms == 58
     # Sanity: Charizard is the only species with two forms.
     multi_form = {sp for sp, forms in data.items() if len(forms) > 1}
     assert multi_form == {"charizard"}
