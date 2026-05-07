@@ -1,0 +1,34 @@
+[
+  {
+    "date": "2026-05-08",
+    "id": "LS02w5lpCOiMwPPo7QWD",
+    "lat": 34.052235,
+    "lng": -118.243683,
+    "name": "2026 Los Angeles Pokémon VGC Regional Championships",
+    "regulation": "Scarlet & Violet - Regulation I"
+  },
+  {
+    "date": "2026-05-16",
+    "id": "UT02wFHDCjnKgZ9Gscu7",
+    "lat": 52.092876,
+    "lng": 5.10448,
+    "name": "2026 Utrecht Pokémon VGC Regional Championships",
+    "regulation": "Scarlet & Violet - Regulation I"
+  },
+  {
+    "date": "2026-05-16",
+    "id": "CA02wLAJ2mRyQI5kryVw",
+    "lat": -22.907104,
+    "lng": -47.06324,
+    "name": "2026 Campinas Pokémon VGC Regional Championships",
+    "regulation": "Scarlet & Violet - Regulation I"
+  },
+  {
+    "date": "2026-05-23",
+    "id": "MB02w71HQZzTvTOYLtXb",
+    "lat": -37.813629,
+    "lng": 144.963058,
+    "name": "2026 Melbourne Pokémon VGC Regional Championships",
+    "regulation": "Scarlet & Violet - Regulation I"
+  }
+]

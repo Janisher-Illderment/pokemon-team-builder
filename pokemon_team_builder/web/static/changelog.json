@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.6.0",
+    "date": "2026-05-07",
+    "highlights": "Meta sources: top teams M-A y torneos próximos desde LabMaus",
+    "changes": [
+      { "type": "feat", "text": "GET /meta-teams: equipos top del meta Reg M-A desde LabMaus API (JSON, TTL 6h)" },
+      { "type": "feat", "text": "GET /tournaments: torneos próximos desde LabMaus upcoming_tournaments (TTL 12h, filtro haversine por radio)" },
+      { "type": "feat", "text": "Panel 'Top Teams del Meta': collapsible, lazy-fetch, cards con sprites + placement + botón Importar" },
+      { "type": "feat", "text": "Panel 'Torneos Próximos': collapsible, lazy-fetch, filas compactas con fecha/nombre/regulación" },
+      { "type": "feat", "text": "normalize_display_name: convierte nombres LabMaus a slugs canónicos (mega strip, gender symbols, accents)" }
+    ]
+  },
+  {
     "version": "0.5.0",
     "date": "2026-05-07",
     "highlights": "Team editor: edición inline y import de PokePaste externo",

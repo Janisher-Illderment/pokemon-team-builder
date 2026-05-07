@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import re
+import unicodedata
 from functools import lru_cache
 from typing import Any, Union
 
@@ -184,6 +186,35 @@ def _extract_move_names(raw: dict[str, Any]) -> list[str]:
             seen.add(n)
             unique.append(n)
     return unique
+
+
+_GENDER_CHARS = {"♂", "♀"}
+
+_EXPLICIT_FORM_MAP: dict[str, str] = {
+    "urshifu-single-strike": "urshifu",
+    "mr-mime-galar": "mr-mime-galar",
+    "mime-jr": "mime-jr",
+}
+
+
+def normalize_display_name(raw: str) -> str:
+    """Convert a LabMaus display name to a canonical lookup slug.
+
+    Examples: "Aerodactyl-Mega" -> "aerodactyl",
+              "Basculegion ♂"   -> "basculegion",
+              "Charizard-Mega Y" -> "charizard".
+    """
+    if not raw or not raw.strip():
+        return ""
+    text = "".join(c for c in raw if c not in _GENDER_CHARS)
+    text = unicodedata.normalize("NFKD", text)
+    text = "".join(c for c in text if not unicodedata.combining(c))
+    text = re.sub(r"-[Mm]ega[-\s]?[XxYy]?", "", text)
+    text = re.sub(r"[\s._:]+", "-", text)
+    text = text.lower()
+    text = re.sub(r"-+", "-", text)
+    text = text.strip("-")
+    return _EXPLICIT_FORM_MAP.get(text, text)
 
 
 def lookup(name_or_id: Union[str, int]) -> PokemonData:

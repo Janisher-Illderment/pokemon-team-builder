@@ -575,3 +575,73 @@ def test_import_mega_form_detected():
     body = res.json()
     # The exporter uses mega_stone as item when mega_form is set
     assert body["members"][0]["item"] == "Charizardite X"
+
+
+# ── GET /meta-teams (task 6.4) ────────────────────────────────────────────────
+
+def test_meta_teams_returns_200_even_when_empty() -> None:
+    with patch("pokemon_team_builder.api.router.labmaus_service.get_top_teams", return_value=[]):
+        res = client.get("/meta-teams")
+    assert res.status_code == 200
+    body = res.json()
+    assert body["teams"] == []
+    assert body["stale"] is True
+
+
+def test_meta_teams_stale_false_when_data_present() -> None:
+    from pokemon_team_builder.services.labmaus_service import LabMausMember, LabMausTeam
+
+    fake_team = LabMausTeam(
+        members=[LabMausMember(name="garchomp")],
+        player="Ash",
+        tournament="Test Cup",
+        placement=1,
+        pokepaste_url="https://pokepast.es/abc",
+        regulation="Regulation Set M-A",
+    )
+    with patch("pokemon_team_builder.api.router.labmaus_service.get_top_teams", return_value=[fake_team]):
+        res = client.get("/meta-teams")
+    assert res.status_code == 200
+    body = res.json()
+    assert len(body["teams"]) == 1
+    assert body["stale"] is False
+    assert body["teams"][0]["player"] == "Ash"
+
+
+def test_meta_teams_forwards_regulation_param() -> None:
+    with patch("pokemon_team_builder.api.router.labmaus_service.get_top_teams", return_value=[]) as mock_fn:
+        client.get("/meta-teams?regulation=M-A")
+    mock_fn.assert_called_once_with("M-A")
+
+
+# ── GET /tournaments (task 6.4) ───────────────────────────────────────────────
+
+def test_tournaments_returns_200_even_when_empty() -> None:
+    with patch("pokemon_team_builder.api.router.tournament_service.get_upcoming", return_value=[]):
+        res = client.get("/tournaments")
+    assert res.status_code == 200
+    body = res.json()
+    assert body["tournaments"] == []
+    assert body["stale"] is True
+
+
+def test_tournaments_stale_false_when_data_present() -> None:
+    from pokemon_team_builder.services.tournament_service import Tournament
+
+    fake = Tournament(
+        id="T1", name="Copa Madrid", date="2026-06-01",
+        city="Madrid", country="Spain",
+        regulation="Regulation Set M-A", lat=40.4, lon=-3.7,
+    )
+    with patch("pokemon_team_builder.api.router.tournament_service.get_upcoming", return_value=[fake]):
+        res = client.get("/tournaments")
+    assert res.status_code == 200
+    body = res.json()
+    assert len(body["tournaments"]) == 1
+    assert body["stale"] is False
+
+
+def test_tournaments_forwards_query_params() -> None:
+    with patch("pokemon_team_builder.api.router.tournament_service.get_upcoming", return_value=[]) as mock_fn:
+        client.get("/tournaments?lat=28.4636&lon=-16.2518&radius=500")
+    mock_fn.assert_called_once_with(lat=28.4636, lon=-16.2518, radius_miles=500)

@@ -122,3 +122,45 @@ class ImportRequest(BaseModel):
 
 class ImportResponse(VariantOut):
     import_warnings: list[str] = []
+
+
+# ---------------------------------------------------------------------------
+# Meta-sources schemas (GET /meta-teams, GET /tournaments)
+# ---------------------------------------------------------------------------
+
+class LabMausMemberOut(BaseModel):
+    name: str
+    item: str | None = None
+    moves: list[str] = []
+
+
+class LabMausTeamOut(BaseModel):
+    members: list[LabMausMemberOut]
+    player: str
+    tournament: str
+    placement: int
+    pokepaste_url: str
+    regulation: str
+
+
+class MetaTeamsResponse(BaseModel):
+    regulation: str
+    teams: list[LabMausTeamOut]
+    stale: bool
+
+
+class TournamentOut(BaseModel):
+    id: str
+    name: str
+    date: str
+    city: str
+    country: str
+    regulation: str
+    lat: float
+    lon: float
+    url: str = ""
+
+
+class TournamentsResponse(BaseModel):
+    tournaments: list[TournamentOut]
+    stale: bool

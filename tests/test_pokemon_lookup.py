@@ -194,3 +194,29 @@ def test_load_sp_templates_is_cached() -> None:
     first = _load_sp_templates()
     second = _load_sp_templates()
     assert first is second  # same dict object, not a copy
+
+
+# ── normalize_display_name tests (task 2.4) ──────────────────────────────────
+
+from pokemon_team_builder.services.pokemon_lookup import normalize_display_name
+
+
+@pytest.mark.parametrize("raw, expected", [
+    ("Aerodactyl", "aerodactyl"),
+    ("Aerodactyl-Mega", "aerodactyl"),
+    ("Charizard-Mega Y", "charizard"),
+    ("Charizard-Mega X", "charizard"),
+    ("Basculegion ♂", "basculegion"),
+    ("Floette-Mega", "floette"),
+    ("Rotom-Heat", "rotom-heat"),
+    ("Ninetales-Alola", "ninetales-alola"),
+    ("Mr. Mime", "mr-mime"),
+    ("Flutter Mane", "flutter-mane"),
+    ("aerodactyl", "aerodactyl"),
+    ("", ""),
+    ("   ", ""),
+    ("Kommo-o", "kommo-o"),
+    ("Tauros-Paldea-Combat", "tauros-paldea-combat"),
+])
+def test_normalize_display_name(raw: str, expected: str) -> None:
+    assert normalize_display_name(raw) == expected

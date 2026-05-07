@@ -499,3 +499,131 @@ main { max-width: 960px; margin: 0 auto; padding: 1.5rem 1rem; }
   .members { grid-template-columns: 1fr 1fr; }
   .sp-grid { grid-template-columns: repeat(3, 1fr); }
 }
+
+/* ── Meta Panels (Top Teams + Tournaments) ─────────────────────────────────── */
+
+.meta-section {
+  margin: 1.5rem auto;
+  max-width: 900px;
+  border: 1px solid #334;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #1a1d2e;
+}
+
+.meta-toggle {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.85rem 1.25rem;
+  background: #22263a;
+  border: none;
+  color: #c8d0e8;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  transition: background 0.15s;
+}
+.meta-toggle:hover { background: #2a2f48; }
+
+.meta-loading, .meta-empty {
+  padding: 1rem 1.25rem;
+  color: #8892b0;
+  font-style: italic;
+}
+
+.meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.75rem;
+  padding: 1rem;
+}
+
+.meta-team-card {
+  background: #22263a;
+  border-radius: 8px;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  border: 1px solid #2d3150;
+}
+
+.meta-team-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+  font-size: 0.8rem;
+}
+
+.meta-placement {
+  background: #3874ff;
+  color: #fff;
+  border-radius: 4px;
+  padding: 0 6px;
+  font-weight: 700;
+  font-size: 0.75rem;
+}
+
+.meta-player { font-weight: 600; color: #c8d0e8; }
+
+.meta-tournament {
+  color: #5a6a8a;
+  font-size: 0.72rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
+}
+
+.meta-sprites {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+
+.meta-sprite {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.meta-import-btn {
+  margin-top: 0.25rem;
+  padding: 0.35rem 0.75rem;
+  background: #3874ff;
+  border: none;
+  border-radius: 5px;
+  color: #fff;
+  font-size: 0.8rem;
+  cursor: pointer;
+  align-self: flex-start;
+  transition: background 0.15s;
+}
+.meta-import-btn:hover { background: #2a5ccf; }
+
+/* ── Tournament list ─────────────────────────────────────────────────────────── */
+
+.tournament-list {
+  padding: 0.5rem 1rem;
+}
+
+.tournament-row {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #2d3150;
+  font-size: 0.85rem;
+  color: #c8d0e8;
+}
+.tournament-row:last-child { border-bottom: none; }
+.tournament-row:hover { background: #22263a; }
+
+.tournament-link {
+  color: #60a0ff;
+  text-decoration: none;
+}
+.tournament-link:hover { text-decoration: underline; }

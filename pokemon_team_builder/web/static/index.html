@@ -369,6 +369,72 @@ Jolly Nature
       </section>
     </main>
 
+    <!-- Top Teams del Meta -->
+    <section x-data="metaTeams()" class="meta-section">
+      <button class="meta-toggle" @click="expand()">
+        <span>🏆 Top Teams del Meta (M-A)</span>
+        <span x-show="!open">▼</span>
+        <span x-show="open">▲</span>
+      </button>
+      <div x-show="open" x-transition>
+        <div x-show="loading" class="meta-loading">Cargando…</div>
+        <p x-show="error" class="error-msg" x-text="error"></p>
+        <p x-show="!loading && !error && teams.length === 0 && stale" class="meta-empty">
+          No hay datos del meta ahora mismo.
+        </p>
+        <div class="meta-grid" x-show="teams.length > 0">
+          <template x-for="(t, ti) in teams" :key="ti">
+            <div class="meta-team-card">
+              <div class="meta-team-header">
+                <span class="meta-placement" x-text="'#' + t.placement"></span>
+                <span class="meta-player" x-text="t.player"></span>
+                <span class="meta-tournament" x-text="t.tournament"></span>
+              </div>
+              <div class="meta-sprites">
+                <template x-for="(m, mi) in t.members" :key="mi">
+                  <img :src="spriteUrl(m.name)"
+                       :alt="m.name"
+                       :title="m.name"
+                       class="meta-sprite"
+                       @error="$el.style.display='none'" />
+                </template>
+              </div>
+              <button class="meta-import-btn" @click="importTeam(t)">Importar</button>
+            </div>
+          </template>
+        </div>
+      </div>
+    </section>
+
+    <!-- Torneos Próximos -->
+    <section x-data="tournaments()" class="meta-section">
+      <button class="meta-toggle" @click="expand()">
+        <span>📍 Torneos Próximos</span>
+        <span x-show="!open">▼</span>
+        <span x-show="open">▲</span>
+      </button>
+      <div x-show="open" x-transition>
+        <div x-show="loading" class="meta-loading">Cargando…</div>
+        <p x-show="error" class="error-msg" x-text="error"></p>
+        <p x-show="!loading && !error && items.length === 0 && stale" class="meta-empty">
+          No hay torneos próximos en tu zona.
+        </p>
+        <div x-show="items.length > 0" class="tournament-list">
+          <template x-for="(t, ti) in items" :key="ti">
+            <div class="tournament-row">
+              <template x-if="t.url">
+                <a :href="t.url" target="_blank" rel="noopener noreferrer" class="tournament-link"
+                   x-text="`${t.date} · ${t.name} · ${t.regulation}`"></a>
+              </template>
+              <template x-if="!t.url">
+                <span x-text="`${t.date} · ${t.name} · ${t.regulation}`"></span>
+              </template>
+            </div>
+          </template>
+        </div>
+      </div>
+    </section>
+
   </div><!-- end savedTeams wrapper -->
 
   <script src="app.js"></script>

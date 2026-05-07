@@ -9,9 +9,14 @@ from pokemon_team_builder.api.schemas import (
     GenerateResponse,
     ImportRequest,
     ImportResponse,
+    LabMausMemberOut,
+    LabMausTeamOut,
     MatchupAnalysisResponse,
     MemberIn,
     MemberOut,
+    MetaTeamsResponse,
+    TournamentOut,
+    TournamentsResponse,
     VariantIn,
     VariantOut,
 )
@@ -30,6 +35,7 @@ from pokemon_team_builder.domain.models import MegaForm, TeamMember, TeamVariant
 from pokemon_team_builder.services import team_editor, viability_rater
 from pokemon_team_builder.services import pokepaste_parser
 from pokemon_team_builder.services.team_generator import generate_team
+from pokemon_team_builder.services import labmaus_service, tournament_service
 
 router = APIRouter()
 
@@ -256,3 +262,58 @@ def analyze_matchup(req: AnalyzeMatchupRequest) -> MatchupAnalysisResponse:
         ) from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.get("/meta-teams", response_model=MetaTeamsResponse)
+def get_meta_teams(regulation: str = "M-A") -> MetaTeamsResponse:
+    teams = labmaus_service.get_top_teams(regulation)
+    team_outs = [
+        LabMausTeamOut(
+            members=[LabMausMemberOut(name=m.name, item=m.item, moves=m.moves) for m in t.members],
+            player=t.player,
+            tournament=t.tournament,
+            placement=t.placement,
+            pokepaste_url=t.pokepaste_url,
+            regulation=t.regulation,
+        )
+        for t in teams
+    ]
+    return MetaTeamsResponse(
+        regulation=regulation,
+        teams=team_outs,
+        stale=len(team_outs) == 0,
+    )
+
+
+@router.get("/tournaments", response_model=TournamentsResponse)
+def get_tournaments(
+    lat: float | None = None,
+    lon: float | None = None,
+    radius: int | None = None,
+) -> TournamentsResponse:
+    kwargs: dict = {}
+    if lat is not None:
+        kwargs["lat"] = lat
+    if lon is not None:
+        kwargs["lon"] = lon
+    if radius is not None:
+        kwargs["radius_miles"] = radius
+    items = tournament_service.get_upcoming(**kwargs)
+    tournament_outs = [
+        TournamentOut(
+            id=t.id,
+            name=t.name,
+            date=t.date,
+            city=t.city,
+            country=t.country,
+            regulation=t.regulation,
+            lat=t.lat,
+            lon=t.lon,
+            url=t.url,
+        )
+        for t in items
+    ]
+    return TournamentsResponse(
+        tournaments=tournament_outs,
+        stale=len(tournament_outs) == 0,
+    )

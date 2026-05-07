@@ -305,3 +305,81 @@ function savedTeams() {
     },
   };
 }
+
+function spriteUrl(name) {
+  const id = name.toLowerCase().replace(/-/g, '');
+  return `https://play.pokemonshowdown.com/sprites/dex/${id}.png`;
+}
+
+function metaTeams() {
+  return {
+    open: false,
+    loaded: false,
+    loading: false,
+    error: false,
+    teams: [],
+    stale: false,
+
+    async expand() {
+      this.open = !this.open;
+      if (this.open && !this.loaded) {
+        this.loading = true;
+        this.error = false;
+        try {
+          const res = await fetch('/meta-teams?regulation=M-A');
+          const data = await res.json();
+          this.teams = data.teams || [];
+          this.stale = data.stale || false;
+          this.loaded = true;
+        } catch (e) {
+          this.error = 'Error al cargar equipos del meta.';
+        } finally {
+          this.loading = false;
+        }
+      }
+    },
+
+    spriteUrl(name) { return spriteUrl(name); },
+
+    importTeam(team) {
+      if (team.pokepaste_url && team.pokepaste_url.startsWith('https://pokepast.es/')) {
+        // Dispatch to global app importPaste
+        const evt = new CustomEvent('meta-import-pokepaste', { detail: { url: team.pokepaste_url } });
+        document.dispatchEvent(evt);
+      } else if (team.members && team.members.length > 0) {
+        const evt = new CustomEvent('meta-import-anchor', { detail: { name: team.members[0].name } });
+        document.dispatchEvent(evt);
+      }
+    },
+  };
+}
+
+function tournaments() {
+  return {
+    open: false,
+    loaded: false,
+    loading: false,
+    error: false,
+    items: [],
+    stale: false,
+
+    async expand() {
+      this.open = !this.open;
+      if (this.open && !this.loaded) {
+        this.loading = true;
+        this.error = false;
+        try {
+          const res = await fetch('/tournaments');
+          const data = await res.json();
+          this.items = data.tournaments || [];
+          this.stale = data.stale || false;
+          this.loaded = true;
+        } catch (e) {
+          this.error = 'Error al cargar torneos.';
+        } finally {
+          this.loading = false;
+        }
+      }
+    },
+  };
+}
