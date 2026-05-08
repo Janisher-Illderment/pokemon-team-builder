@@ -15,8 +15,17 @@
   <div x-data="savedTeams()" x-init="init()">
 
     <header>
-      <h1>Pokemon Team Builder</h1>
-      <p class="subtitle">VGC Doubles · Regulation M-A</p>
+      <div class="header-logo">
+        <svg class="pokeball-icon" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <circle cx="20" cy="20" r="19" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="1.5"/>
+          <path d="M1 20 Q1 1 20 1 Q39 1 39 20Z" fill="rgba(255,255,255,0.15)"/>
+          <line x1="1" y1="20" x2="39" y2="20" stroke="rgba(255,255,255,0.35)" stroke-width="1.5"/>
+          <circle cx="20" cy="20" r="5" fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="1.5"/>
+          <circle cx="20" cy="20" r="2.5" fill="rgba(255,255,255,0.8)"/>
+        </svg>
+        <h1>Pokemon Team Builder</h1>
+      </div>
+      <p class="subtitle">VGC Doubles · Regulation M-A · Champions</p>
       <div class="header-actions">
         <button class="presets-toggle" @click="showPanel = !showPanel">
           📦 Equipos guardados (<span x-text="presets.length"></span>)
