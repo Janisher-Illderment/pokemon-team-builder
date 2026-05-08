@@ -148,7 +148,7 @@ def _parse_block(block: str) -> tuple[TeamMember, list[str]]:
     for mv in moves[:4]:
         if mv not in pokemon.move_names:
             warnings.append(
-                f"{pokemon.name}: move '{mv}' no está en su pool (se conserva)"
+                f"ℹ {pokemon.name}: '{mv}' no está en datos PokeAPI — incluido igualmente"
             )
         validated_moves.append(mv)
 

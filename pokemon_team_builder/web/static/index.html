@@ -310,6 +310,7 @@ Jolly Nature
                       </div>
                     </template>
                   </div>
+                  <p x-show="m.ev_note" class="ev-note" x-text="m.ev_note"></p>
                   <div class="roles">
                     <template x-for="r in m.roles" :key="r">
                       <span class="role-tag" x-text="r.replace(/_/g,' ')"></span>
@@ -417,10 +418,13 @@ Jolly Nature
         <span x-show="!open">▼</span>
         <span x-show="open">▲</span>
       </button>
-      <div x-show="open" x-transition x-init="$watch('open', v => v && initMap())">
+      <div x-show="open" x-transition>
         <div class="tournament-map-wrap">
           <div id="tournament-map" class="tournament-map"></div>
-          <p class="tournament-map-hint">Haz clic en el mapa para buscar torneos cerca de esa zona.</p>
+          <div class="tournament-map-controls">
+            <p class="tournament-map-hint">Haz clic en el mapa para buscar torneos en esa zona.</p>
+            <button class="geo-btn" @click="geolocate()">📍 Usar mi ubicación</button>
+          </div>
         </div>
         <div x-show="loading" class="meta-loading">Cargando…</div>
         <p x-show="error" class="error-msg" x-text="error"></p>

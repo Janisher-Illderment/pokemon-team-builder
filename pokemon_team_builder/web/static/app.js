@@ -124,10 +124,7 @@ function app() {
       }
     },
 
-    memberSprite(name) {
-      const id = name.toLowerCase().replace(/-/g, '');
-      return `https://play.pokemonshowdown.com/sprites/dex/${id}.png`;
-    },
+    memberSprite(name) { return spriteUrl(name); },
 
     startEdit(variantIndex, memberIndex, kind) {
       const m = this.results[variantIndex].members[memberIndex];
@@ -310,8 +307,13 @@ function savedTeams() {
 }
 
 function spriteUrl(name) {
+  const gender = ['-male', '-female'];
   const regional = ['-alola', '-galar', '-hisui', '-paldea'];
   let base = name.toLowerCase();
+  // Gender variants → use base species sprite (Showdown doesn't split by gender)
+  for (const s of gender) {
+    if (base.endsWith(s)) { base = base.slice(0, -s.length); break; }
+  }
   let suffix = '';
   for (const s of regional) {
     if (base.endsWith(s)) { suffix = s; base = base.slice(0, -s.length); break; }
@@ -387,13 +389,18 @@ function tournaments() {
 
     async expand() {
       this.open = !this.open;
-      if (this.open && !this.loaded) {
-        await this.fetchTournaments();
+      if (this.open) {
+        await this.$nextTick();
+        this.initMap();
+        if (!this.loaded) await this.fetchTournaments();
       }
     },
 
     initMap() {
-      if (this._map) return;
+      if (this._map) {
+        this._map.invalidateSize();
+        return;
+      }
       const mapEl = document.getElementById('tournament-map');
       if (!mapEl || typeof L === 'undefined') return;
       const defaultLat = 40.4168, defaultLon = -3.7038; // Madrid
@@ -409,6 +416,25 @@ function tournaments() {
         this._marker = L.marker([this.lat, this.lon]).addTo(this._map);
         await this.fetchTournaments();
       });
+      // Force tile render after Alpine finishes showing the container
+      setTimeout(() => this._map && this._map.invalidateSize(), 150);
+    },
+
+    geolocate() {
+      if (!navigator.geolocation) { this.error = 'Geolocalización no disponible en este navegador.'; return; }
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          this.lat = pos.coords.latitude;
+          this.lon = pos.coords.longitude;
+          if (this._map) {
+            this._map.setView([this.lat, this.lon], 10);
+            if (this._marker) this._map.removeLayer(this._marker);
+            this._marker = L.marker([this.lat, this.lon]).addTo(this._map);
+          }
+          await this.fetchTournaments();
+        },
+        () => { this.error = 'No se pudo obtener tu ubicación.'; }
+      );
     },
 
     async fetchTournaments() {
