@@ -198,11 +198,11 @@ def test_evs_252_252_4_conversion():
 
 
 # ---------------------------------------------------------------------------
-# 6. No EVs → all zeros
+# 6. No EVs → fallback al spread sugerido por rol + warning
 # ---------------------------------------------------------------------------
 
-def test_no_evs_produces_zero_distribution():
-    """When no EVs line is present, SPDistribution should be all-zero."""
+def test_no_evs_falls_back_to_role_template_with_warning():
+    """Paste sin línea EVs → suggest_sp_distribution + warning informativo."""
     block = (
         "Venusaur @ Sitrus Berry\n"
         "Ability: Pressure\n"
@@ -216,9 +216,13 @@ def test_no_evs_produces_zero_distribution():
     )
     paste = block + "\n\n" + filler_blocks
 
-    variant, _ = _parse(paste)
+    variant, warns = _parse(paste)
     sp = variant.members[0].sp_distribution
-    assert sp == SPDistribution()
+    # Spread sugerido no debe ser todo cero
+    assert sp != SPDistribution()
+    assert sp.hp + sp.atk + sp.def_ + sp.spa + sp.spd + sp.spe > 0
+    # Warning informativo presente para el primer miembro
+    assert any("paste sin EVs" in w for w in warns)
 
 
 # ---------------------------------------------------------------------------

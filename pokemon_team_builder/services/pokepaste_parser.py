@@ -128,6 +128,7 @@ def _parse_block(block: str) -> tuple[TeamMember, list[str]]:
     # Parse remaining lines
     ability = pokemon.abilities[0] if pokemon.abilities else "run-away"
     sp = SPDistribution()
+    has_evs = False
     nature = "Hardy"
     moves: list[str] = []
 
@@ -139,9 +140,21 @@ def _parse_block(block: str) -> tuple[TeamMember, list[str]]:
         elif line.lower().startswith("evs:"):
             sp, ev_warns = _evs_to_sps(line.split(":", 1)[1].strip())
             warnings.extend(ev_warns)
+            has_evs = True
         elif re.match(r"^\w+ nature$", line, re.IGNORECASE):
             nature = line.split()[0].title()
         # else: ignore (Level, Shiny, Tera Type, IVs, Happiness, etc.)
+
+    roles = assign_role(pokemon)
+
+    # Fallback: paste sin EVs (común en LabMaus top teams) → sugerir spread por rol
+    if not has_evs:
+        from pokemon_team_builder.services.team_generator import suggest_sp_distribution
+        primary = roles[0] if roles else "physical_sweeper"
+        sp = suggest_sp_distribution(pokemon, primary)
+        warnings.append(
+            f"ℹ {pokemon.name}: paste sin EVs — spread sugerido por rol '{primary}'"
+        )
 
     # Validate and pad moves
     validated_moves: list[str] = []
@@ -156,7 +169,6 @@ def _parse_block(block: str) -> tuple[TeamMember, list[str]]:
         warnings.append(f"{pokemon.name}: menos de 4 moves; relleno con 'tackle'")
         validated_moves.append("tackle")
 
-    roles = assign_role(pokemon)
     member = TeamMember(
         pokemon=pokemon,
         role=roles,
