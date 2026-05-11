@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.6.1",
+    "date": "2026-05-11",
+    "highlights": "Import top teams ahora propaga SPs (spread sugerido por rol)",
+    "changes": [
+      { "type": "fix", "text": "POST /import: si el paste no incluye línea EVs (caso LabMaus top teams), aplica suggest_sp_distribution(pokemon, primary_role) en vez de devolver SP=0 — la UI ahora muestra spreads coherentes en cada miembro importado" },
+      { "type": "fix", "text": "Warning informativo por miembro: 'paste sin EVs — spread sugerido por rol X' para que el usuario sepa que los SPs son inferidos, no del paste original" }
+    ]
+  },
+  {
     "version": "0.6.0",
     "date": "2026-05-07",
     "highlights": "Meta sources: top teams M-A y torneos próximos desde LabMaus",
