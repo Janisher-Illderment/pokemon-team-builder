@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>poke-builder — Lógica de generación de equipos</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  body { font-family: -apple-system, Segoe UI, sans-serif; max-width: 1200px; margin: 2rem auto; padding: 0 1rem; background: #1a1a1a; color: #e8e8e8; line-height: 1.5; }
+  h1 { color: #e74c3c; border-bottom: 3px solid #e74c3c; padding-bottom: .5rem; }
+  h2 { color: #3498db; margin-top: 2.5rem; border-left: 4px solid #3498db; padding-left: .75rem; }
+  h3 { color: #f39c12; }
+  .mermaid { background: #fff; border-radius: 8px; padding: 1rem; margin: 1rem 0; }
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; background: #252525; }
+  th, td { padding: .6rem .8rem; text-align: left; border-bottom: 1px solid #444; }
+  th { background: #333; color: #f39c12; }
+  tr:hover { background: #2a2a2a; }
+  code { background: #333; padding: 2px 6px; border-radius: 3px; color: #2ecc71; font-size: .92em; }
+  .weight { font-weight: bold; color: #e74c3c; }
+  .pain { background: #3a1f1f; border-left: 4px solid #e74c3c; padding: .8rem 1rem; margin: .8rem 0; border-radius: 4px; }
+  .pain h4 { margin: 0 0 .3rem; color: #ff7777; }
+  .note { background: #1f2f3a; border-left: 4px solid #3498db; padding: .6rem 1rem; margin: .8rem 0; border-radius: 4px; font-size: .92em; }
+  .legend { display: flex; gap: 1rem; flex-wrap: wrap; margin: 1rem 0; }
+  .legend span { padding: .3rem .7rem; border-radius: 4px; font-size: .9em; }
+  .filter { background: #2c3e50; }
+  .score { background: #8e44ad; }
+  .build { background: #27ae60; }
+  .rate { background: #c0392b; }
+</style>
+</head>
+<body>
+
+<h1>poke-builder — Lo que pasa entre tu Pokémon favorito y los 3 equipos que ves</h1>
+<p>Guía para revisar la lógica del generador. Todos los pesos, umbrales y reglas que usa la app están aquí — sólo se ha cambiado el lenguaje. No necesitas leer código para auditar si una decisión tiene sentido competitivo.</p>
+
+<div class="legend">
+  <span class="filter">1. Preparar</span>
+  <span class="score">2. Probar combinaciones</span>
+  <span class="build">3. Equipar</span>
+  <span class="rate">4. Puntuar</span>
+</div>
+
+<h2>El viaje completo, paso a paso</h2>
+<div class="mermaid">
+flowchart TD
+  A[Eliges tu Pokemon favorito, formato Bo1 o Bo3, y si quieres mega] --> B[La app busca sus datos]
+  B --> C{Esta tu favorito en la lista legal del torneo?}
+  C -->|No| ERR1[Aviso: no es legal en Reg M-A]
+  C -->|Si| D[Carga los 201 Pokemon permitidos]
+  D --> E[Etiqueta el rol natural de cada uno - sweeper, muro, soporte...]
+  E --> F[Descarta los que no aportan nada a tu favorito]
+  F --> G{Quedan al menos 5 companeros utiles?}
+  G -->|No| ERR2[No se pueden formar equipos]
+  G -->|Si| H[Prueba 10 equipos en paralelo y queda con los mejores]
+  H --> I[Para cada equipo finalista, equipa a los 6 miembros]
+  I --> J[Elige ataques tentativos segun el rol]
+  J --> K[Reparte objetos sin repetir]
+  K --> L[Ajusta ataques sabiendo ya el objeto que lleva cada uno]
+  L --> M[Calcula EVs, naturaleza y habilidad por rol]
+  M --> N[Pone una nota al equipo sobre 100]
+  N --> O[Escribe una explicacion breve y ordena los 3 mejores]
+  O --> P[Te muestra el podio: el primero es la recomendacion]
+
+  classDef filterStep fill:#2c3e50,color:#fff,stroke:#34495e
+  classDef scoreStep  fill:#8e44ad,color:#fff,stroke:#9b59b6
+  classDef buildStep  fill:#27ae60,color:#fff,stroke:#2ecc71
+  classDef rateStep   fill:#c0392b,color:#fff,stroke:#e74c3c
+  classDef errStep    fill:#7f1d1d,color:#fff,stroke:#dc2626
+
+  class D,E,F filterStep
+  class H scoreStep
+  class I,J,K,L,M buildStep
+  class N,O,P rateStep
+  class ERR1,ERR2 errStep
+</div>
+
+<h2>1. ¿Qué función natural tiene cada Pokémon?</h2>
+<p>Antes de combinarlos, la app etiqueta a cada uno de los 201 Pokémon con uno o varios <b>roles VGC</b>. El <b>primer rol</b> es el que manda — decide el objeto, la naturaleza y el spread de EVs que se le asignarán después. Las cotas son duras: si te quedas a 1 punto del umbral, no califica.</p>
+
+<table>
+<thead><tr><th>Si el Pokémon...</th><th>Cuándo aplica (umbrales reales)</th><th>Recibe el rol</th></tr></thead>
+<tbody>
+<tr><td>...controla el tiempo</td><td>Su habilidad es Drought, Drizzle, Snow Warning, Sand Stream o Prankster. <br/><i>Excepción:</i> Ninetales-Alola, Pelipper, Politoed y Torkoal cuentan aunque la habilidad esté en segunda posición</td><td><b>Soporte / Lead</b></td></tr>
+<tr><td>...es ofensivo por los dos lados</td><td>Ataque ≥ 100 <b>y</b> Ataque Especial ≥ 100</td><td><b>Sweeper físico + especial</b> (el más alto manda)</td></tr>
+<tr><td>...pega fuerte físicamente</td><td>Ataque ≥ 100</td><td><b>Sweeper físico</b></td></tr>
+<tr><td>...pega fuerte especialmente</td><td>Ataque Especial ≥ 100</td><td><b>Sweeper especial</b></td></tr>
+<tr><td>...aguanta golpes físicos</td><td>Defensa ≥ 100 <b>y</b> PS ≥ 80</td><td><b>Muro físico</b></td></tr>
+<tr><td>...aguanta golpes especiales</td><td>Defensa Especial ≥ 100 <b>y</b> PS ≥ 80</td><td><b>Muro especial</b></td></tr>
+<tr><td>...es lead de viento afín</td><td>Velocidad ≥ 90 <b>y</b> aprende Tailwind</td><td><b>Soporte / Lead</b></td></tr>
+<tr><td>...tiene prioridad o redirige</td><td>Aprende Fake Out, Follow Me o Rage Powder</td><td><b>Soporte / Lead</b></td></tr>
+<tr><td>...es candidato a Trick Room</td><td>Velocidad ≤ 60 <b>y</b> aprende Trick Room</td><td><b>Setter de Trick Room</b></td></tr>
+<tr><td>...puede redirigir</td><td>Aprende Follow Me o Rage Powder</td><td><b>Redirector</b></td></tr>
+<tr><td>...no encaja en nada anterior</td><td>(red de seguridad)</td><td><b>Sweeper físico</b> si Atk ≥ SpA, si no <b>especial</b></td></tr>
+</tbody>
+</table>
+
+<div class="note">Si tu favorito es Mega, los stats que cuentan son los de la forma Mega, no los de la base. Por eso una misma especie puede recibir roles distintos según uses o no la mega.</div>
+
+<h2>2. ¿Cómo elige a los compañeros candidatos para tu favorito?</h2>
+<p>De los ~200 Pokémon legales, no todos pasan al siguiente paso. La app puntúa a cada uno por cómo complementa a tu favorito y se queda con los ~30 mejores. Los puntos se acumulan:</p>
+
+<table>
+<thead><tr><th>El candidato gana puntos si...</th><th>Suma</th><th>Por qué</th></tr></thead>
+<tbody>
+<tr><td>...resiste o es inmune a un tipo al que tu favorito es débil</td><td><span class="weight">+1.0</span> por cada tipo cubierto</td><td>Tapa los agujeros defensivos de tu favorito</td></tr>
+<tr><td>...es soporte o muro y tu favorito es sweeper</td><td><span class="weight">+0.5</span></td><td>Pareja "atacante + apoyo" clásica de VGC</td></tr>
+<tr><td>...es sweeper y tu favorito no lo es</td><td><span class="weight">+0.5</span></td><td>Si tu favorito no pega, el equipo necesita daño</td></tr>
+<tr><td>...aparece frecuentemente como compañero en torneos reales del meta</td><td><span class="weight">+3.0</span></td><td>Datos de uso de torneos (MunchStats) — el bono más alto, el meta pesa mucho</td></tr>
+<tr><td>...no aporta nada concreto</td><td><span class="weight">+0.01</span></td><td>Margen mínimo para que siempre haya 5+ candidatos disponibles</td></tr>
+</tbody>
+</table>
+
+<p><b>Quedan fuera de oficio:</b> el propio favorito, cualquier Pokémon con el mismo combo de tipos que tu favorito (aportaría poco), y una lista corta de Pokémon que no tienen un set construible en Champions.</p>
+
+<h2>3. Cómo prueba las combinaciones (10 equipos en paralelo)</h2>
+<p>La app construye los equipos <b>uno a uno, slot a slot</b>. En cada paso prueba muchas opciones y se queda con las 10 mejores tentativas; al final del 6º slot tiene varios equipos completos. La nota que usa para comparar tentativas durante esta fase es esta (es <i>distinta</i> de la nota final que verás):</p>
+
+<table>
+<thead><tr><th>Qué mira</th><th>Cómo afecta a la tentativa</th></tr></thead>
+<tbody>
+<tr><td>Tipos ofensivos cubiertos por el equipo (de 18 posibles)</td><td><span class="weight">+1</span> por cada tipo representado</td></tr>
+<tr><td>Tipos que 3+ miembros del equipo sufren ×2</td><td><span class="weight">−2</span> por cada uno (debilidad compartida)</td></tr>
+<tr><td>Variedad de roles en el equipo</td><td><span class="weight">+1.5</span> por cada rol distinto presente</td></tr>
+<tr><td>Pokémon del mismo tipo apilados (3 o más)</td><td><span class="weight">−1.5</span> por cada uno de exceso</td></tr>
+<tr><td>Más de 2 sweepers puros (sin soporte ni muro)</td><td><span class="weight">−4</span> por cada sweeper extra</td></tr>
+</tbody>
+</table>
+
+<h2>4. Cómo equipa a cada miembro del equipo finalista</h2>
+<p>Una vez la app tiene un equipo candidato de 6 Pokémon, no los suelta crudos: cada miembro pasa por seis pasos en cadena.</p>
+<div class="mermaid">
+flowchart LR
+  S1[Elige 4 ataques tentativos<br/>segun el rol] --> S2[Reparte un objeto<br/>sin repetir con los demas]
+  S2 --> S3[Repasa los ataques<br/>sabiendo ya el objeto]
+  S3 --> S4[Calcula los EVs<br/>segun el rol]
+  S4 --> S5[Elige naturaleza<br/>+ o - en stat clave]
+  S5 --> S6[Elige habilidad util<br/>evita las dependientes de clima]
+  S6 --> OUT[Miembro listo para entrar al equipo]
+</div>
+
+<h3>Objeto por rol — primera opción</h3>
+<table>
+<thead><tr><th>Rol primario</th><th>Objeto preferido</th><th>Requisito para que se le dé</th></tr></thead>
+<tbody>
+<tr><td>Sweeper físico</td><td>Weakness Policy</td><td>Que su set <i>no</i> incluya movimientos de setup (Swords Dance, Bulk Up, etc.) — si ya se sube él solo, la Policy no aporta</td></tr>
+<tr><td>Sweeper especial</td><td>Throat Spray</td><td>Que sepa al menos un ataque de sonido (Hyper Voice, Boomburst, Bug Buzz...)</td></tr>
+<tr><td>Muro físico</td><td>Rocky Helmet</td><td>Sin requisito</td></tr>
+<tr><td>Muro especial</td><td>Leftovers</td><td>Sin requisito</td></tr>
+<tr><td>Soporte / Lead</td><td>Focus Sash</td><td>Sin requisito</td></tr>
+<tr><td>Setter de Trick Room</td><td>Mental Herb</td><td>Sin requisito</td></tr>
+<tr><td>Redirector</td><td>Clear Amulet</td><td>Sin requisito</td></tr>
+</tbody>
+</table>
+<p>Si el objeto preferido no encaja (requisito no se cumple, o ya lo lleva otro miembro), la app busca en una lista de 30 objetos de repuesto legales en Champions, en orden de preferencia. <b>Regla estricta:</b> ningún objeto puede repetirse en el equipo — si se queda sin opciones, descarta ese equipo entero.</p>
+
+<h3>Naturaleza por rol</h3>
+<ul>
+  <li><b>Setter de Trick Room</b> → Sassy (sube Def. Especial, baja Velocidad — le interesa ir lento)</li>
+  <li><b>Redirector</b> → Calm (sube Def. Especial, baja Ataque)</li>
+  <li><b>Muro físico</b> → Impish (sube Defensa, baja Ataque Especial)</li>
+  <li><b>Muro especial</b> → Calm</li>
+  <li><b>Sweeper físico / Soporte</b> → Jolly por defecto; cambia a Timid si su segundo ataque es de tipo especial (para no desperdiciar SpA)</li>
+  <li><b>Sweeper especial</b> → Timid por defecto; cambia a Jolly si su segundo ataque es físico</li>
+</ul>
+
+<h2>5. Cómo se pone la nota final al equipo (sobre 100)</h2>
+<p>Esta es la nota que ves. Cambia según el formato: Bo1 (un combate) prioriza balance estructural; Bo3 (tres combates) valora más la flexibilidad de leads porque tienes que adaptar tu pick partido a partido. Los pesos suman 100 en ambos casos.</p>
+
+<table>
+<thead><tr><th>Qué se valora</th><th>Bo1</th><th>Bo3</th><th>Cómo se calcula</th></tr></thead>
+<tbody>
+<tr><td>Cobertura de tipos</td><td><span class="weight">35</span></td><td><span class="weight">30</span></td><td>Empieza con el máximo; se restan <b>2 pts por cada tipo</b> que ningún miembro tiene como STAB, y <b>3 pts por cada tipo</b> al que 3+ miembros son débiles</td></tr>
+<tr><td>Balance de roles (Bo1)</td><td><span class="weight">35</span></td><td>—</td><td>15 si hay al menos un sweeper, 10 si hay support/redirect, hasta 10 más por flexibilidad de roles entre todos los combos de 4 miembros</td></tr>
+<tr><td>Flexibilidad de leads (Bo3)</td><td>—</td><td><span class="weight">25</span></td><td>De los 15 combos posibles de 4 miembros, cuántos tienen al menos un movimiento de control de velocidad (tailwind, fake-out, icy-wind...). Más combos viables = más puntos</td></tr>
+<tr><td>Diversidad de duos sweeper-support (Bo3)</td><td>—</td><td><span class="weight">15</span></td><td>Cuántas parejas distintas sweeper+support se pueden formar dentro del equipo. Máximo 3 cuentan</td></tr>
+<tr><td>EVs completos</td><td><span class="weight">15</span></td><td><span class="weight">15</span></td><td>2.5 pts <i>sólo</i> a cada miembro que use los 508 EVs (66 SPs) al máximo. Si se queda corto en uno, pierde sus 2.5 pts enteros — no hay puntos parciales</td></tr>
+<tr><td>Sin objetos repetidos</td><td><span class="weight">15</span></td><td><span class="weight">15</span></td><td>15 si los 6 objetos son distintos, 0 si hay cualquier duplicado. Sin gradiente</td></tr>
+</tbody>
+</table>
+
+<h3>Qué entiende la app por "cobertura"</h3>
+<ul>
+  <li><b>Hueco ofensivo:</b> ningún miembro del equipo tiene ese tipo como propio (STAB). <b>Importante:</b> mira el tipado del Pokémon, no sus ataques reales. Un Fire-type cuenta como cobertura de Fuego aunque no lleve ningún ataque de Fuego.</li>
+  <li><b>Debilidad compartida:</b> 3 o más miembros reciben ×2 daño (o más) del mismo tipo atacante. Esto sí es un problema real en doble — un Lando-T puede barrer media tu plantilla.</li>
+</ul>
+
+<h3>Movimientos que cuentan como "control de velocidad" en Bo3</h3>
+<p>Tailwind, Trick Room, Fake Out, Quick Attack, Extreme Speed, Helping Hand, Thunder Wave, Icy Wind, Follow Me, Rage Powder.</p>
+
+<h2>Preguntas para auditar (cosas que un jugador notaría)</h2>
+
+<div class="pain">
+  <h4>¿De verdad cubre Fuego, o sólo lo "tiene"?</h4>
+  La app cuenta un tipo como cubierto si <b>algún miembro es de ese tipo</b>, no si lo ataca. Un Charizard sin ataques de Fuego sigue "cubriendo" el hueco de Fuego en la nota. <br/><b>Cómo verlo:</b> coge un equipo, mira los 24 ataques (4×6) y cuenta cuántos tipos están realmente en su set. Compáralo con los tipos que la app considera cubiertos.
+</div>
+
+<div class="pain">
+  <h4>¿Por qué una debilidad compartida pesa más que un hueco ofensivo?</h4>
+  Cada tipo sin STAB resta <b>2 pts</b>; cada tipo al que 3+ miembros son débiles resta <b>3 pts</b>. Es una opinión: la app prefiere equipos sólidos defensivamente antes que equipos con más amenazas ofensivas. <br/><b>Auditable:</b> ¿estás de acuerdo con esa prioridad para tu estilo de juego?
+</div>
+
+<div class="pain">
+  <h4>¿Cuánto pesa "este Pokémon va con mi favorito en el meta"?</h4>
+  Salir como compañero frecuente en MunchStats vale <b>+3 puntos</b>; cubrir una debilidad concreta de tu favorito vale <b>+1</b>. Esto significa que <b>el meta puede empujar a un Pokémon mediocre por delante</b> de uno técnicamente mejor pero menos visto. <br/><b>Auditable:</b> ¿qué pasa con favoritos poco usados, sin datos de meta? ¿Cómo se comporta la selección entonces?
+</div>
+
+<div class="pain">
+  <h4>¿La nota es justa con EVs "casi perfectos"?</h4>
+  Si un miembro usa 504 EVs en vez de los 508 máximos, se queda fuera de su porción de nota (2.5 pts) <b>completamente</b>. No hay puntos parciales. <br/><b>Nota práctica:</b> tras el fix reciente, los top teams importados ahora reciben un spread sugerido por rol y entran al máximo. Antes daban 0 en este componente porque LabMaus no exporta EVs.
+</div>
+
+<div class="pain">
+  <h4>¿La penalización por objeto repetido es proporcional?</h4>
+  No. Es binario: 5 objetos únicos y 1 duplicado puntúa <b>igual que 6 objetos repetidos</b> (cero). La app fuerza objetos distintos al construir, así que esto sólo se ve en equipos <i>importados</i> que ya traen duplicados.
+</div>
+
+<div class="pain">
+  <h4>¿Un Pokémon que se queda a 1 punto del umbral pierde el rol?</h4>
+  Sí. Si la Defensa es 99 (umbral 100) o la HP es 79 (umbral 80), <b>no se le asigna physical_wall</b>. La frontera es dura, no gradual. <br/><b>Auditable:</b> ¿hay Pokémon "casi-muros" útiles que están siendo ignorados?
+</div>
+
+<div class="pain">
+  <h4>¿Por qué la app me da siempre los mismos 3 equipos para el mismo favorito?</h4>
+  La generación es <b>100% determinista</b>. Mismo favorito + mismo formato + misma elección de mega = siempre el mismo top 3. No hay variación intencional ni modo "exploratorio". <br/><b>Auditable:</b> ¿es lo que querrías, o esperarías ver propuestas alternativas?
+</div>
+
+<div class="pain">
+  <h4>¿La explicación textual te dice por qué tu equipo perdió puntos?</h4>
+  Sólo si fue por <b>cobertura</b> o <b>balance de roles</b>. Si perdiste puntos por EVs incompletos o por un objeto repetido, la explicación no lo menciona. <br/><b>Auditable:</b> ¿saber por qué se perdió un punto es importante para ti?
+</div>
+
+<div class="pain">
+  <h4>¿Probar 10 tentativas en paralelo es suficiente?</h4>
+  La app prueba 10 estados por slot sobre ~30 candidatos. Eso significa <b>~1500 combinaciones evaluadas por nivel</b>. Suena mucho, pero la búsqueda es greedy: si un mal compañero entra temprano, contamina las 10 tentativas siguientes. <br/><b>Auditable:</b> ¿al cambiar levemente el orden de candidatos cambian los resultados? Eso sugeriría que la búsqueda es frágil.
+</div>
+
+<div class="pain">
+  <h4>¿Qué pasa con el segundo Pokémon del mismo rol?</h4>
+  Los objetos se reparten <b>en orden de aparición</b>. Si Scovillain (slot 1, physical_sweeper) consume Weakness Policy, el siguiente physical_sweeper del equipo (slot 4) cae a la lista de repuestos — quizá Sitrus Berry. La nota final no penaliza esto, pero competitivamente el segundo sweeper queda peor equipado.
+</div>
+
+<h2>Cómo usar este documento</h2>
+<ol>
+  <li>Recorre el viaje paso a paso de arriba. Cada flecha es una decisión que la app toma <i>por ti</i>.</li>
+  <li>Mira la tabla de la nota final (sección 5). Pregúntate: <i>¿estos pesos reflejan lo que yo valoraría?</i></li>
+  <li>Lee las preguntas de auditoría. Si una coincide con una sospecha que tenías sobre un equipo concreto, ya hay hipótesis para investigar.</li>
+  <li>Para verificar sin generar: arma un equipo a mano (uno que sepas que es bueno o malo) y pásalo por el importador. Mira si la nota refleja lo que tu intuición competitiva dice.</li>
+</ol>
+
+<h2 style="font-size:1.1em;color:#888;">Para curiosos: referencias técnicas</h2>
+<p style="font-size:.85em;color:#999;">Las funciones del código que implementan cada sección, por si quieres leer el original:<br/>
+1. Roles → <code>synergy_engine.assign_role</code> · 2. Selección de candidatos → <code>team_generator._heuristic_filter</code> · 3. Combinaciones → <code>team_generator._beam_search</code> + <code>_partial_score</code> · 4. Equipar miembros → <code>team_generator._build_variant</code> · 5. Nota final → <code>viability_rater.score_team</code> · Cobertura → <code>synergy_engine.analyze_coverage</code> · Flexibilidad → <code>synergy_engine.score_flexibility</code>.</p>
+
+<script>
+  mermaid.initialize({ startOnLoad: true, theme: 'default', flowchart: { curve: 'basis', padding: 16 } });
+</script>
+
+</body>
+</html>
