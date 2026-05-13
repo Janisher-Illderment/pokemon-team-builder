@@ -29,6 +29,7 @@ from pokemon_team_builder.services import (
     replica_exporter,
     viability_rater,
 )
+from pokemon_team_builder.services import favorite_first_builder
 from pokemon_team_builder.services.meta_service import MetaService
 from pokemon_team_builder.services.synergy_engine import (
     ALL_TYPES,
@@ -451,13 +452,22 @@ def _beam_search(
     beam_width: int = _BEAM_WIDTH,
     *,
     anchor_is_mega: bool = False,
+    seed: list[PokemonData] | None = None,
 ) -> list[list[PokemonData]]:
     """Build candidate teams of ``target_size`` via beam search.
 
     Beam state = a list of PokemonData (already-chosen members starting
-    with the anchor). At each expansion we add one new candidate from
-    ``candidates`` (no duplicates) and score the resulting partial team,
-    keeping the top ``beam_width`` states.
+    with the anchor — or the full ``seed`` when one is provided). At each
+    expansion we add one new candidate from ``candidates`` (no duplicates)
+    and score the resulting partial team, keeping the top ``beam_width``
+    states.
+
+    Phase 2b ``seed``: when supplied, the initial beam state is exactly
+    ``seed`` (which MUST start with ``anchor``). This is how the
+    favorite-first flow pre-locks slots 1–3 — beam search then expands
+    only the remaining ``target_size - len(seed)`` slots. When ``seed``
+    is None we fall back to the legacy ``[[anchor]]`` initial state, so
+    older callers (tests + non-favorite-first paths) keep working.
 
     Mega Clause (Phase 2a, spec §4.5): any partial state where the count
     of mega-capable members exceeds 1 is pruned BEFORE scoring. This is a
@@ -470,8 +480,25 @@ def _beam_search(
     if target_size <= 1:
         return [[anchor]]
 
-    states: list[list[PokemonData]] = [[anchor]]
-    for _ in range(target_size - 1):
+    if seed is not None:
+        if not seed or seed[0].name != anchor.name:
+            # Programmer error: the favorite-first flow always seeds with
+            # the anchor as slot 0. Fail loud rather than silently
+            # mis-anchor the variant.
+            raise ValueError(
+                "_beam_search: seed must start with the anchor "
+                f"(got first={seed[0].name if seed else None!r}, "
+                f"anchor={anchor.name!r})."
+            )
+        if len(seed) >= target_size:
+            return [list(seed)]
+        initial_state: list[PokemonData] = list(seed)
+    else:
+        initial_state = [anchor]
+
+    expansion_steps = target_size - len(initial_state)
+    states: list[list[PokemonData]] = [initial_state]
+    for _ in range(expansion_steps):
         next_states: list[tuple[float, list[PokemonData]]] = []
         for state in states:
             chosen_names = {p.name for p in state}
@@ -709,6 +736,7 @@ def generate_team(
     candidate_loader: Callable[[PokemonData], list[PokemonData]] | None = None,
     mega_choice: str = "auto",
     format_mode: str = "bo1",
+    archetype: str = "balance",
 ) -> list[TeamVariant]:
     """Generate up to ``num_variants`` 6-mon team variants around ``anchor``.
 
@@ -722,6 +750,32 @@ def generate_team(
 
     Variants are deduplicated by member set: any two returned variants
     differ in at least one Pokemon.
+
+    Phase 2b — favorite-first build flow:
+      The generator now runs in four phases instead of pure beam search:
+        1. Resolve the anchor and its mega.
+        2. ``build_core_duo(anchor, archetype, pool, ...)`` picks slot 2.
+        3. ``cover_shared_weakness([anchor, partner], ...)`` picks slot 3.
+        4. ``_beam_search(seed=[anchor, partner, slot3], ...)`` fills
+           slots 4–6 only.
+
+      Backward compatibility: ``archetype`` defaults to ``"balance"``, so
+      callers that pre-date Phase 2b (tests, CLI scripts) automatically
+      run the new flow with balanced weights. We deliberately do NOT gate
+      the new flow behind the default — switching paths by archetype
+      would create two divergent code paths to maintain. Instead, the
+      ``balance`` weights matrix (all 1.0) reproduces the v0.2.0 scoring
+      ranking closely enough that the legacy tests pass. The two surface-
+      level changes vs v0.2.0 are:
+        - Slot 2 is now picked by ``build_core_duo`` (which honors meta
+          teammates and type complement, the same signals that
+          ``_heuristic_filter`` used to rank candidates).
+        - Slot 3 is now picked by ``cover_shared_weakness`` (which scores
+          against the duo's shared weakness, a strict subset of what beam
+          search used to do).
+      Legacy tests assert at the variant-level (anchor in slot 0, 6
+      distinct members, valid items / SPs) — none of those invariants are
+      affected by the flow change.
     """
     if num_variants < 1:
         return []
@@ -762,12 +816,31 @@ def generate_team(
     if len(candidates) < 5:
         return []
 
+    # ── Phase 2b: favorite-first build flow ─────────────────────────
+    # The favorite-first phases pick slots 2 and 3 deterministically; the
+    # heuristic-filtered ``candidates`` pool feeds both phases so the
+    # pruning logic stays consistent with the legacy beam-search input.
+    try:
+        partner, _partner_score = favorite_first_builder.build_core_duo(
+            anchor, archetype, candidates, _meta_service, role_map,
+        )
+        slot3 = favorite_first_builder.cover_shared_weakness(
+            [anchor, partner], archetype, candidates, role_map,
+        )
+    except ValueError:
+        # Insufficient pool to form the duo / trio. Fall through to the
+        # empty result rather than blowing up the API response.
+        return []
+
+    seed = [anchor, partner, slot3]
+
     states = _beam_search(
         anchor,
         candidates,
         role_map,
         target_size=6,
         anchor_is_mega=anchor_mega is not None,
+        seed=seed,
     )
     if not states:
         return []
@@ -782,16 +855,28 @@ def generate_team(
             continue
         seen_signatures.add(signature)
         try:
-            variant = _build_variant(state, role_map, anchor_mega=anchor_mega, format_mode=format_mode)
+            variant = _build_variant(
+                state, role_map,
+                anchor_mega=anchor_mega,
+                format_mode=format_mode,
+                archetype=archetype,
+            )
         except (ValueError, TeamBuildError):
             # ValueError → wrong member count; TeamBuildError → move
             # selection ran out of moves or items pool exhausted. In
             # either case skip this state and try the next.
             continue
-        score, flex_ratio = viability_rater.score_team(variant, format_mode)
+        score, flex_ratio = viability_rater.score_team(
+            variant, format_mode, archetype=archetype,
+        )
         explanation = viability_rater.generate_explanation(variant, score)
         variant = variant.model_copy(
-            update={"score": score, "score_explanation": explanation, "lead_flexibility_ratio": flex_ratio}
+            update={
+                "score": score,
+                "score_explanation": explanation,
+                "lead_flexibility_ratio": flex_ratio,
+                "archetype": archetype,
+            }
         )
         variants.append(variant)
         if len(variants) >= num_variants:
@@ -852,6 +937,7 @@ def _build_variant(
     *,
     anchor_mega: MegaForm | None = None,
     format_mode: str = "bo1",
+    archetype: str = "balance",
 ) -> TeamVariant:
     members_roles = [role_map.get(p.name, assign_role(p)) for p in team]
 
@@ -871,7 +957,10 @@ def _build_variant(
     #    full learnset.
     preview_moves = [
         replica_exporter.select_moves_for_role(
-            pokemon, roles, meta_moves=meta_moves_by_member[i], format_mode=format_mode
+            pokemon, roles,
+            meta_moves=meta_moves_by_member[i],
+            format_mode=format_mode,
+            archetype=archetype,
         )
         for i, (pokemon, roles) in enumerate(zip(team, members_roles))
     ]
@@ -901,7 +990,11 @@ def _build_variant(
         else:
             ability = _pick_ability(pokemon)
         moves = replica_exporter.select_moves_for_role(
-            pokemon, roles, item=item, meta_moves=meta_moves_by_member[idx], format_mode=format_mode
+            pokemon, roles,
+            item=item,
+            meta_moves=meta_moves_by_member[idx],
+            format_mode=format_mode,
+            archetype=archetype,
         )
         nature = _derive_nature(primary, roles, moves)
         members.append(
@@ -918,7 +1011,7 @@ def _build_variant(
         )
     if len(members) != 6:
         raise ValueError("Team must have exactly 6 members.")
-    return TeamVariant(members=members)
+    return TeamVariant(members=members, archetype=archetype)
 
 
 def _default_pool_loader(anchor: PokemonData) -> list[PokemonData]:

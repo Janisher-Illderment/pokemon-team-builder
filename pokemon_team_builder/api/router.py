@@ -84,6 +84,7 @@ def generate(req: GenerateRequest) -> GenerateResponse:
             candidate_loader=_lazy_pool_candidates,
             mega_choice=req.mega,
             format_mode=req.format,
+            archetype=req.archetype,
         )
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
@@ -112,6 +113,7 @@ def generate(req: GenerateRequest) -> GenerateResponse:
                 members=members,
                 format_mode=req.format,
                 lead_flexibility_score=round(v.lead_flexibility_ratio, 4),
+                archetype=v.archetype,
             )
         )
 
@@ -193,6 +195,7 @@ def _variant_to_out(v: TeamVariant, *, format_mode: str = "bo1") -> VariantOut:
         members=members,
         format_mode=format_mode,
         lead_flexibility_score=round(v.lead_flexibility_ratio, 4),
+        archetype=v.archetype,
     )
 
 
@@ -239,6 +242,7 @@ def import_pokepaste(req: ImportRequest) -> ImportResponse:
         members=base_out.members,
         format_mode=base_out.format_mode,
         lead_flexibility_score=base_out.lead_flexibility_score,
+        archetype=base_out.archetype,
         import_warnings=warnings,
     )
 

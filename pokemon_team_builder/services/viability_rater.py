@@ -4,6 +4,7 @@ import itertools
 import math
 
 from pokemon_team_builder.config import MAX_SP_TOTAL
+from pokemon_team_builder.data.archetype_weights_loader import get_weights
 from pokemon_team_builder.domain.models import TeamMember, TeamVariant
 from pokemon_team_builder.services.synergy_engine import (
     analyze_coverage,
@@ -130,7 +131,12 @@ def _items_points(variant: TeamVariant) -> int:
     return max(0, min(_W_ITEMS, pts))
 
 
-def score_team(variant: TeamVariant, format_mode: str = "bo1") -> tuple[float, float]:
+def score_team(
+    variant: TeamVariant,
+    format_mode: str = "bo1",
+    *,
+    archetype: str = "balance",
+) -> tuple[float, float]:
     """Score a 6-member team variant on a 0-100 scale.
 
     Returns (total_score, lead_flexibility_ratio).
@@ -138,9 +144,18 @@ def score_team(variant: TeamVariant, format_mode: str = "bo1") -> tuple[float, f
 
     Bo1: coverage(35) + roles(35) + sp(15) + items(15)
     Bo3: coverage(30) + lead_flex(25) + core_div(15) + sp(15) + items(15)
+
+    Phase 2b archetype weighting: per-component scores are multiplied by
+    the archetype's weight matrix from ``archetype_weights.json`` BEFORE
+    the final clamp to [0, 100]. Balance (default) has weights = 1.0 on
+    every component, so the v0.2.0 scoring behavior is preserved when
+    archetype is not specified. The lead_flexibility_ratio is returned
+    raw (not weighted) because it is a UI-facing 0–1 ratio, not a
+    scoring contribution — multiplying it would mislead the badge text.
     """
     sps = _sps_points(variant)
     items = _items_points(variant)
+    weights = get_weights(archetype)
 
     if format_mode == "bo3":
         # Phase 2a: STAB-based coverage using the variant's assigned movesets.
@@ -154,12 +169,23 @@ def score_team(variant: TeamVariant, format_mode: str = "bo1") -> tuple[float, f
         ))
         flex_ratio, flex_pts = _lead_flexibility_points(variant.members)
         core_pts = _core_diversity_points(variant.members)
-        total = float(coverage + flex_pts + core_pts + sps + items)
+        total = float(
+            coverage * weights.coverage
+            + flex_pts * weights.roles
+            + core_pts * weights.roles
+            + sps * weights.sp
+            + items * weights.items
+        )
         return max(0.0, min(100.0, total)), flex_ratio
     else:
         coverage = _coverage_points(variant)
         roles = _roles_points(variant)
-        total = float(coverage + roles + sps + items)
+        total = float(
+            coverage * weights.coverage
+            + roles * weights.roles
+            + sps * weights.sp
+            + items * weights.items
+        )
         return max(0.0, min(100.0, total)), 0.0
 
 

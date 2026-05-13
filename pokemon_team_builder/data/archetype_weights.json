@@ -60,7 +60,7 @@
       "items": 1.0,
       "speed": 1.0,
       "bulk": 1.0,
-      "cheese_allowance": 1.0,
+      "cheese_allowance": 0.8,
       "weather_synergy": 1.0
     },
     "perish_trap": {

@@ -1,5 +1,18 @@
 [
   {
+    "version": "0.8.0-phase2b",
+    "date": "2026-05-13",
+    "highlights": "Refine build logic v2 — Phase 2b: favorite-first build flow + strategy archetype selector",
+    "changes": [
+      { "type": "feat", "text": "Generación ahora usa flujo favorite-first: anchor → build_core_duo (mejor partner por sinergia) → cover_shared_weakness (slot 3 cubre la weakness compartida de la duo) → beam search slots 4-6 (seed de 3 miembros). Determinista per (anchor, archetype, mega_preference)" },
+      { "type": "feat", "text": "Nuevo campo opcional archetype en POST /generate: hyper_offense | hard_trick_room | bulky_offense | weather_based | stall | balance | perish_trap (default balance). 422 si valor inválido" },
+      { "type": "feat", "text": "Archetype propaga a scoring: score_team aplica multiplicadores de archetype_weights.json a cada componente (coverage, roles, sp, items) antes del clamp final 0-100" },
+      { "type": "feat", "text": "Cheese-allowance gate en select_moves_for_role: archetypes con cheese_allowance<1.0 (balance, bulky_offense, stall) saltan Destiny Bond / Mirror Coat / Counter / Memento / Perish Song; perish_trap (1.6) abre el gate y permite Perish Song como slot 4 prioritario" },
+      { "type": "feat", "text": "VariantOut.archetype echo: cada variant generada incluye el archetype usado para que la UI pueda renderizar badge por equipo" },
+      { "type": "feat", "text": "Synergy score del partner pondera type complement (archetype.coverage) + role complement (archetype.roles, suprimido en hyper_offense) + ability/move compat (weather setter / TR setter / redirect para sweeper frágil) + meta teammate presence (+3.0 fijo)" }
+    ]
+  },
+  {
     "version": "0.7.0-phase2a",
     "date": "2026-05-13",
     "highlights": "Refine build logic v2 — Phase 2a: role gradient bands + ability-as-implicit-role + STAB-based coverage + mega clause hard prune",

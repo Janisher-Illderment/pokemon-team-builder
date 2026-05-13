@@ -5,11 +5,30 @@ from typing import Annotated, Literal, Union
 from pydantic import BaseModel, Field
 
 
+# Phase 2b (strategy-archetype): canonical archetype set — must stay in
+# sync with ``data/archetype_weights.json`` and
+# ``data.archetype_weights_loader.known_archetypes()``.
+Archetype = Literal[
+    "hyper_offense",
+    "hard_trick_room",
+    "bulky_offense",
+    "weather_based",
+    "stall",
+    "balance",
+    "perish_trap",
+]
+
+
 class GenerateRequest(BaseModel):
     anchor: str = Field(min_length=1, examples=["garchomp"])
     variants: int = Field(default=3, ge=1, le=5)
     mega: str = Field(default="auto", examples=["auto", "x", "y"])
     format: Literal["bo1", "bo3"] = "bo1"
+    # Phase 2b: strategy archetype. Default 'balance' for backward
+    # compatibility with clients that pre-date Phase 2b. Pydantic v2
+    # validates the literal automatically — invalid values produce HTTP
+    # 422 with the list of valid options.
+    archetype: Archetype = "balance"
 
 
 class MemberOut(BaseModel):
@@ -32,6 +51,9 @@ class VariantOut(BaseModel):
     members: list[MemberOut]
     format_mode: str = "bo1"
     lead_flexibility_score: float = 0.0
+    # Phase 2b: echoes the archetype the team was generated under. The
+    # UI uses this to render an archetype badge per variant.
+    archetype: str = "balance"
 
 
 class GenerateResponse(BaseModel):

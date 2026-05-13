@@ -180,7 +180,32 @@ def test_destiny_bond_absent_in_bo3():
     assert "destiny-bond" not in moves_bo3
 
 
-def test_destiny_bond_present_in_bo1():
+def test_destiny_bond_present_in_bo1_perish_trap():
+    """Cheese gate (Phase 2b) blocks destiny-bond in default balance; it is
+    still assignable when the archetype's cheese_allowance opens the gate.
+
+    Pre-Phase-2b this test asserted destiny-bond was present in plain Bo1
+    (regardless of archetype). Phase 2b's cheese_allowance gate means
+    balance now skips destiny-bond — but perish_trap (allowance=1.6)
+    keeps it available, which is the new invariant.
+    """
     from pokemon_team_builder.services.replica_exporter import select_moves_for_role
-    moves_bo1 = select_moves_for_role(_sableye(), ["lead_support"], format_mode="bo1")
+    moves_bo1 = select_moves_for_role(
+        _sableye(), ["lead_support"],
+        format_mode="bo1", archetype="perish_trap",
+    )
     assert "destiny-bond" in moves_bo1
+
+
+def test_destiny_bond_absent_in_bo1_balance():
+    """Phase 2b cheese gate: balance archetype skips destiny-bond.
+
+    Pairs with ``test_destiny_bond_present_in_bo1_perish_trap`` — together
+    they cover both sides of the archetype-driven cheese gate.
+    """
+    from pokemon_team_builder.services.replica_exporter import select_moves_for_role
+    moves_bo1 = select_moves_for_role(
+        _sableye(), ["lead_support"],
+        format_mode="bo1", archetype="balance",
+    )
+    assert "destiny-bond" not in moves_bo1

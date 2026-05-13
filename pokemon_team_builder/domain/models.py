@@ -106,3 +106,7 @@ class TeamVariant(BaseModel):
     score_explanation: str = ""
     is_recommended: bool = False
     lead_flexibility_ratio: float = 0.0
+    # Phase 2b (strategy-archetype): echoes the archetype the team was
+    # built for. Default 'balance' keeps backward compatibility with
+    # pre-Phase-2b call sites that do not pass an archetype.
+    archetype: str = "balance"

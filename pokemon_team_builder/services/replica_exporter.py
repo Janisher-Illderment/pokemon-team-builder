@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from pokemon_team_builder.data.archetype_weights_loader import get_weights
 from pokemon_team_builder.domain.exceptions import TeamBuildError
 from pokemon_team_builder.domain.models import (
     PokemonData,
@@ -382,6 +383,26 @@ _BO3_CHEESE_MOVES = frozenset({
     "destiny-bond", "mirror-coat", "counter", "memento", "perish-song",
 })
 
+# Phase 2b (strategy-archetype): the cheese-move gate. When the active
+# archetype's ``cheese_allowance < 1.0`` we skip moves in this set during
+# selection so they never end up in a moveset. ``perish_trap`` has
+# ``cheese_allowance = 1.0`` and explicitly wants Perish Song; balance /
+# bulky_offense / stall have <1.0 and skip the cheese set entirely.
+#
+# WHY a separate set from ``_BO3_CHEESE_MOVES``: the Bo3 gate has always
+# been about "open sheet means cheese is dead weight" — it is an
+# orthogonal concern. The two sets happen to be identical today but may
+# diverge (e.g. Perish Song behaves fine in Bo3 perish_trap, and a future
+# archetype might allow Destiny Bond while Bo3 still vetoes it). Keeping
+# them separate avoids coupling the two policies.
+_ARCHETYPE_CHEESE_MOVES: frozenset[str] = frozenset({
+    "destiny-bond", "mirror-coat", "counter", "memento", "perish-song",
+})
+
+# Threshold at which the cheese set is allowed. Strict ``>=`` so a value
+# of exactly 1.0 (perish_trap) opens the gate, anything below blocks.
+_CHEESE_GATE_THRESHOLD: float = 1.0
+
 
 def select_moves_for_role(
     pokemon: PokemonData,
@@ -390,6 +411,7 @@ def select_moves_for_role(
     item: str = "",
     meta_moves: list[str] | None = None,
     format_mode: str = "bo1",
+    archetype: str = "balance",
 ) -> list[str]:
     """Pick exactly 4 moves for a Pokemon given its assigned roles.
 
@@ -403,6 +425,16 @@ def select_moves_for_role(
     primary_role = roles[0] if roles else "physical_sweeper"
     move_pool = list(pokemon.move_names)
     used: set[str] = set()
+
+    # Phase 2b cheese-allowance gate. We resolve the archetype's weights
+    # once and decide whether the cheese set is on-limits. Any move
+    # selection pass below (meta, STAB tables, coverage, role priority,
+    # fallback) must respect this gate when ``archetype_blocks_cheese``
+    # is True.
+    archetype_weights = get_weights(archetype)
+    archetype_blocks_cheese = (
+        archetype_weights.cheese_allowance < _CHEESE_GATE_THRESHOLD
+    )
 
     # Slot 1: protect when the Pokemon actually knows it. Most legal mons
     # learn Protect, but a handful (e.g. species locked to specific
@@ -569,26 +601,50 @@ def select_moves_for_role(
     # a Pokemon with both sweeper and support roles emits the support move
     # (Rage Powder > Calm Mind, Trick Room > Nasty Plot). Order within each
     # group is preserved from the original roles list.
+    #
+    # Phase 2b perish_trap special case: when the archetype is perish_trap
+    # AND the member knows Perish Song, slot 4 prefers Perish Song over any
+    # other role-priority move. This is the archetype's central strategy
+    # so its enablers win the slot when present.
     slot4_order = sorted(
         roles, key=lambda r: (0 if r in _SLOT4_SUPPORT_ROLES else 1, roles.index(r))
     )
     slot4 = None
-    for role in slot4_order:
-        for candidate in _ROLE_MOVE_PRIORITY.get(role, ()):
-            if candidate in used:
-                continue
-            if item in _CHOICE_ITEMS and candidate in _SETUP_MOVES:
-                continue  # locked-in setup is useless with a Choice item
-            if format_mode == "bo3" and candidate in _BO3_CHEESE_MOVES:
-                continue  # open sheet: cheese moves are dead weight in Bo3
-            if candidate in move_pool:
-                slot4 = candidate
-                break
-        if slot4 is not None:
-            break
+    if (
+        archetype == "perish_trap"
+        and "perish-song" in move_pool
+        and "perish-song" not in used
+    ):
+        slot4 = "perish-song"
+
     if slot4 is None:
-        exclude = _BO3_CHEESE_MOVES if format_mode == "bo3" else frozenset()
-        slot4 = _fallback_move(move_pool, used | exclude)
+        for role in slot4_order:
+            for candidate in _ROLE_MOVE_PRIORITY.get(role, ()):
+                if candidate in used:
+                    continue
+                if item in _CHOICE_ITEMS and candidate in _SETUP_MOVES:
+                    continue  # locked-in setup is useless with a Choice item
+                if format_mode == "bo3" and candidate in _BO3_CHEESE_MOVES:
+                    continue  # open sheet: cheese moves are dead weight in Bo3
+                if archetype_blocks_cheese and candidate in _ARCHETYPE_CHEESE_MOVES:
+                    # Phase 2b: archetype's cheese_allowance < 1.0, drop
+                    # destiny-bond / mirror-coat / counter / memento /
+                    # perish-song from slot-4 candidates.
+                    continue
+                if candidate in move_pool:
+                    slot4 = candidate
+                    break
+            if slot4 is not None:
+                break
+    if slot4 is None:
+        # Build the exclusion set: Bo3 always vetoes cheese; archetype
+        # gate optionally adds the archetype cheese set on top.
+        exclude_set: set[str] = set()
+        if format_mode == "bo3":
+            exclude_set |= _BO3_CHEESE_MOVES
+        if archetype_blocks_cheese:
+            exclude_set |= _ARCHETYPE_CHEESE_MOVES
+        slot4 = _fallback_move(move_pool, used | exclude_set)
     used.add(slot4)
 
     return [slot1, slot2, slot3, slot4]
