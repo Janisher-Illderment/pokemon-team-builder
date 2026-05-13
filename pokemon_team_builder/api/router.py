@@ -24,6 +24,7 @@ from pokemon_team_builder.api.schemas import (
 from pokemon_team_builder.cli.main import _lazy_pool_candidates
 from pokemon_team_builder.data.legal_pool_loader import is_legal
 from pokemon_team_builder.data.speed_tiers import load as load_speed_db
+from pokemon_team_builder.domain.exceptions import TeamBuildError
 from pokemon_team_builder.domain.models import SPDistribution
 from pokemon_team_builder.services import sp_preset_builder
 from pokemon_team_builder.services import meta_versions as _meta_versions_mod
@@ -112,6 +113,11 @@ def generate(req: GenerateRequest) -> GenerateResponse:
             format_mode=req.format,
             archetype=req.archetype,
         )
+    except TeamBuildError as exc:
+        # Pool exhaustion / cold-cache / structural pool issues → 503 so the
+        # client knows to retry, vs a 200 with empty variants which silently
+        # masks the problem (Phase 4b fail-clearly fix).
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 

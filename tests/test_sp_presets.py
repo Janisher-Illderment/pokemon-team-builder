@@ -166,3 +166,65 @@ def test_modest_nature_zeroes_attack_in_offensive():
                  nature="Modest", role="special_sweeper")
     presets = build_presets(member, "Choice Specs", "Modest")
     assert presets["offensive"].atk == 0
+
+
+# ── Phase 4b Brief #2: pokepaste default uses offensive preset ──────────────
+
+
+def test_default_pokepaste_uses_offensive_preset():
+    """Spec §9.6: generated variants SHALL serialise SPs from the offensive
+    preset by default, not from the role-template fallback.
+
+    Regression for Phase 4b Brief #2 — previously _build_variant assigned
+    template-based suggest_sp_distribution to member.sp_distribution, which
+    diverged from sp_presets.offensive on the API response. After the fix,
+    member.sp_distribution must equal offensive preset values (sum=66).
+    """
+    from pokemon_team_builder.services.team_generator import _build_variant
+
+    def _pkd(name, types, atk, spa, spe, hp=80, def_=80, spd=80, pid=1):
+        return PokemonData(
+            id=pid, name=name, types=types,
+            base_stats=BaseStats(hp=hp, atk=atk, **{"def": def_},
+                                 spa=spa, spd=spd, spe=spe),
+            move_names=["tackle", "protect", "earthquake", "rock-slide",
+                        "ice-beam", "thunderbolt"],
+            abilities=["pressure"],
+            weaknesses={},
+        )
+
+    state = [
+        _pkd("garchomp", ["ground", "dragon"], 130, 80, 102, 108, 95, 85, pid=1),
+        _pkd("rotom", ["electric", "ghost"], 65, 105, 86, 50, 107, 107, pid=2),
+        _pkd("salamence", ["dragon", "flying"], 135, 110, 100, 95, 80, 80, pid=3),
+        _pkd("metagross", ["steel", "psychic"], 135, 95, 70, 80, 130, 90, pid=4),
+        _pkd("amoonguss", ["grass", "poison"], 85, 85, 30, 114, 70, 80, pid=5),
+        _pkd("scrafty", ["dark", "fighting"], 90, 45, 58, 65, 115, 115, pid=6),
+    ]
+    role_map = {p.name: ["physical_sweeper"] for p in state}
+    variant = _build_variant(state, role_map, anchor_mega=None, format_mode="bo1")
+
+    for member in variant.members:
+        sp = member.sp_distribution
+        total = sp.hp + sp.atk + sp.def_ + sp.spa + sp.spd + sp.spe
+        assert total == SP_TOTAL_CAP, (
+            f"{member.pokemon.name} sp_distribution total={total}, "
+            f"expected {SP_TOTAL_CAP} (offensive preset)"
+        )
+
+
+def test_generate_team_raises_on_empty_pool():
+    """Phase 4b Brief #3: empty pool → TeamBuildError (HTTP 503-mapped),
+    not silent 200+{variants:[]}. Fail-clearly per feedback_fail_clearly.md.
+    """
+    from pokemon_team_builder.domain.exceptions import TeamBuildError
+    from pokemon_team_builder.services.team_generator import generate_team
+
+    anchor = PokemonData(
+        id=1, name="garchomp", types=["ground", "dragon"],
+        base_stats=BaseStats(hp=108, atk=130, **{"def": 95},
+                             spa=80, spd=85, spe=102),
+        move_names=["earthquake"], abilities=["sand-veil"], weaknesses={},
+    )
+    with pytest.raises(TeamBuildError, match="[Pp]ool"):
+        generate_team(anchor, pool=[], num_variants=1)

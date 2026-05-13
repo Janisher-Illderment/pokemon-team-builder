@@ -798,7 +798,11 @@ def generate_team(
             pool = _default_pool_loader(anchor)
 
     if not pool:
-        return []
+        raise TeamBuildError(
+            "Pool de candidatos vacío. Verifica que la caché de PokeAPI esté "
+            "caliente o que el host tenga conexión a pokeapi.co. Reintenta en "
+            "30 segundos."
+        )
 
     # Precompute roles once per Pokemon — assign_role is pure and pool is
     # fixed for this call. Avoids O(pool × beam_width × steps) recomputation.
@@ -810,11 +814,12 @@ def generate_team(
         role_map[anchor.name] = assign_role_with_mega(anchor, anchor_mega)
 
     candidates = _heuristic_filter(anchor, pool, role_map)
-    if not candidates:
-        return []
-
     if len(candidates) < 5:
-        return []
+        raise TeamBuildError(
+            f"Pool insuficiente tras heurística: solo {len(candidates)} "
+            f"candidatos compatibles con {anchor.name} (mínimo 5). "
+            "Posible cache PokeAPI fría — reintenta en 30 segundos."
+        )
 
     # ── Phase 2b: favorite-first build flow ─────────────────────────
     # The favorite-first phases pick slots 2 and 3 deterministically; the
@@ -827,10 +832,14 @@ def generate_team(
         slot3 = favorite_first_builder.cover_shared_weakness(
             [anchor, partner], archetype, candidates, role_map,
         )
-    except ValueError:
-        # Insufficient pool to form the duo / trio. Fall through to the
-        # empty result rather than blowing up the API response.
-        return []
+    except ValueError as exc:
+        # Insufficient pool to form the duo / trio. Surface as a structured
+        # TeamBuildError so the API layer can map to HTTP 503 instead of
+        # silently returning an empty variants list.
+        raise TeamBuildError(
+            f"No se pudo formar el core duo para {anchor.name}: {exc}. "
+            "Pool puede estar parcialmente cargado."
+        ) from exc
 
     seed = [anchor, partner, slot3]
 
@@ -983,7 +992,6 @@ def _build_variant(
     members: list[TeamMember] = []
     for idx, (pokemon, roles, item) in enumerate(zip(team, members_roles, items)):
         primary = roles[0] if roles else "physical_sweeper"
-        sp = suggest_sp_distribution(pokemon, primary)
         # The anchor mega contributes its own ability and stat block. The
         # SP template is already keyed off the mega-driven role above, so
         # the spread targets the mega's offensive profile.
@@ -999,18 +1007,35 @@ def _build_variant(
             archetype=archetype,
         )
         nature = _derive_nature(primary, roles, moves)
-        members.append(
-            TeamMember(
-                pokemon=pokemon,
-                role=roles,
-                sp_distribution=sp,
-                item=item,
-                ability=ability,
-                nature=nature,
-                moves=moves,
-                mega_form=anchor_mega if idx == 0 else None,
-            )
+        # Phase 3 §9.6: default export uses the offensive preset, so we
+        # store it on `sp_distribution` here. Template-based suggestion
+        # remains as the fallback if the preset builder fails for any
+        # reason (e.g. unknown nature, malformed item) — generation MUST
+        # NOT crash because of EV-preset corner cases.
+        template_sp = suggest_sp_distribution(pokemon, primary)
+        member = TeamMember(
+            pokemon=pokemon,
+            role=roles,
+            sp_distribution=template_sp,
+            item=item,
+            ability=ability,
+            nature=nature,
+            moves=moves,
+            mega_form=anchor_mega if idx == 0 else None,
         )
+        try:
+            from pokemon_team_builder.services import sp_preset_builder
+            presets = sp_preset_builder.build_presets(member, item, nature)
+            member = member.model_copy(
+                update={"sp_distribution": presets["offensive"].to_sp_distribution()}
+            )
+        except Exception as exc:
+            _logger.warning(
+                "sp_preset_builder failed for %s (item=%r nature=%r): %s — "
+                "falling back to role template",
+                pokemon.name, item, nature, exc,
+            )
+        members.append(member)
     if len(members) != 6:
         raise ValueError("Team must have exactly 6 members.")
     return TeamVariant(members=members, archetype=archetype)

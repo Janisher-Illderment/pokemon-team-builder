@@ -88,6 +88,26 @@ def test_generate_unknown_anchor_returns_422():
     assert "not in the M-A regulation pool" in res.json()["detail"]
 
 
+def test_generate_team_build_error_maps_to_503():
+    """Phase 4b Brief #3: cold-cache / empty pool → HTTP 503 with clear
+    message, not silent 200+{variants:[]}. Verifies the TeamBuildError →
+    503 mapping in router.generate.
+    """
+    from pokemon_team_builder.domain.exceptions import TeamBuildError
+    fake_anchor = _mk("garchomp", ["dragon", "ground"], pid=445)
+    with (
+        patch("pokemon_team_builder.api.router.is_legal", return_value=True),
+        patch("pokemon_team_builder.api.router.pokemon_lookup.lookup", return_value=fake_anchor),
+        patch(
+            "pokemon_team_builder.api.router.generate_team",
+            side_effect=TeamBuildError("Pool de candidatos vacío"),
+        ),
+    ):
+        res = client.post("/generate", json={"anchor": "garchomp"})
+    assert res.status_code == 503
+    assert "Pool" in res.json()["detail"]
+
+
 def test_generate_valid_anchor_returns_variants():
     fake_anchor = _mk("garchomp", ["dragon", "ground"], pid=445)
     fake_variants = [_fake_variant(recommended=True, score=5.5)]
