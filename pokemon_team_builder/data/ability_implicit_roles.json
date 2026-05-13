@@ -2,6 +2,9 @@
   "regulation": "M-A",
   "data_version": 1,
   "note": "Abilities that contribute partial weight to role scoring beyond raw stats. Weights are additive bonuses to the stat-derived role weight, capped at 1.0 by the consumer. Some abilities (Multiscale) contribute to multiple roles; some (Levitate) carry a coverage-side flag rather than a role weight.",
+  "_reserved_sentinel_roles": {
+    "ground_immunity_flag": "Set role to this sentinel + is_coverage_hint=true to mark the ability as Ground-immunity-granting. Consumer translates this into coverage_flags['ground_immune']=True and does NOT add weight to any real role. Used by Levitate."
+  },
   "abilities": {
     "flame-body":     {"role": "physical_wall", "weight": 0.2},
     "static":         {"role": "physical_wall", "weight": 0.2},

@@ -324,7 +324,14 @@ _CHOICE_ITEMS: frozenset[str] = frozenset({"Choice Scarf", "Choice Band", "Choic
 _ABILITY_STAB_OVERRIDES: dict[str, dict[str, str]] = {
     "snow-warning": {"ice-beam": "blizzard"},
     "no-guard": {"close-combat": "dynamic-punch"},
-    "drizzle": {"air-slash": "hurricane"},
+    # Drizzle: rain makes Thunder 100% accurate (vs 70% normal). 110 BP
+    # vs Thunderbolt's 90 BP — clear win when the user is on a Drizzle team.
+    # Hurricane override stays for Flying STAB.
+    "drizzle": {
+        "air-slash": "hurricane",
+        "thunderbolt": "thunder",
+        "thunder-shock": "thunder",
+    },
 }
 _SETUP_MOVES: frozenset[str] = frozenset({
     "nasty-plot", "calm-mind", "tail-glow",
@@ -472,41 +479,88 @@ def select_moves_for_role(
 
     used.add(slot2)
 
-    # Slot 3: coverage — try meta moves that are non-STAB and category-matching
-    # first; then fall through to the static coverage table.
-    slot3 = None
-    if meta_moves:
-        for candidate in meta_moves:
-            if candidate in used or candidate not in move_pool:
-                continue
-            cand_type = _MOVE_TYPE.get(candidate, "")
-            if cand_type and cand_type in own_types_lower:
-                continue  # skip STAB moves
-            cand_cat = _MOVE_CATEGORY.get(candidate, "")
-            if cand_cat and cand_cat != primary_cat:
-                continue  # category mismatch
-            # accept meta coverage move
-            slot3 = candidate
-            break
+    # STAB-presence invariant (Phase 2a, spec §5.2):
+    # Every Pokemon with type X SHALL have ≥1 STAB move of type X in slots 1–4
+    # WHEN such a move exists in its movepool. For dual-type members, this
+    # means slot 3 may need to carry a second STAB instead of coverage if the
+    # member's other type was not picked up by slot 2.
+    #
+    # WHY this comes BEFORE the coverage slot 3 logic: slot 3's default is
+    # "best coverage move that is NOT one of the member's types". If we
+    # blindly pick coverage first, a Garchomp (Ground/Dragon) with slot 2 =
+    # Earthquake (Ground STAB) would never end up with Dragon STAB — its
+    # second type would be uncovered by its own attacks. The invariant
+    # forces slot 3 to a Dragon STAB when one is available in the pool.
+    slot2_type = _MOVE_TYPE.get(slot2, "")
+    covered_stab_types: set[str] = {slot2_type} if slot2_type else set()
+    missing_stab_types: list[str] = [
+        t.lower() for t in pokemon.types
+        if t.lower() not in covered_stab_types
+    ]
 
-    own_types = own_types_lower  # alias kept for readability in guards below
-    if slot3 is None:
-        for pass_num in range(2):
-            for candidate in _COVERAGE_PRIORITY:
+    second_stab: str | None = None
+    for missing_type in missing_stab_types:
+        # Prefer a meta-listed STAB move (PokeAPI-aligned vocabulary).
+        if meta_moves:
+            for candidate in meta_moves:
                 if candidate in used or candidate not in move_pool:
                     continue
-                candidate_type = _MOVE_TYPE.get(candidate, "")
-                if candidate_type and candidate_type in own_types:
+                cand_type = _MOVE_TYPE.get(candidate, "")
+                if cand_type != missing_type:
                     continue
+                second_stab = candidate
+                break
+        if second_stab is not None:
+            break
+        # Fall back to the curated STAB-by-type table.
+        for candidate in _STAB_BY_TYPE.get(missing_type, ()):
+            if candidate in used or candidate not in move_pool:
+                continue
+            second_stab = candidate
+            break
+        if second_stab is not None:
+            break
+
+    # Slot 3: coverage — try meta moves that are non-STAB and category-matching
+    # first; then fall through to the static coverage table. When the STAB
+    # invariant requires a second STAB AND the pool has it, slot 3 carries
+    # the missing STAB instead of generic coverage.
+    own_types = own_types_lower  # alias kept for readability in guards below
+    slot3 = None
+    if second_stab is not None:
+        slot3 = second_stab
+    else:
+        if meta_moves:
+            for candidate in meta_moves:
+                if candidate in used or candidate not in move_pool:
+                    continue
+                cand_type = _MOVE_TYPE.get(candidate, "")
+                if cand_type and cand_type in own_types_lower:
+                    continue  # skip STAB moves
                 cand_cat = _MOVE_CATEGORY.get(candidate, "")
-                # See slot-2 comment: unknown category is treated as ineligible
-                # in pass 0 so a categorized move always wins the strict pass.
-                if pass_num == 0 and cand_cat != primary_cat:
-                    continue  # first pass: category-matching only
+                if cand_cat and cand_cat != primary_cat:
+                    continue  # category mismatch
+                # accept meta coverage move
                 slot3 = candidate
                 break
-            if slot3:
-                break
+
+        if slot3 is None:
+            for pass_num in range(2):
+                for candidate in _COVERAGE_PRIORITY:
+                    if candidate in used or candidate not in move_pool:
+                        continue
+                    candidate_type = _MOVE_TYPE.get(candidate, "")
+                    if candidate_type and candidate_type in own_types:
+                        continue
+                    cand_cat = _MOVE_CATEGORY.get(candidate, "")
+                    # See slot-2 comment: unknown category is treated as ineligible
+                    # in pass 0 so a categorized move always wins the strict pass.
+                    if pass_num == 0 and cand_cat != primary_cat:
+                        continue  # first pass: category-matching only
+                    slot3 = candidate
+                    break
+                if slot3:
+                    break
     if slot3 is None:
         slot3 = _fallback_move(move_pool, used)
     used.add(slot3)

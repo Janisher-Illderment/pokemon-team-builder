@@ -1,5 +1,19 @@
 [
   {
+    "version": "0.7.0-phase2a",
+    "date": "2026-05-13",
+    "highlights": "Refine build logic v2 — Phase 2a: role gradient bands + ability-as-implicit-role + STAB-based coverage + mega clause hard prune",
+    "changes": [
+      { "type": "feat", "text": "Role thresholds ahora son gradient ±15: un Pokémon con HP 79 recibe physical_wall weight ≈ 0.97 en vez de perder el rol entero por 1 punto (antes era cliff a HP 80)" },
+      { "type": "feat", "text": "Habilidades aportan partial role weight: Flame Body / Static / Effect Spore / Cute Charm / Poison Point / Sturdy → +0.2 physical_wall, Intimidate → +0.3 physical_wall, Multiscale → +0.4 a ambas walls, Regenerator → +0.2 a ambas walls, Magic Bounce / Prankster → +0.3 lead_support" },
+      { "type": "feat", "text": "Levitate marca ground_immune en coverage flags: ataques Ground NO cuentan como weakness defensiva contra ese miembro" },
+      { "type": "fix", "text": "Coverage scoring es STAB-based: tipo X cubierto sii algún miembro tiene un move de tipo X en su moveset asignado (antes Steelix sin Iron Head contaba Steel como cubierto)" },
+      { "type": "feat", "text": "STAB-presence invariant en select_moves_for_role: un Pokémon con tipos X/Y debe llevar STAB de X y STAB de Y si su movepool tiene ambos (e.g. Garchomp Ground/Dragon lleva Earthquake + Dragon Claw)" },
+      { "type": "feat", "text": "Mega clause hard prune en beam search: cualquier estado parcial con >1 miembro mega-capable es descartado pre-score (antes solo se enforced indirecto vía Item Clause)" },
+      { "type": "feat", "text": "Nueva función synergy_engine.assign_role_weights() retorna role_weights (dict gradient), roles (list legacy) y coverage_flags (ground_immune, etc.) — assign_role() sigue funcionando como wrapper retrocompat" }
+    ]
+  },
+  {
     "version": "0.7.0-phase1",
     "date": "2026-05-13",
     "highlights": "Refine build logic v2 — Phase 1: static data + 66-SP calculator + items pool limpio",

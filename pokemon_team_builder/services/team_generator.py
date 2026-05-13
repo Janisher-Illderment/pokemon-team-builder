@@ -414,12 +414,43 @@ def _partial_score(
     return score
 
 
+def _count_mega_potentials(
+    state: list[PokemonData], anchor_is_mega: bool
+) -> int:
+    """Count how many slots in ``state`` could end up holding a Mega Stone.
+
+    Used by the Phase 2a mega-clause prune in :func:`_beam_search`.
+
+    - Slot 0 (anchor) counts iff the caller has already locked a mega
+      assignment for it (``anchor_is_mega`` True).
+    - Any other slot counts iff its species has at least one
+      :class:`MegaForm` entry — i.e. it COULD be Mega-evolved if we
+      later assigned a stone. Since today only the anchor gets one
+      stone, two mega-capable members in slots ≥ 1 are a *latent*
+      duplication risk, not an actual one. We still prune them
+      conservatively because the favorite-first/best-partner phase
+      (Phase 2b) will introduce mega assignment for slot 2, at which
+      point the prune protects against the real duplicate case.
+    """
+    count = 0
+    for idx, member in enumerate(state):
+        if idx == 0:
+            if anchor_is_mega:
+                count += 1
+        else:
+            if member.megas:
+                count += 1
+    return count
+
+
 def _beam_search(
     anchor: PokemonData,
     candidates: list[PokemonData],
     role_map: dict[str, list[str]],
     target_size: int = 6,
     beam_width: int = _BEAM_WIDTH,
+    *,
+    anchor_is_mega: bool = False,
 ) -> list[list[PokemonData]]:
     """Build candidate teams of ``target_size`` via beam search.
 
@@ -427,6 +458,11 @@ def _beam_search(
     with the anchor). At each expansion we add one new candidate from
     ``candidates`` (no duplicates) and score the resulting partial team,
     keeping the top ``beam_width`` states.
+
+    Mega Clause (Phase 2a, spec §4.5): any partial state where the count
+    of mega-capable members exceeds 1 is pruned BEFORE scoring. This is a
+    structural hard constraint, not a soft penalty — Champions allows
+    exactly one mega per team. Pre-score pruning also reduces branching.
 
     Returns up to ``beam_width`` complete teams, sorted by their final
     partial score descending.
@@ -443,6 +479,9 @@ def _beam_search(
                 if cand.name in chosen_names:
                     continue
                 new_state = state + [cand]
+                # Phase 2a mega-clause hard prune (pre-score).
+                if _count_mega_potentials(new_state, anchor_is_mega) > 1:
+                    continue
                 next_states.append(
                     (_partial_score(new_state, role_map), new_state)
                 )
@@ -723,7 +762,13 @@ def generate_team(
     if len(candidates) < 5:
         return []
 
-    states = _beam_search(anchor, candidates, role_map, target_size=6)
+    states = _beam_search(
+        anchor,
+        candidates,
+        role_map,
+        target_size=6,
+        anchor_is_mega=anchor_mega is not None,
+    )
     if not states:
         return []
 

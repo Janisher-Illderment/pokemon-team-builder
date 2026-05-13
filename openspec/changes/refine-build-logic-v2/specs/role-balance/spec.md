@@ -3,9 +3,9 @@
 ### Requirement: Role thresholds use ±15 gradient bands instead of hard cliffs
 `assign_role` (or equivalent stat-based role assignment) SHALL compute each role's weight as a gradient over a 30-point band centered on the role's threshold: `weight = clamp((stat - (threshold - 15)) / 30, 0.0, 1.0)`. Pokémon roles SHALL be represented as weighted (e.g. `role_weights: dict[str, float]`) with weight ≥ 0.5 treated as "has the role" in boolean consumers.
 
-#### Scenario: HP 79 receives near-full physical_wall weight
+#### Scenario: HP 79 receives partial physical_wall weight just below the midpoint
 - **WHEN** `assign_role` evaluates a pokémon with HP 79 (physical_wall threshold 80)
-- **THEN** the pokémon's `role_weights["physical_wall"]` is approximately 0.97
+- **THEN** the pokémon's `role_weights["physical_wall"]` is approximately 0.467 (= (79 − 65) / 30)
 
 #### Scenario: HP 65 receives zero physical_wall weight
 - **WHEN** `assign_role` evaluates a pokémon with HP 65

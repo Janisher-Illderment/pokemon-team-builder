@@ -68,7 +68,10 @@ def _core_diversity_points(members: list[TeamMember]) -> float:
 
 def _coverage_points(variant: TeamVariant) -> int:
     pokemons = [m.pokemon for m in variant.members]
-    report = analyze_coverage(pokemons)
+    # Phase 2a: pass assigned movesets so offensive gaps are STAB-based
+    # (member must have a move of type X, not just type X in pokemon.types).
+    movesets = [list(m.moves) for m in variant.members]
+    report = analyze_coverage(pokemons, movesets=movesets)
     pts = (
         _W_COVERAGE
         - len(report.offensive_gaps) * 2
@@ -140,10 +143,14 @@ def score_team(variant: TeamVariant, format_mode: str = "bo1") -> tuple[float, f
     items = _items_points(variant)
 
     if format_mode == "bo3":
+        # Phase 2a: STAB-based coverage using the variant's assigned movesets.
+        bo3_pokemons = [m.pokemon for m in variant.members]
+        bo3_movesets = [list(m.moves) for m in variant.members]
+        bo3_report = analyze_coverage(bo3_pokemons, movesets=bo3_movesets)
         coverage = max(0, min(_W_COVERAGE_BO3,
             _W_COVERAGE_BO3
-            - len(analyze_coverage([m.pokemon for m in variant.members]).offensive_gaps) * 2
-            - len(analyze_coverage([m.pokemon for m in variant.members]).defensive_weaknesses) * 3
+            - len(bo3_report.offensive_gaps) * 2
+            - len(bo3_report.defensive_weaknesses) * 3
         ))
         flex_ratio, flex_pts = _lead_flexibility_points(variant.members)
         core_pts = _core_diversity_points(variant.members)
@@ -164,7 +171,11 @@ def generate_explanation(variant: TeamVariant, score: float) -> str:
     parts: list[str] = [f"Equipo con puntuacion {score:.0f}/100."]
 
     if coverage_pts < 20:
-        report = analyze_coverage([m.pokemon for m in variant.members])
+        # Phase 2a: STAB-based coverage gaps for the explanation surface.
+        report = analyze_coverage(
+            [m.pokemon for m in variant.members],
+            movesets=[list(m.moves) for m in variant.members],
+        )
         gap_text = ", ".join(report.offensive_gaps[:5]) or "—"
         parts.append(f"Cobertura de tipos debil: faltan {gap_text}.")
 
