@@ -400,6 +400,64 @@ main { max-width: 960px; margin: 0 auto; padding: 1.5rem 1rem; }
 /* Bo3 flex badge */
 .badge-flex { background: #3b82f6; }
 
+/* Phase 4a — Archetype selector */
+.archetype-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  color: #94a3b8;
+}
+.archetype-select {
+  padding: 0.5rem;
+  border-radius: 6px;
+  border: 1px solid #334155;
+  background: #1e293b;
+  color: #f1f5f9;
+  font-size: 0.9rem;
+  max-width: 220px;
+}
+
+/* Phase 4a — Archetype badge on variant card */
+.badge-archetype {
+  background: #8b5cf6;
+  color: #fff;
+}
+
+/* Phase 4a — Speed control warning banner */
+.speed-warning {
+  background: #422006;
+  color: #fbbf24;
+  border-left: 4px solid #f59e0b;
+  padding: 0.5rem 0.85rem;
+  font-size: 0.85rem;
+  line-height: 1.35;
+}
+
+/* Phase 4a — Per-member SP preset toggle */
+.preset-toggle {
+  display: flex;
+  gap: 0.25rem;
+  margin-top: 0.4rem;
+}
+.preset-btn {
+  flex: 1;
+  font-size: 0.7rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  background: #0f172a;
+  color: #64748b;
+  border: 1px solid #334155;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.preset-btn:hover { color: #cbd5e1; border-color: #475569; }
+.preset-btn.active {
+  background: #3b82f6;
+  color: #fff;
+  border-color: #3b82f6;
+}
+
 /* Matchup section */
 .matchup-section {
   margin-top: 2rem;

@@ -122,6 +122,18 @@
             <input type="radio" value="bo3" x-model="format" :disabled="loading" /> Bo3
           </label>
         </div>
+        <label class="archetype-label" title="Estrategia base del equipo — afecta scoring (cobertura, roles, cheese)">
+          Arquetipo
+          <select x-model="archetype" :disabled="loading" class="archetype-select">
+            <option value="balance">Balance</option>
+            <option value="hyper_offense">Hiperofensivo (Hyper offense)</option>
+            <option value="hard_trick_room">Trick Room duro (Hard TR)</option>
+            <option value="bulky_offense">Ofensivo bulky (Bulky offense)</option>
+            <option value="weather_based">Weather (Sun/Rain/Sand/Snow)</option>
+            <option value="stall">Stall</option>
+            <option value="perish_trap">Perish trap</option>
+          </select>
+        </label>
         <button type="submit" :disabled="loading">
           <span x-show="!loading">Generar</span>
           <span x-show="loading">Cargando…</span>
@@ -136,11 +148,17 @@
             <div class="variant-header">
               <span class="variant-title" x-text="'Variante ' + (i+1)"></span>
               <span x-show="v.recommended" class="badge">Recomendado</span>
+              <span x-show="v.archetype" class="badge badge-archetype"
+                x-text="archetypeLabel(v.archetype)"
+                :title="'Arquetipo: ' + v.archetype"></span>
               <span class="score" x-text="'Score: ' + v.score"></span>
               <span x-show="v.format_mode === 'bo3'" class="badge badge-flex"
                 x-text="'Núcleo flex: ' + Math.round(v.core_flexibility_score * 100) + '%'"></span>
               <button class="copy-btn" @click="copy(v.pokepaste, $event)">Copy Pokepaste</button>
               <button class="save-btn" @click="saveTeam(v)">💾 Guardar</button>
+            </div>
+            <div x-show="v.requires_speed_control" class="speed-warning">
+              ⚠️ Falta control de velocidad — añade Tailwind, Trick Room, Icy Wind, Thunder Wave, Sticky Web o similar
             </div>
             <div class="members">
               <template x-for="(m, mi) in v.members" :key="m.name">
@@ -155,9 +173,18 @@
                       <li x-text="capitalize(mv)"></li>
                     </template>
                   </ul>
-                  <!-- SP distribution grid -->
+                  <!-- SP preset toggle (Phase 4a) -->
+                  <div class="preset-toggle" x-show="hasPresets(m)">
+                    <button type="button" class="preset-btn"
+                      :class="{ active: presetFor(i, mi) === 'offensive' }"
+                      @click="setPreset(i, mi, 'offensive')">Ofensivo</button>
+                    <button type="button" class="preset-btn"
+                      :class="{ active: presetFor(i, mi) === 'defensive' }"
+                      @click="setPreset(i, mi, 'defensive')">Defensivo</button>
+                  </div>
+                  <!-- SP distribution grid (presets override legacy sp_distribution when present) -->
                   <div class="sp-grid">
-                    <template x-for="s in spGrid(m)" :key="s.key">
+                    <template x-for="s in spGridForPreset(m, presetFor(i, mi))" :key="s.key">
                       <div class="sp-cell" :class="{ 'sp-zero': !s.active }">
                         <span class="sp-label" x-text="s.stat"></span>
                         <span class="sp-val" x-text="s.val"></span>

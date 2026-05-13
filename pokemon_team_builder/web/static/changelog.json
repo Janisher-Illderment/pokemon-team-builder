@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.9.1-phase4a",
+    "date": "2026-05-13",
+    "highlights": "Refine build logic v2 — Phase 4a: UI integration (archetype selector, speed-control warning, SP preset toggle)",
+    "changes": [
+      { "type": "feat", "text": "Selector de arquetipo en el formulario de generación: 7 opciones (Balance, Hiperofensivo, Trick Room duro, Bulky offense, Weather, Stall, Perish trap). Default Balance. Wireado en POST /generate body." },
+      { "type": "feat", "text": "Badge morado de arquetipo en cada variant card (capitalizado y traducido a ES). Tooltip muestra el slug interno (hyper_offense, etc.)." },
+      { "type": "feat", "text": "Banner amarillo de aviso 'Falta control de velocidad' en variant cards cuando VariantOut.requires_speed_control === true (Phase 3 §10)." },
+      { "type": "feat", "text": "Toggle Ofensivo/Defensivo por miembro: la SP grid se actualiza al cambiar el preset elegido. Default offensive. Si sp_presets no está en la respuesta (variants imported/edited), el toggle queda oculto y se muestra sp_distribution legacy." }
+    ]
+  },
+  {
     "version": "0.9.0-phase3",
     "date": "2026-05-13",
     "highlights": "Refine build logic v2 — Phase 3: weather synergy + speed control + SP presets + bo3 core rename + meta versioning",
