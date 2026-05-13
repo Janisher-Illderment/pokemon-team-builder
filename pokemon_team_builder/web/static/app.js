@@ -3,6 +3,7 @@ function app() {
     anchor: '',
     variants: '3',
     format: 'bo1',
+    archetype: 'balance',
     loading: false,
     error: '',
     results: [],
@@ -24,6 +25,9 @@ function app() {
     importError: '',
     importedVariants: [],
 
+    // Phase 4a: per-member SP preset choice. Keyed as `${variantIdx}:${memberIdx}` → 'offensive' | 'defensive'. Default offensive.
+    presetChoice: {},
+
     async init() {
       try {
         const r = await fetch('/legal-pool');
@@ -40,6 +44,7 @@ function app() {
     async generate() {
       this.error = '';
       this.results = [];
+      this.presetChoice = {};
       this.matchupResult = null;
       this.matchupError = '';
       this.loading = true;
@@ -51,6 +56,7 @@ function app() {
             anchor: this.anchor.trim().toLowerCase(),
             variants: parseInt(this.variants),
             format: this.format,
+            archetype: this.archetype,
           }),
         });
         const data = await res.json();
@@ -64,6 +70,47 @@ function app() {
       } finally {
         this.loading = false;
       }
+    },
+
+    // Phase 4a — UI helpers for archetype badge, SP preset toggle.
+    archetypeLabel(a) {
+      const map = {
+        balance: 'Balance',
+        hyper_offense: 'Hiperofensivo',
+        hard_trick_room: 'Trick Room',
+        bulky_offense: 'Bulky offense',
+        weather_based: 'Weather',
+        stall: 'Stall',
+        perish_trap: 'Perish trap',
+      };
+      return map[a] || a;
+    },
+
+    hasPresets(member) {
+      const p = member && member.sp_presets;
+      return !!(p && (p.offensive || p.defensive));
+    },
+
+    presetFor(variantIdx, memberIdx) {
+      return this.presetChoice[`${variantIdx}:${memberIdx}`] || 'offensive';
+    },
+
+    setPreset(variantIdx, memberIdx, choice) {
+      this.presetChoice[`${variantIdx}:${memberIdx}`] = choice;
+    },
+
+    // Returns the SP grid for the selected preset; falls back to legacy sp_distribution if presets missing.
+    spGridForPreset(member, presetName) {
+      const presets = member && member.sp_presets;
+      const sp = (presets && presets[presetName]) || member.sp_distribution || {};
+      return [
+        { stat: 'HP',  key: 'hp',  val: sp.hp  || 0 },
+        { stat: 'Atk', key: 'atk', val: sp.atk || 0 },
+        { stat: 'Def', key: 'def', val: sp.def || 0 },
+        { stat: 'SpA', key: 'spa', val: sp.spa || 0 },
+        { stat: 'SpD', key: 'spd', val: sp.spd || 0 },
+        { stat: 'Spe', key: 'spe', val: sp.spe || 0 },
+      ].map(s => ({ ...s, active: s.val > 0 }));
     },
 
     capitalize(str) {

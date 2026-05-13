@@ -1,6 +1,7 @@
 {
   "version": "1.0",
   "regulation": "M-A",
+  "data_version": 1,
   "megas": {
     "abomasnow": [
       {

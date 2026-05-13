@@ -5,11 +5,43 @@ from typing import Annotated, Literal, Union
 from pydantic import BaseModel, Field
 
 
+# Phase 2b (strategy-archetype): canonical archetype set — must stay in
+# sync with ``data/archetype_weights.json`` and
+# ``data.archetype_weights_loader.known_archetypes()``.
+Archetype = Literal[
+    "hyper_offense",
+    "hard_trick_room",
+    "bulky_offense",
+    "weather_based",
+    "stall",
+    "balance",
+    "perish_trap",
+]
+
+
 class GenerateRequest(BaseModel):
     anchor: str = Field(min_length=1, examples=["garchomp"])
     variants: int = Field(default=3, ge=1, le=5)
     mega: str = Field(default="auto", examples=["auto", "x", "y"])
     format: Literal["bo1", "bo3"] = "bo1"
+    # Phase 2b: strategy archetype. Default 'balance' for backward
+    # compatibility with clients that pre-date Phase 2b. Pydantic v2
+    # validates the literal automatically — invalid values produce HTTP
+    # 422 with the list of valid options.
+    archetype: Archetype = "balance"
+
+
+class SpReadOut(BaseModel):
+    """Phase 3 §9 — single SP preset (sums to 66, max 32 per stat)."""
+
+    hp: int = 0
+    atk: int = 0
+    def_: int = Field(default=0, alias="def")
+    spa: int = 0
+    spd: int = 0
+    spe: int = 0
+
+    model_config = {"populate_by_name": True}
 
 
 class MemberOut(BaseModel):
@@ -23,6 +55,10 @@ class MemberOut(BaseModel):
     ev_note: str = ""
     move_names: list[str] = []
     mega_form_id: str | None = None
+    # Phase 3 §9 — keyed dict ``{"offensive": SpReadOut, "defensive": SpReadOut}``.
+    # Empty dict for imported/edited variants that pre-date Phase 3 — UI
+    # falls back to the legacy ``sp_distribution`` field in that case.
+    sp_presets: dict[str, SpReadOut] = {}
 
 
 class VariantOut(BaseModel):
@@ -31,7 +67,18 @@ class VariantOut(BaseModel):
     pokepaste: str
     members: list[MemberOut]
     format_mode: str = "bo1"
-    lead_flexibility_score: float = 0.0
+    # Phase 3 §11 — renamed from ``lead_flexibility_score`` (BREAKING).
+    core_flexibility_score: float = 0.0
+    # Phase 2b: echoes the archetype the team was generated under. The
+    # UI uses this to render an archetype badge per variant.
+    archetype: str = "balance"
+    # Phase 3 §10 — true when the team has no speed-control mechanism
+    # and archetype != "stall". UI renders a warning banner.
+    requires_speed_control: bool = False
+    # Phase 3 §13 — data-file versions baked into this team. Keys:
+    # legal_pool, items, weather, archetype_weights, sp_mechanics,
+    # ability_roles, meta_teams. Missing files default to 0.
+    meta_versions: dict[str, int] = {}
 
 
 class GenerateResponse(BaseModel):

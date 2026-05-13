@@ -59,7 +59,7 @@ def _six_member_variant(overrides: dict[int, TeamMember] | None = None) -> TeamV
     names = ["mon1", "mon2", "mon3", "mon4", "mon5", "mon6"]
     items = [
         "Sitrus Berry", "Lum Berry", "Focus Sash",
-        "Rocky Helmet", "Leftovers", "Mental Herb",
+        "Eviolite", "Leftovers", "Mental Herb",
     ]
     members = [
         _mk_member(_mk_poke(n, pid=i + 1), item=items[i])

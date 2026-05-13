@@ -1,5 +1,72 @@
 [
   {
+    "version": "0.9.1-phase4a",
+    "date": "2026-05-13",
+    "highlights": "Refine build logic v2 — Phase 4a: UI integration (archetype selector, speed-control warning, SP preset toggle)",
+    "changes": [
+      { "type": "feat", "text": "Selector de arquetipo en el formulario de generación: 7 opciones (Balance, Hiperofensivo, Trick Room duro, Bulky offense, Weather, Stall, Perish trap). Default Balance. Wireado en POST /generate body." },
+      { "type": "feat", "text": "Badge morado de arquetipo en cada variant card (capitalizado y traducido a ES). Tooltip muestra el slug interno (hyper_offense, etc.)." },
+      { "type": "feat", "text": "Banner amarillo de aviso 'Falta control de velocidad' en variant cards cuando VariantOut.requires_speed_control === true (Phase 3 §10)." },
+      { "type": "feat", "text": "Toggle Ofensivo/Defensivo por miembro: la SP grid se actualiza al cambiar el preset elegido. Default offensive. Si sp_presets no está en la respuesta (variants imported/edited), el toggle queda oculto y se muestra sp_distribution legacy." }
+    ]
+  },
+  {
+    "version": "0.9.0-phase3",
+    "date": "2026-05-13",
+    "highlights": "Refine build logic v2 — Phase 3: weather synergy + speed control + SP presets + bo3 core rename + meta versioning",
+    "changes": [
+      { "type": "feat", "text": "Weather synergy scoring: +3 cuando un miembro con habilidad weather-dependent comparte equipo con un setter compatible (Excadrill+Tyranitar, Venusaur+Torkoal); +2 cuando hay setter pero el miembro solo se beneficia pasivamente (Hurricane/Solar Beam/Blizzard). Amplificado por archetype_weights.weather_synergy (weather_based ≥1.5; stall = 0)" },
+      { "type": "feat", "text": "Speed control mandatorio: equipos sin Tailwind/Trick Room/Icy Wind/Electroweb/Thunder Wave/Glare/Nuzzle/Stun Spore/Sticky Web/Fake Out/Quick Guard reciben -15 puntos (Static/Cute Charm dan medio crédito; stall exento). VariantOut.requires_speed_control flag para UI" },
+      { "type": "feat", "text": "SP presets Champions 66-cap: services/sp_preset_builder.build_presets() retorna {offensive, defensive} por miembro con max 32/stat. Item-aware: Choice Band invierte menos atk + más speed; Eviolite NFE libera defensas para offense; Assault Vest invierte en Def en lugar de SpD" },
+      { "type": "feat", "text": "Nature jumps en runtime via sp_calc.find_nature_jumps — no hay nature_jumps.json estático; el optimiser detecta +2 jumps por (pokémon, stat, nature) y baja la SP allocation al jump value, redistribuyendo SPs sobrantes a HP" },
+      { "type": "feat", "text": "Cada MemberOut incluye sp_presets:{offensive,defensive} para UI toggle (Phase 4 lo consume)" },
+      { "type": "fix", "text": "BREAKING: VariantOut.lead_flexibility_score renombrado a VariantOut.core_flexibility_score (Bo3 mode). UI: badge 'Flex: X%' → 'Núcleo flex: X%'. TeamVariant.lead_flexibility_ratio → core_flexibility_ratio internamente. _lead_flexibility_points → _core_flexibility_points" },
+      { "type": "feat", "text": "VariantOut.meta_versions: dict con data_version de cada archivo estático (legal_pool, items, weather, archetype_weights, sp_mechanics, ability_roles, mega_evolutions, doubles_roles, type_chart, role_sp_templates) — provenance trazable" },
+      { "type": "feat", "text": "GET /health expone meta_versions para verificar qué meta cargó la app sin generar equipo" },
+      { "type": "feat", "text": "Nuevo data loader services/weather_data_loader: lru_cache para weather_dependent_abilities.json + weather_setters.json (datos Phase 1, Inte HIGH confidence)" }
+    ]
+  },
+  {
+    "version": "0.8.0-phase2b",
+    "date": "2026-05-13",
+    "highlights": "Refine build logic v2 — Phase 2b: favorite-first build flow + strategy archetype selector",
+    "changes": [
+      { "type": "feat", "text": "Generación ahora usa flujo favorite-first: anchor → build_core_duo (mejor partner por sinergia) → cover_shared_weakness (slot 3 cubre la weakness compartida de la duo) → beam search slots 4-6 (seed de 3 miembros). Determinista per (anchor, archetype, mega_preference)" },
+      { "type": "feat", "text": "Nuevo campo opcional archetype en POST /generate: hyper_offense | hard_trick_room | bulky_offense | weather_based | stall | balance | perish_trap (default balance). 422 si valor inválido" },
+      { "type": "feat", "text": "Archetype propaga a scoring: score_team aplica multiplicadores de archetype_weights.json a cada componente (coverage, roles, sp, items) antes del clamp final 0-100" },
+      { "type": "feat", "text": "Cheese-allowance gate en select_moves_for_role: archetypes con cheese_allowance<1.0 (balance, bulky_offense, stall) saltan Destiny Bond / Mirror Coat / Counter / Memento / Perish Song; perish_trap (1.6) abre el gate y permite Perish Song como slot 4 prioritario" },
+      { "type": "feat", "text": "VariantOut.archetype echo: cada variant generada incluye el archetype usado para que la UI pueda renderizar badge por equipo" },
+      { "type": "feat", "text": "Synergy score del partner pondera type complement (archetype.coverage) + role complement (archetype.roles, suprimido en hyper_offense) + ability/move compat (weather setter / TR setter / redirect para sweeper frágil) + meta teammate presence (+3.0 fijo)" }
+    ]
+  },
+  {
+    "version": "0.7.0-phase2a",
+    "date": "2026-05-13",
+    "highlights": "Refine build logic v2 — Phase 2a: role gradient bands + ability-as-implicit-role + STAB-based coverage + mega clause hard prune",
+    "changes": [
+      { "type": "feat", "text": "Role thresholds ahora son gradient ±15: un Pokémon con HP 79 recibe physical_wall weight ≈ 0.97 en vez de perder el rol entero por 1 punto (antes era cliff a HP 80)" },
+      { "type": "feat", "text": "Habilidades aportan partial role weight: Flame Body / Static / Effect Spore / Cute Charm / Poison Point / Sturdy → +0.2 physical_wall, Intimidate → +0.3 physical_wall, Multiscale → +0.4 a ambas walls, Regenerator → +0.2 a ambas walls, Magic Bounce / Prankster → +0.3 lead_support" },
+      { "type": "feat", "text": "Levitate marca ground_immune en coverage flags: ataques Ground NO cuentan como weakness defensiva contra ese miembro" },
+      { "type": "fix", "text": "Coverage scoring es STAB-based: tipo X cubierto sii algún miembro tiene un move de tipo X en su moveset asignado (antes Steelix sin Iron Head contaba Steel como cubierto)" },
+      { "type": "feat", "text": "STAB-presence invariant en select_moves_for_role: un Pokémon con tipos X/Y debe llevar STAB de X y STAB de Y si su movepool tiene ambos (e.g. Garchomp Ground/Dragon lleva Earthquake + Dragon Claw)" },
+      { "type": "feat", "text": "Mega clause hard prune en beam search: cualquier estado parcial con >1 miembro mega-capable es descartado pre-score (antes solo se enforced indirecto vía Item Clause)" },
+      { "type": "feat", "text": "Nueva función synergy_engine.assign_role_weights() retorna role_weights (dict gradient), roles (list legacy) y coverage_flags (ground_immune, etc.) — assign_role() sigue funcionando como wrapper retrocompat" }
+    ]
+  },
+  {
+    "version": "0.7.0-phase1",
+    "date": "2026-05-13",
+    "highlights": "Refine build logic v2 — Phase 1: static data + 66-SP calculator + items pool limpio",
+    "changes": [
+      { "type": "fix", "text": "Item pool Champions M-A corregido: Weakness Policy, Throat Spray, Rocky Helmet y Life Orb removidos del generador (Inte v2 cross-check confirmó NO están en M-A); reemplazos: physical_sweeper → Choice Band, special_sweeper → Choice Specs, physical_wall → Leftovers" },
+      { "type": "feat", "text": "Item pool ahora se carga desde champions_legal_items.json (data_version 1) — meta items ilegales (Life Orb) se filtran antes de asignar" },
+      { "type": "feat", "text": "Item Clause hard-reject: TeamBuildError explícito si el pool legal se agota antes de asignar 6 items distintos" },
+      { "type": "feat", "text": "Nuevo módulo services/sp_calc.py: stat formula canónica 66-SP + nature jumps detection + optimal_sp_for_target (base para multi-preset builder en Phase 3)" },
+      { "type": "feat", "text": "Static data nuevos (versionados, data_version 1): weather_dependent_abilities.json, weather_setters.json, archetype_weights.json, ability_implicit_roles.json — consumidos por Phase 2/3" },
+      { "type": "feat", "text": "Versioning log al boot: una línea estructurada por archivo data versionado para trazabilidad de provenance" }
+    ]
+  },
+  {
     "version": "0.6.1",
     "date": "2026-05-11",
     "highlights": "Import top teams ahora propaga SPs (spread sugerido por rol)",

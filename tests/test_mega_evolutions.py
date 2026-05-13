@@ -358,8 +358,9 @@ def test_assign_items_mega_slot_other_slots_normal() -> None:
     )
     assert items[0] == "Charizardite Y"
     # Slot 1 (and onwards) gets the role default first, then fallbacks.
-    # physical_sweeper default is Weakness Policy (Champions-confirmed).
-    assert items[1] == "Weakness Policy"
+    # v0.3: physical_sweeper default is Choice Band (Champions M-A confirmed,
+    # Weakness Policy removed per Inte v2 cross-check).
+    assert items[1] == "Choice Band"
 
 
 # ---------------------------------------------------------------------------

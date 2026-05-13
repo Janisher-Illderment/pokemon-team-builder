@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from pokemon_team_builder.data.archetype_weights_loader import get_weights
 from pokemon_team_builder.domain.exceptions import TeamBuildError
 from pokemon_team_builder.domain.models import (
     PokemonData,
@@ -324,7 +325,14 @@ _CHOICE_ITEMS: frozenset[str] = frozenset({"Choice Scarf", "Choice Band", "Choic
 _ABILITY_STAB_OVERRIDES: dict[str, dict[str, str]] = {
     "snow-warning": {"ice-beam": "blizzard"},
     "no-guard": {"close-combat": "dynamic-punch"},
-    "drizzle": {"air-slash": "hurricane"},
+    # Drizzle: rain makes Thunder 100% accurate (vs 70% normal). 110 BP
+    # vs Thunderbolt's 90 BP — clear win when the user is on a Drizzle team.
+    # Hurricane override stays for Flying STAB.
+    "drizzle": {
+        "air-slash": "hurricane",
+        "thunderbolt": "thunder",
+        "thunder-shock": "thunder",
+    },
 }
 _SETUP_MOVES: frozenset[str] = frozenset({
     "nasty-plot", "calm-mind", "tail-glow",
@@ -375,6 +383,26 @@ _BO3_CHEESE_MOVES = frozenset({
     "destiny-bond", "mirror-coat", "counter", "memento", "perish-song",
 })
 
+# Phase 2b (strategy-archetype): the cheese-move gate. When the active
+# archetype's ``cheese_allowance < 1.0`` we skip moves in this set during
+# selection so they never end up in a moveset. ``perish_trap`` has
+# ``cheese_allowance = 1.0`` and explicitly wants Perish Song; balance /
+# bulky_offense / stall have <1.0 and skip the cheese set entirely.
+#
+# WHY a separate set from ``_BO3_CHEESE_MOVES``: the Bo3 gate has always
+# been about "open sheet means cheese is dead weight" — it is an
+# orthogonal concern. The two sets happen to be identical today but may
+# diverge (e.g. Perish Song behaves fine in Bo3 perish_trap, and a future
+# archetype might allow Destiny Bond while Bo3 still vetoes it). Keeping
+# them separate avoids coupling the two policies.
+_ARCHETYPE_CHEESE_MOVES: frozenset[str] = frozenset({
+    "destiny-bond", "mirror-coat", "counter", "memento", "perish-song",
+})
+
+# Threshold at which the cheese set is allowed. Strict ``>=`` so a value
+# of exactly 1.0 (perish_trap) opens the gate, anything below blocks.
+_CHEESE_GATE_THRESHOLD: float = 1.0
+
 
 def select_moves_for_role(
     pokemon: PokemonData,
@@ -383,6 +411,7 @@ def select_moves_for_role(
     item: str = "",
     meta_moves: list[str] | None = None,
     format_mode: str = "bo1",
+    archetype: str = "balance",
 ) -> list[str]:
     """Pick exactly 4 moves for a Pokemon given its assigned roles.
 
@@ -396,6 +425,16 @@ def select_moves_for_role(
     primary_role = roles[0] if roles else "physical_sweeper"
     move_pool = list(pokemon.move_names)
     used: set[str] = set()
+
+    # Phase 2b cheese-allowance gate. We resolve the archetype's weights
+    # once and decide whether the cheese set is on-limits. Any move
+    # selection pass below (meta, STAB tables, coverage, role priority,
+    # fallback) must respect this gate when ``archetype_blocks_cheese``
+    # is True.
+    archetype_weights = get_weights(archetype)
+    archetype_blocks_cheese = (
+        archetype_weights.cheese_allowance < _CHEESE_GATE_THRESHOLD
+    )
 
     # Slot 1: protect when the Pokemon actually knows it. Most legal mons
     # learn Protect, but a handful (e.g. species locked to specific
@@ -472,41 +511,88 @@ def select_moves_for_role(
 
     used.add(slot2)
 
-    # Slot 3: coverage — try meta moves that are non-STAB and category-matching
-    # first; then fall through to the static coverage table.
-    slot3 = None
-    if meta_moves:
-        for candidate in meta_moves:
-            if candidate in used or candidate not in move_pool:
-                continue
-            cand_type = _MOVE_TYPE.get(candidate, "")
-            if cand_type and cand_type in own_types_lower:
-                continue  # skip STAB moves
-            cand_cat = _MOVE_CATEGORY.get(candidate, "")
-            if cand_cat and cand_cat != primary_cat:
-                continue  # category mismatch
-            # accept meta coverage move
-            slot3 = candidate
-            break
+    # STAB-presence invariant (Phase 2a, spec §5.2):
+    # Every Pokemon with type X SHALL have ≥1 STAB move of type X in slots 1–4
+    # WHEN such a move exists in its movepool. For dual-type members, this
+    # means slot 3 may need to carry a second STAB instead of coverage if the
+    # member's other type was not picked up by slot 2.
+    #
+    # WHY this comes BEFORE the coverage slot 3 logic: slot 3's default is
+    # "best coverage move that is NOT one of the member's types". If we
+    # blindly pick coverage first, a Garchomp (Ground/Dragon) with slot 2 =
+    # Earthquake (Ground STAB) would never end up with Dragon STAB — its
+    # second type would be uncovered by its own attacks. The invariant
+    # forces slot 3 to a Dragon STAB when one is available in the pool.
+    slot2_type = _MOVE_TYPE.get(slot2, "")
+    covered_stab_types: set[str] = {slot2_type} if slot2_type else set()
+    missing_stab_types: list[str] = [
+        t.lower() for t in pokemon.types
+        if t.lower() not in covered_stab_types
+    ]
 
-    own_types = own_types_lower  # alias kept for readability in guards below
-    if slot3 is None:
-        for pass_num in range(2):
-            for candidate in _COVERAGE_PRIORITY:
+    second_stab: str | None = None
+    for missing_type in missing_stab_types:
+        # Prefer a meta-listed STAB move (PokeAPI-aligned vocabulary).
+        if meta_moves:
+            for candidate in meta_moves:
                 if candidate in used or candidate not in move_pool:
                     continue
-                candidate_type = _MOVE_TYPE.get(candidate, "")
-                if candidate_type and candidate_type in own_types:
+                cand_type = _MOVE_TYPE.get(candidate, "")
+                if cand_type != missing_type:
                     continue
+                second_stab = candidate
+                break
+        if second_stab is not None:
+            break
+        # Fall back to the curated STAB-by-type table.
+        for candidate in _STAB_BY_TYPE.get(missing_type, ()):
+            if candidate in used or candidate not in move_pool:
+                continue
+            second_stab = candidate
+            break
+        if second_stab is not None:
+            break
+
+    # Slot 3: coverage — try meta moves that are non-STAB and category-matching
+    # first; then fall through to the static coverage table. When the STAB
+    # invariant requires a second STAB AND the pool has it, slot 3 carries
+    # the missing STAB instead of generic coverage.
+    own_types = own_types_lower  # alias kept for readability in guards below
+    slot3 = None
+    if second_stab is not None:
+        slot3 = second_stab
+    else:
+        if meta_moves:
+            for candidate in meta_moves:
+                if candidate in used or candidate not in move_pool:
+                    continue
+                cand_type = _MOVE_TYPE.get(candidate, "")
+                if cand_type and cand_type in own_types_lower:
+                    continue  # skip STAB moves
                 cand_cat = _MOVE_CATEGORY.get(candidate, "")
-                # See slot-2 comment: unknown category is treated as ineligible
-                # in pass 0 so a categorized move always wins the strict pass.
-                if pass_num == 0 and cand_cat != primary_cat:
-                    continue  # first pass: category-matching only
+                if cand_cat and cand_cat != primary_cat:
+                    continue  # category mismatch
+                # accept meta coverage move
                 slot3 = candidate
                 break
-            if slot3:
-                break
+
+        if slot3 is None:
+            for pass_num in range(2):
+                for candidate in _COVERAGE_PRIORITY:
+                    if candidate in used or candidate not in move_pool:
+                        continue
+                    candidate_type = _MOVE_TYPE.get(candidate, "")
+                    if candidate_type and candidate_type in own_types:
+                        continue
+                    cand_cat = _MOVE_CATEGORY.get(candidate, "")
+                    # See slot-2 comment: unknown category is treated as ineligible
+                    # in pass 0 so a categorized move always wins the strict pass.
+                    if pass_num == 0 and cand_cat != primary_cat:
+                        continue  # first pass: category-matching only
+                    slot3 = candidate
+                    break
+                if slot3:
+                    break
     if slot3 is None:
         slot3 = _fallback_move(move_pool, used)
     used.add(slot3)
@@ -515,26 +601,50 @@ def select_moves_for_role(
     # a Pokemon with both sweeper and support roles emits the support move
     # (Rage Powder > Calm Mind, Trick Room > Nasty Plot). Order within each
     # group is preserved from the original roles list.
+    #
+    # Phase 2b perish_trap special case: when the archetype is perish_trap
+    # AND the member knows Perish Song, slot 4 prefers Perish Song over any
+    # other role-priority move. This is the archetype's central strategy
+    # so its enablers win the slot when present.
     slot4_order = sorted(
         roles, key=lambda r: (0 if r in _SLOT4_SUPPORT_ROLES else 1, roles.index(r))
     )
     slot4 = None
-    for role in slot4_order:
-        for candidate in _ROLE_MOVE_PRIORITY.get(role, ()):
-            if candidate in used:
-                continue
-            if item in _CHOICE_ITEMS and candidate in _SETUP_MOVES:
-                continue  # locked-in setup is useless with a Choice item
-            if format_mode == "bo3" and candidate in _BO3_CHEESE_MOVES:
-                continue  # open sheet: cheese moves are dead weight in Bo3
-            if candidate in move_pool:
-                slot4 = candidate
-                break
-        if slot4 is not None:
-            break
+    if (
+        archetype == "perish_trap"
+        and "perish-song" in move_pool
+        and "perish-song" not in used
+    ):
+        slot4 = "perish-song"
+
     if slot4 is None:
-        exclude = _BO3_CHEESE_MOVES if format_mode == "bo3" else frozenset()
-        slot4 = _fallback_move(move_pool, used | exclude)
+        for role in slot4_order:
+            for candidate in _ROLE_MOVE_PRIORITY.get(role, ()):
+                if candidate in used:
+                    continue
+                if item in _CHOICE_ITEMS and candidate in _SETUP_MOVES:
+                    continue  # locked-in setup is useless with a Choice item
+                if format_mode == "bo3" and candidate in _BO3_CHEESE_MOVES:
+                    continue  # open sheet: cheese moves are dead weight in Bo3
+                if archetype_blocks_cheese and candidate in _ARCHETYPE_CHEESE_MOVES:
+                    # Phase 2b: archetype's cheese_allowance < 1.0, drop
+                    # destiny-bond / mirror-coat / counter / memento /
+                    # perish-song from slot-4 candidates.
+                    continue
+                if candidate in move_pool:
+                    slot4 = candidate
+                    break
+            if slot4 is not None:
+                break
+    if slot4 is None:
+        # Build the exclusion set: Bo3 always vetoes cheese; archetype
+        # gate optionally adds the archetype cheese set on top.
+        exclude_set: set[str] = set()
+        if format_mode == "bo3":
+            exclude_set |= _BO3_CHEESE_MOVES
+        if archetype_blocks_cheese:
+            exclude_set |= _ARCHETYPE_CHEESE_MOVES
+        slot4 = _fallback_move(move_pool, used | exclude_set)
     used.add(slot4)
 
     return [slot1, slot2, slot3, slot4]

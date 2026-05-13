@@ -1,5 +1,6 @@
 {
   "regulation": "M-A",
+  "data_version": 1,
   "valid_until": "2026-06-17",
   "note": "Pool oficial de Pokemon Champions Regulation M-A. Fuente: wikidex.net + sheet Champions speed tiers. 201 entradas.",
   "pokemon": [

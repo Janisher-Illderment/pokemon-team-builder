@@ -1,4 +1,5 @@
 {
+  "_meta": {"regulation": "M-A", "data_version": 1, "note": "Gen 9 type chart. _meta is a reserved key — loaders MUST skip it when iterating types."},
   "normal": {
     "normal": 1, "fire": 1, "water": 1, "electric": 1, "grass": 1, "ice": 1,
     "fighting": 1, "poison": 1, "ground": 1, "flying": 1, "psychic": 1, "bug": 1,

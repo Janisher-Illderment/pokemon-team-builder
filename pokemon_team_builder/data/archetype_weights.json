@@ -1,0 +1,77 @@
+{
+  "regulation": "M-A",
+  "data_version": 1,
+  "note": "Per-archetype scoring weight matrices. Multipliers re-scale scoring components: coverage, roles, sp, items, speed, bulk, cheese_allowance, weather_synergy. Baseline (balance) = 1.0 across the board. Initial calibration is a best-effort guess; treat as v1 and tune after user testing.",
+  "archetypes": {
+    "hyper_offense": {
+      "coverage": 1.3,
+      "roles": 0.8,
+      "sp": 1.2,
+      "items": 1.0,
+      "speed": 1.5,
+      "bulk": 0.4,
+      "cheese_allowance": 1.2,
+      "weather_synergy": 0.5
+    },
+    "hard_trick_room": {
+      "coverage": 1.1,
+      "roles": 1.2,
+      "sp": 1.2,
+      "items": 1.0,
+      "speed": 0.2,
+      "bulk": 1.3,
+      "cheese_allowance": 0.8,
+      "weather_synergy": 0.3
+    },
+    "bulky_offense": {
+      "coverage": 1.1,
+      "roles": 1.1,
+      "sp": 1.1,
+      "items": 1.0,
+      "speed": 1.0,
+      "bulk": 1.2,
+      "cheese_allowance": 0.7,
+      "weather_synergy": 0.8
+    },
+    "weather_based": {
+      "coverage": 1.0,
+      "roles": 1.0,
+      "sp": 1.1,
+      "items": 1.0,
+      "speed": 1.1,
+      "bulk": 0.9,
+      "cheese_allowance": 0.6,
+      "weather_synergy": 1.8
+    },
+    "stall": {
+      "coverage": 0.8,
+      "roles": 1.3,
+      "sp": 1.0,
+      "items": 1.1,
+      "speed": 0.4,
+      "bulk": 1.6,
+      "cheese_allowance": 1.0,
+      "weather_synergy": 0.0
+    },
+    "balance": {
+      "coverage": 1.0,
+      "roles": 1.0,
+      "sp": 1.0,
+      "items": 1.0,
+      "speed": 1.0,
+      "bulk": 1.0,
+      "cheese_allowance": 0.8,
+      "weather_synergy": 1.0
+    },
+    "perish_trap": {
+      "coverage": 0.7,
+      "roles": 1.2,
+      "sp": 1.0,
+      "items": 1.0,
+      "speed": 0.6,
+      "bulk": 1.3,
+      "cheese_allowance": 1.6,
+      "weather_synergy": 0.4
+    }
+  }
+}

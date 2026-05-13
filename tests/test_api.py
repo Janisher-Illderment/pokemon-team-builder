@@ -72,7 +72,13 @@ def _fake_variant(recommended: bool = False, score: float = 1.0) -> TeamVariant:
 def test_health_returns_200():
     res = client.get("/health")
     assert res.status_code == 200
-    assert res.json() == {"status": "ok"}
+    body = res.json()
+    assert body["status"] == "ok"
+    # Phase 3 §13: /health exposes loaded data versions.
+    assert "meta_versions" in body
+    assert isinstance(body["meta_versions"], dict)
+    # Sanity: at least the legal_pool version is reported.
+    assert "legal_pool" in body["meta_versions"]
 
 
 def test_generate_unknown_anchor_returns_422():
@@ -80,6 +86,26 @@ def test_generate_unknown_anchor_returns_422():
         res = client.post("/generate", json={"anchor": "missingno"})
     assert res.status_code == 422
     assert "not in the M-A regulation pool" in res.json()["detail"]
+
+
+def test_generate_team_build_error_maps_to_503():
+    """Phase 4b Brief #3: cold-cache / empty pool → HTTP 503 with clear
+    message, not silent 200+{variants:[]}. Verifies the TeamBuildError →
+    503 mapping in router.generate.
+    """
+    from pokemon_team_builder.domain.exceptions import TeamBuildError
+    fake_anchor = _mk("garchomp", ["dragon", "ground"], pid=445)
+    with (
+        patch("pokemon_team_builder.api.router.is_legal", return_value=True),
+        patch("pokemon_team_builder.api.router.pokemon_lookup.lookup", return_value=fake_anchor),
+        patch(
+            "pokemon_team_builder.api.router.generate_team",
+            side_effect=TeamBuildError("Pool de candidatos vacío"),
+        ),
+    ):
+        res = client.post("/generate", json={"anchor": "garchomp"})
+    assert res.status_code == 503
+    assert "Pool" in res.json()["detail"]
 
 
 def test_generate_valid_anchor_returns_variants():
@@ -208,7 +234,7 @@ def test_analyze_matchup_unknown_threat_returns_422():
 # ---------------------------------------------------------------------------
 
 _MEMBER_NAMES = ["mon1", "mon2", "mon3", "mon4", "mon5", "mon6"]
-_MEMBER_ITEMS = ["Sitrus Berry", "Lum Berry", "Focus Sash", "Rocky Helmet", "Leftovers", "Mental Herb"]
+_MEMBER_ITEMS = ["Sitrus Berry", "Lum Berry", "Focus Sash", "Eviolite", "Leftovers", "Mental Herb"]
 
 
 def _basic_member_in(name: str, item: str, idx: int = 0) -> dict:

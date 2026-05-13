@@ -139,19 +139,20 @@ flowchart LR
 </div>
 
 <h3>Objeto por rol — primera opción</h3>
+<p><b>Nota:</b> Pokémon Champions Regulation M-A solo permite ~117 items del catálogo histórico de VGC. <b>Weakness Policy, Throat Spray, Rocky Helmet y Life Orb NO están en el pool legal</b> y han sido removidos de los defaults (Phase 1, 2026-05-13).</p>
 <table>
 <thead><tr><th>Rol primario</th><th>Objeto preferido</th><th>Requisito para que se le dé</th></tr></thead>
 <tbody>
-<tr><td>Sweeper físico</td><td>Weakness Policy</td><td>Que su set <i>no</i> incluya movimientos de setup (Swords Dance, Bulk Up, etc.) — si ya se sube él solo, la Policy no aporta</td></tr>
-<tr><td>Sweeper especial</td><td>Throat Spray</td><td>Que sepa al menos un ataque de sonido (Hyper Voice, Boomburst, Bug Buzz...)</td></tr>
-<tr><td>Muro físico</td><td>Rocky Helmet</td><td>Sin requisito</td></tr>
+<tr><td>Sweeper físico</td><td>Choice Band</td><td>Sin movimientos de setup (Swords Dance, Bulk Up) — locked-in attack</td></tr>
+<tr><td>Sweeper especial</td><td>Choice Specs</td><td>Sin movimientos de setup; preferentemente sin Trick Room en el equipo</td></tr>
+<tr><td>Muro físico</td><td>Leftovers</td><td>Sin requisito</td></tr>
 <tr><td>Muro especial</td><td>Leftovers</td><td>Sin requisito</td></tr>
 <tr><td>Soporte / Lead</td><td>Focus Sash</td><td>Sin requisito</td></tr>
 <tr><td>Setter de Trick Room</td><td>Mental Herb</td><td>Sin requisito</td></tr>
 <tr><td>Redirector</td><td>Clear Amulet</td><td>Sin requisito</td></tr>
 </tbody>
 </table>
-<p>Si el objeto preferido no encaja (requisito no se cumple, o ya lo lleva otro miembro), la app busca en una lista de 30 objetos de repuesto legales en Champions, en orden de preferencia. <b>Regla estricta:</b> ningún objeto puede repetirse en el equipo — si se queda sin opciones, descarta ese equipo entero.</p>
+<p>Si el objeto preferido no encaja (requisito no se cumple, o ya lo lleva otro miembro), la app busca en una lista de 38+ objetos de repuesto legales en Champions (cargada desde <code>champions_legal_items.json</code> versionado), en orden de preferencia. <b>Regla estricta (Item Clause):</b> ningún objeto puede repetirse en el equipo — si no se puede asignar 6 objetos distintos, la app rechaza ese equipo y prueba la siguiente combinación.</p>
 
 <h3>Naturaleza por rol</h3>
 <ul>
@@ -173,16 +174,49 @@ flowchart LR
 <tr><td>Balance de roles (Bo1)</td><td><span class="weight">35</span></td><td>—</td><td>15 si hay al menos un sweeper, 10 si hay support/redirect, hasta 10 más por flexibilidad de roles entre todos los combos de 4 miembros</td></tr>
 <tr><td>Flexibilidad de leads (Bo3)</td><td>—</td><td><span class="weight">25</span></td><td>De los 15 combos posibles de 4 miembros, cuántos tienen al menos un movimiento de control de velocidad (tailwind, fake-out, icy-wind...). Más combos viables = más puntos</td></tr>
 <tr><td>Diversidad de duos sweeper-support (Bo3)</td><td>—</td><td><span class="weight">15</span></td><td>Cuántas parejas distintas sweeper+support se pueden formar dentro del equipo. Máximo 3 cuentan</td></tr>
-<tr><td>EVs completos</td><td><span class="weight">15</span></td><td><span class="weight">15</span></td><td>2.5 pts <i>sólo</i> a cada miembro que use los 508 EVs (66 SPs) al máximo. Si se queda corto en uno, pierde sus 2.5 pts enteros — no hay puntos parciales</td></tr>
+<tr><td>SPs completos</td><td><span class="weight">15</span></td><td><span class="weight">15</span></td><td>Pokémon Champions usa <b>66 SPs totales</b>, max 32 por stat (no los 508 EVs históricos). 2.5 pts a cada miembro cuyo spread sume 66 exactos. Phase 3 calcula dos presets por miembro: ofensivo (default en pokepaste) y defensivo</td></tr>
 <tr><td>Sin objetos repetidos</td><td><span class="weight">15</span></td><td><span class="weight">15</span></td><td>15 si los 6 objetos son distintos, 0 si hay cualquier duplicado. Sin gradiente</td></tr>
 </tbody>
 </table>
 
-<h3>Qué entiende la app por "cobertura"</h3>
+<h3>Qué entiende la app por "cobertura" (Phase 2a — STAB-based)</h3>
 <ul>
-  <li><b>Hueco ofensivo:</b> ningún miembro del equipo tiene ese tipo como propio (STAB). <b>Importante:</b> mira el tipado del Pokémon, no sus ataques reales. Un Fire-type cuenta como cobertura de Fuego aunque no lleve ningún ataque de Fuego.</li>
-  <li><b>Debilidad compartida:</b> 3 o más miembros reciben ×2 daño (o más) del mismo tipo atacante. Esto sí es un problema real en doble — un Lando-T puede barrer media tu plantilla.</li>
+  <li><b>Hueco ofensivo:</b> un tipo está cubierto SII al menos un miembro tiene un movimiento de ese tipo <i>y</i> ese movimiento es STAB para el miembro (su tipo coincide con el tipo del move). Un Charizard sin <i>Flamethrower</i> ya NO cubre Fuego, aunque sea Fire-type — el bug pre-Phase-2a está corregido.</li>
+  <li><b>Debilidad compartida:</b> 3 o más miembros reciben ×2 daño (o más) del mismo tipo atacante. Levitate marca <code>ground_immune</code> y el miembro no cuenta como ground-weak aunque su tipado lo sugiera.</li>
 </ul>
+
+<h3>Flujo "favorite-first" (Phase 2b)</h3>
+<p>La app NO construye 6 miembros greedy — sigue 4 fases deterministas por <code>(anchor, archetype, format, mega)</code>:</p>
+<ol>
+  <li><b>Anchor</b>: el pokémon favorito que pasas como parámetro.</li>
+  <li><b>Build core duo</b>: busca el MEJOR compañero del anchor en el pool legal. Scoring ponderado por archetype: type complement + role complement (suprimido en <code>hyper_offense</code>) + ability/move compatibility (weather setter para weather ability, Trick Room setter para slow anchor en <code>hard_trick_room</code>, redirect/support para fragile sweeper) + meta presence.</li>
+  <li><b>Cover shared weakness</b>: busca un slot 3 que cubra la <i>intersección</i> de debilidades del core duo, no solo de uno.</li>
+  <li><b>Beam search slots 4-6</b>: con los primeros 3 ya fijos, beam search expande las 3 plazas restantes respetando archetype, mega clause (≤1 mega), cheese allowance, e item uniqueness.</li>
+</ol>
+
+<h3>Archetype selector (Phase 2b)</h3>
+<p>El usuario elige uno de 7 archetypes en el formulario. Cada uno ajusta los pesos del scoring final:</p>
+<ul>
+  <li><b>hyper_offense</b> — full ofensivo, momentum moves, cheese permitido</li>
+  <li><b>hard_trick_room</b> — TR invierte velocidades, premia pokes lentos</li>
+  <li><b>bulky_offense</b> — ofensivo con algo de tanking</li>
+  <li><b>weather_based</b> — amplifica weather_synergy ×1.5+</li>
+  <li><b>stall</b> — exento de speed control penalty, weather_synergy=0</li>
+  <li><b>balance</b> (default) — baseline multipliers 1.0, cheese gate cerrado</li>
+  <li><b>perish_trap</b> — Perish Song permitido en slot 4</li>
+</ul>
+
+<h3>Speed control requirement (Phase 3)</h3>
+<p>Todo equipo no-stall debe tener al menos un mecanismo de speed control (Trick Room / Tailwind / Icy Wind / Thunder Wave / Sticky Web / Fake Out / Static / Cute Charm / etc.). Si falta, score −15 puntos y banner ⚠️ en el variant card. Static / Cute Charm cuentan como partial credit 0.5.</p>
+
+<h3>Weather synergy scoring (Phase 3)</h3>
+<p>Si un miembro tiene una <b>weather-dependent ability</b> (Sand Rush, Swift Swim, Chlorophyll, Slush Rush, Solar Power, etc.) y otro miembro setea ese clima (Sand Stream, Drought, Drizzle, Snow Warning) → <b>+3 pts</b>. Si el clima beneficia pasivamente (Hurricane en rain, Solar Beam en sun, Blizzard accuracy en snow) sin ability gating → <b>+2 pts</b>. Multiplicado por <code>archetype.weather_synergy</code> (weather_based ≥1.5, stall =0).</p>
+
+<h3>Mega clause (Phase 2a)</h3>
+<p>Hard constraint: ≤1 miembro con mega stone potencial por equipo. Beam search descarta cualquier estado parcial con 2+ mega candidates ANTES de scoring.</p>
+
+<h3>Role gradient ±15 (Phase 2a)</h3>
+<p>Los umbrales de rol (HP 80 para wall, Atk 100 para sweeper, etc.) ya no son cliff duro. La fórmula <code>weight = clamp((stat − (threshold−15)) / 30, 0, 1)</code> da gradient: a HP=65 weight=0, a HP=80 weight=0.5, a HP=95 weight=1.0. Además, las abilities contribuyen como rol implícito (Flame Body bumps physical_wall, Intimidate bumps physical_wall, Multiscale bumps ambos walls, etc.) desde <code>ability_implicit_roles.json</code>.</p>
 
 <h3>Movimientos que cuentan como "control de velocidad" en Bo3</h3>
 <p>Tailwind, Trick Room, Fake Out, Quick Attack, Extreme Speed, Helping Hand, Thunder Wave, Icy Wind, Follow Me, Rage Powder.</p>
@@ -205,8 +239,8 @@ flowchart LR
 </div>
 
 <div class="pain">
-  <h4>¿La nota es justa con EVs "casi perfectos"?</h4>
-  Si un miembro usa 504 EVs en vez de los 508 máximos, se queda fuera de su porción de nota (2.5 pts) <b>completamente</b>. No hay puntos parciales. <br/><b>Nota práctica:</b> tras el fix reciente, los top teams importados ahora reciben un spread sugerido por rol y entran al máximo. Antes daban 0 en este componente porque LabMaus no exporta EVs.
+  <h4>¿La nota es justa con SPs "casi perfectos"?</h4>
+  Champions usa <b>66 SPs totales, 32 max por stat</b>. Si un miembro suma 64 SPs en vez de 66, pierde sus 2.5 pts <b>completamente</b> (no hay puntos parciales). <br/><b>Nota práctica (Phase 3):</b> ahora cada miembro lleva dos presets calculados: <code>offensive</code> (default exportado en pokepaste) y <code>defensive</code>. Ambos suman 66 SPs garantizados. El UI permite togglear entre ambos por miembro. El sistema legacy de 508 EVs fue removido.
 </div>
 
 <div class="pain">
@@ -216,7 +250,7 @@ flowchart LR
 
 <div class="pain">
   <h4>¿Un Pokémon que se queda a 1 punto del umbral pierde el rol?</h4>
-  Sí. Si la Defensa es 99 (umbral 100) o la HP es 79 (umbral 80), <b>no se le asigna physical_wall</b>. La frontera es dura, no gradual. <br/><b>Auditable:</b> ¿hay Pokémon "casi-muros" útiles que están siendo ignorados?
+  <b>Ya no</b> (Phase 2a). Los thresholds ahora son gradient ±15: HP 79 (vs umbral 80) recibe <code>physical_wall</code> con peso ≈0.467, no 0. A HP=80 weight=0.5 (cutoff boolean), a HP=95 weight=1.0. Las abilities suman como rol implícito: Flame Body / Intimidate / Multiscale bumpean el peso del wall incluso si los stats no llegan al umbral.
 </div>
 
 <div class="pain">
@@ -236,7 +270,7 @@ flowchart LR
 
 <div class="pain">
   <h4>¿Qué pasa con el segundo Pokémon del mismo rol?</h4>
-  Los objetos se reparten <b>en orden de aparición</b>. Si Scovillain (slot 1, physical_sweeper) consume Weakness Policy, el siguiente physical_sweeper del equipo (slot 4) cae a la lista de repuestos — quizá Sitrus Berry. La nota final no penaliza esto, pero competitivamente el segundo sweeper queda peor equipado.
+  Los objetos se reparten <b>en orden de aparición</b>. Si Scovillain (slot 1, physical_sweeper) recibe Choice Band, el siguiente physical_sweeper del equipo (slot 4) cae a la lista de repuestos — quizá Sitrus Berry o Choice Scarf. La nota final no penaliza esto explícitamente, pero competitivamente el segundo sweeper queda menos optimizado. Phase 4 puede introducir scoring de calidad de item por slot.
 </div>
 
 <h2>Cómo usar este documento</h2>

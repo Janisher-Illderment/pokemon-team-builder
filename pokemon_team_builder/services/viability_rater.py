@@ -4,6 +4,11 @@ import itertools
 import math
 
 from pokemon_team_builder.config import MAX_SP_TOTAL
+from pokemon_team_builder.data.archetype_weights_loader import get_weights
+from pokemon_team_builder.data.weather_data_loader import (
+    load_weather_dependent_abilities,
+    load_weather_setters,
+)
 from pokemon_team_builder.domain.models import TeamMember, TeamVariant
 from pokemon_team_builder.services.synergy_engine import (
     analyze_coverage,
@@ -17,15 +22,25 @@ _W_ROLES = 35
 _W_SPS = 15
 _W_ITEMS = 15
 
-# Bo3 weights (coverage 30; roles replaced by lead_flex + core_div)
+# Bo3 weights (coverage 30; roles replaced by core_flex + core_div)
 _W_COVERAGE_BO3 = 30
-_W_LEAD_FLEX = 25
+_W_CORE_FLEX = 25
 _W_CORE_DIV = 15
+
+# Phase 3 §8 — weather synergy point values.
+_WEATHER_ABILITY_BONUS = 3.0
+_WEATHER_PASSIVE_BONUS = 2.0
+
+# Phase 3 §10 — speed control penalty applied when no mechanism exists
+# and archetype != "stall".
+_SPEED_CONTROL_PENALTY = -15.0
 
 _SWEEPER_ROLES = frozenset({"physical_sweeper", "special_sweeper"})
 _SUPPORT_ROLES = frozenset({"lead_support", "redirect"})
 
-_LEAD_VIABLE_MOVES = frozenset({
+# Phase 3 §11 — renamed from _LEAD_VIABLE_MOVES. Core-viable means the
+# member can fill a Bo3 lead/core slot (speed control or redirect).
+_CORE_VIABLE_MOVES = frozenset({
     "tailwind", "trick-room", "fake-out", "extreme-speed", "quick-attack",
     "helping-hand", "thunder-wave", "icy-wind", "follow-me", "rage-powder",
 })
@@ -34,23 +49,56 @@ _BO3_SWEEPER_ROLES = frozenset({"physical_sweeper", "special_sweeper"})
 _BO3_SUPPORT_ROLES = frozenset({"lead_support", "redirect", "trick_room_setter"})
 
 
-def _lead_flexibility_points(members: list[TeamMember]) -> tuple[float, float]:
-    """Return (raw_ratio 0-1, points) for Bo3 lead flexibility.
+# Phase 3 §10 — speed control mechanisms.
+_SPEED_CONTROL_MOVES = frozenset({
+    "trick-room",
+    "tailwind",
+    "icy-wind",
+    "electroweb",
+    "thunder-wave",
+    "glare",
+    "nuzzle",
+    "stun-spore",
+    "sticky-web",
+    "fake-out",
+    "quick-guard",
+})
+# Abilities that contribute partial credit (0.5 each) — paralysis-on-contact.
+_SPEED_CONTROL_PARTIAL_ABILITIES = frozenset({
+    "static",
+    "cute-charm",
+})
 
-    Iterates all C(6,4)=15 combinations; a combo is lead-viable if at least
-    one member has a speed-control or redirect move in its moveset.
-    Returns (viable/15, ratio * _W_LEAD_FLEX).
+
+# Phase 3 §8 — passive weather benefits per (weather, move_or_type) pair.
+# Surfaced when the team HAS the weather but the member's ability isn't
+# weather-dependent.  Stays narrow (Hurricane/Solar Beam/Blizzard) per spec.
+_PASSIVE_WEATHER_MOVES: dict[str, frozenset[str]] = {
+    "rain": frozenset({"hurricane"}),
+    "sun":  frozenset({"solar-beam"}),
+    "snow": frozenset({"blizzard"}),
+}
+
+
+def _core_flexibility_points(members: list[TeamMember]) -> tuple[float, float]:
+    """Return (raw_ratio 0-1, points) for Bo3 core flexibility.
+
+    Phase 3 §11 rename — previously ``_lead_flexibility_points``.
+
+    Iterates all C(6,4)=15 combinations; a combo is core-viable if at
+    least one member has a speed-control or redirect move in its
+    moveset. Returns ``(viable/15, ratio * _W_CORE_FLEX)``.
     """
     viable = 0
     total = 0
     for combo in itertools.combinations(members, 4):
         total += 1
         for m in combo:
-            if any(mv in _LEAD_VIABLE_MOVES for mv in m.moves):
+            if any(mv in _CORE_VIABLE_MOVES for mv in m.moves):
                 viable += 1
                 break
     ratio = viable / total if total else 0.0
-    return ratio, ratio * _W_LEAD_FLEX
+    return ratio, ratio * _W_CORE_FLEX
 
 
 def _core_diversity_points(members: list[TeamMember]) -> float:
@@ -68,7 +116,10 @@ def _core_diversity_points(members: list[TeamMember]) -> float:
 
 def _coverage_points(variant: TeamVariant) -> int:
     pokemons = [m.pokemon for m in variant.members]
-    report = analyze_coverage(pokemons)
+    # Phase 2a: pass assigned movesets so offensive gaps are STAB-based
+    # (member must have a move of type X, not just type X in pokemon.types).
+    movesets = [list(m.moves) for m in variant.members]
+    report = analyze_coverage(pokemons, movesets=movesets)
     pts = (
         _W_COVERAGE
         - len(report.offensive_gaps) * 2
@@ -127,32 +178,190 @@ def _items_points(variant: TeamVariant) -> int:
     return max(0, min(_W_ITEMS, pts))
 
 
-def score_team(variant: TeamVariant, format_mode: str = "bo1") -> tuple[float, float]:
+# ─── Phase 3 §8 — weather synergy ───────────────────────────────────────────
+
+def _weather_synergy_points(members: list[TeamMember]) -> float:
+    """Compute raw weather synergy points (pre-archetype-weighting).
+
+    Logic (per spec §8):
+      - For each member whose ability is weather-dependent, check if any
+        OTHER member sets the matching weather → +3 per match.
+      - For members without a weather-dependent ability but who carry a
+        passive-weather-benefit move (Hurricane in rain, Solar Beam in
+        sun, Blizzard in snow), check if a setter exists on the team
+        → +2 per beneficiary (the +2 is NOT additive on members who
+        already triggered the +3 bonus — no double counting per member).
+
+    Returns the raw float bonus. Archetype scaling is applied in
+    ``score_team`` via ``weights.weather_synergy``.
+    """
+    if not members:
+        return 0.0
+
+    dep_abilities, _ = load_weather_dependent_abilities()
+    setters_map, _ = load_weather_setters()
+    if not dep_abilities or not setters_map:
+        return 0.0
+
+    # Build a map of {weather -> set of setter member indices on this team}.
+    weather_on_team: dict[str, set[int]] = {}
+    for idx, member in enumerate(members):
+        ability_slug = member.ability.strip().lower().replace(" ", "-")
+        species_slug = member.pokemon.name.strip().lower()
+        # An ability-setter only counts when the member is currently
+        # holding that ability (otherwise e.g. Hippowdon-with-Sand-Force
+        # would falsely count). We check membership in the spec's setter
+        # map directly: the species → weather inverse.
+        for weather, setter_names in setters_map.items():
+            if species_slug in setter_names:
+                # The species is a known setter; trust the assigned ability
+                # matches when set.  Conservative fallback: count regardless,
+                # because the species' default ability in the team_generator
+                # picks the setter ability when available.
+                weather_on_team.setdefault(weather, set()).add(idx)
+
+    total = 0.0
+    awarded_member_indices: set[int] = set()
+
+    # +3 ability-driven matches.
+    for idx, member in enumerate(members):
+        ability_slug = member.ability.strip().lower().replace(" ", "-")
+        required_weather = dep_abilities.get(ability_slug)
+        if required_weather is None:
+            continue
+        setters_on_team = weather_on_team.get(required_weather, set()) - {idx}
+        if setters_on_team:
+            total += _WEATHER_ABILITY_BONUS
+            awarded_member_indices.add(idx)
+
+    # +2 passive matches (members with a benefit move and the weather is set).
+    for idx, member in enumerate(members):
+        if idx in awarded_member_indices:
+            # Spec: passive bonus does NOT double-count on a member that
+            # already triggered the +3 ability bonus.
+            continue
+        for weather, benefit_moves in _PASSIVE_WEATHER_MOVES.items():
+            if weather not in weather_on_team:
+                continue
+            setters_on_team = weather_on_team[weather] - {idx}
+            if not setters_on_team:
+                continue
+            move_slugs = {m.lower() for m in member.moves}
+            if move_slugs & benefit_moves:
+                total += _WEATHER_PASSIVE_BONUS
+                awarded_member_indices.add(idx)
+                break  # one passive bonus per member max
+
+    return total
+
+
+# ─── Phase 3 §10 — speed control penalty ────────────────────────────────────
+
+def _count_speed_control(members: list[TeamMember]) -> float:
+    """Return the team's combined speed-control mechanism count.
+
+    Full credit (1.0) for each member with a speed-control move.
+    Partial credit (0.5) for each member with a partial-credit ability
+    (Static / Cute Charm). The sum is what the penalty function tests.
+    """
+    count = 0.0
+    for member in members:
+        moves = {m.lower() for m in member.moves}
+        if moves & _SPEED_CONTROL_MOVES:
+            count += 1.0
+            continue
+        ability_slug = member.ability.strip().lower().replace(" ", "-")
+        if ability_slug in _SPEED_CONTROL_PARTIAL_ABILITIES:
+            count += 0.5
+    return count
+
+
+def _speed_control_penalty(variant: TeamVariant, archetype: str) -> float:
+    """Return the speed-control penalty (≤ 0) for the variant.
+
+    Per spec §10: ``stall`` is exempt; every other archetype must have
+    at least 1.0 combined speed-control credit, otherwise a flat
+    -15 point penalty is applied.
+    """
+    if archetype == "stall":
+        return 0.0
+    if _count_speed_control(variant.members) >= 1.0:
+        return 0.0
+    return _SPEED_CONTROL_PENALTY
+
+
+def variant_requires_speed_control(variant: TeamVariant, archetype: str) -> bool:
+    """Return True iff this variant should surface a speed-control warning."""
+    return _speed_control_penalty(variant, archetype) < 0.0
+
+
+def score_team(
+    variant: TeamVariant,
+    format_mode: str = "bo1",
+    *,
+    archetype: str = "balance",
+) -> tuple[float, float]:
     """Score a 6-member team variant on a 0-100 scale.
 
-    Returns (total_score, lead_flexibility_ratio).
-    lead_flexibility_ratio is 0.0 in Bo1 mode.
+    Returns (total_score, core_flexibility_ratio).
+    core_flexibility_ratio is 0.0 in Bo1 mode.
 
     Bo1: coverage(35) + roles(35) + sp(15) + items(15)
-    Bo3: coverage(30) + lead_flex(25) + core_div(15) + sp(15) + items(15)
+    Bo3: coverage(30) + core_flex(25) + core_div(15) + sp(15) + items(15)
+
+    Phase 2b archetype weighting: per-component scores are multiplied by
+    the archetype's weight matrix from ``archetype_weights.json`` BEFORE
+    the final clamp to [0, 100]. Balance (default) has weights = 1.0 on
+    every component, so the v0.2.0 scoring behavior is preserved when
+    archetype is not specified. The core_flexibility_ratio is returned
+    raw (not weighted) because it is a UI-facing 0–1 ratio, not a
+    scoring contribution — multiplying it would mislead the badge text.
+
+    Phase 3 additions (applied AFTER the core formula, before clamp):
+      - + weather_synergy_raw * weights.weather_synergy
+      - + speed_control_penalty (-15 or 0; ``stall`` exempt)
     """
     sps = _sps_points(variant)
     items = _items_points(variant)
+    weights = get_weights(archetype)
+
+    weather_raw = _weather_synergy_points(variant.members)
+    weather_pts = weather_raw * weights.weather_synergy
+    speed_penalty = _speed_control_penalty(variant, archetype)
 
     if format_mode == "bo3":
+        # Phase 2a: STAB-based coverage using the variant's assigned movesets.
+        bo3_pokemons = [m.pokemon for m in variant.members]
+        bo3_movesets = [list(m.moves) for m in variant.members]
+        bo3_report = analyze_coverage(bo3_pokemons, movesets=bo3_movesets)
         coverage = max(0, min(_W_COVERAGE_BO3,
             _W_COVERAGE_BO3
-            - len(analyze_coverage([m.pokemon for m in variant.members]).offensive_gaps) * 2
-            - len(analyze_coverage([m.pokemon for m in variant.members]).defensive_weaknesses) * 3
+            - len(bo3_report.offensive_gaps) * 2
+            - len(bo3_report.defensive_weaknesses) * 3
         ))
-        flex_ratio, flex_pts = _lead_flexibility_points(variant.members)
+        flex_ratio, flex_pts = _core_flexibility_points(variant.members)
         core_pts = _core_diversity_points(variant.members)
-        total = float(coverage + flex_pts + core_pts + sps + items)
+        total = float(
+            coverage * weights.coverage
+            + flex_pts * weights.roles
+            + core_pts * weights.roles
+            + sps * weights.sp
+            + items * weights.items
+            + weather_pts
+            + speed_penalty
+        )
         return max(0.0, min(100.0, total)), flex_ratio
     else:
         coverage = _coverage_points(variant)
         roles = _roles_points(variant)
-        total = float(coverage + roles + sps + items)
+        total = float(
+            coverage * weights.coverage
+            + roles * weights.roles
+            + sps * weights.sp
+            + items * weights.items
+            + weather_pts
+            + speed_penalty
+        )
         return max(0.0, min(100.0, total)), 0.0
 
 
@@ -164,7 +373,11 @@ def generate_explanation(variant: TeamVariant, score: float) -> str:
     parts: list[str] = [f"Equipo con puntuacion {score:.0f}/100."]
 
     if coverage_pts < 20:
-        report = analyze_coverage([m.pokemon for m in variant.members])
+        # Phase 2a: STAB-based coverage gaps for the explanation surface.
+        report = analyze_coverage(
+            [m.pokemon for m in variant.members],
+            movesets=[list(m.moves) for m in variant.members],
+        )
         gap_text = ", ".join(report.offensive_gaps[:5]) or "—"
         parts.append(f"Cobertura de tipos debil: faltan {gap_text}.")
 
@@ -210,3 +423,5 @@ def rank_variants(variants: list[TeamVariant]) -> list[TeamVariant]:
     for rank, (_, variant) in enumerate(indexed):
         out.append(variant.model_copy(update={"is_recommended": rank == 0}))
     return out
+
+

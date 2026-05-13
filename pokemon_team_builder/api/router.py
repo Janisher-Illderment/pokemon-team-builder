@@ -15,6 +15,7 @@ from pokemon_team_builder.api.schemas import (
     MemberIn,
     MemberOut,
     MetaTeamsResponse,
+    SpReadOut,
     TournamentOut,
     TournamentsResponse,
     VariantIn,
@@ -23,7 +24,10 @@ from pokemon_team_builder.api.schemas import (
 from pokemon_team_builder.cli.main import _lazy_pool_candidates
 from pokemon_team_builder.data.legal_pool_loader import is_legal
 from pokemon_team_builder.data.speed_tiers import load as load_speed_db
+from pokemon_team_builder.domain.exceptions import TeamBuildError
 from pokemon_team_builder.domain.models import SPDistribution
+from pokemon_team_builder.services import sp_preset_builder
+from pokemon_team_builder.services import meta_versions as _meta_versions_mod
 from pokemon_team_builder.services import pokemon_lookup
 from pokemon_team_builder.services import ev_explainer
 from pokemon_team_builder.services.meta_service import MetaService
@@ -52,9 +56,32 @@ def _build_sp_dict(sp: SPDistribution) -> dict[str, int]:
     }
 
 
+def _build_sp_presets(member: TeamMember) -> dict[str, SpReadOut]:
+    """Build the per-member SP presets dict for the API response.
+
+    Returns ``{}`` on any failure — the UI gracefully falls back to the
+    legacy ``sp_distribution`` field when presets are absent.
+    """
+    try:
+        presets = sp_preset_builder.build_presets(
+            member, member.item, member.nature,
+            threats_to_OHKO=None, threats_to_survive=None,
+        )
+    except Exception:
+        return {}
+    return {
+        name: SpReadOut(
+            hp=read.hp, atk=read.atk, **{"def": read.def_},
+            spa=read.spa, spd=read.spd, spe=read.spe,
+        )
+        for name, read in presets.items()
+    }
+
+
 @router.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok"}
+def health() -> dict[str, object]:
+    """Health endpoint — Phase 3 §13 exposes loaded data versions."""
+    return {"status": "ok", "meta_versions": _meta_versions_mod.collect()}
 
 
 @router.get("/legal-pool")
@@ -84,11 +111,18 @@ def generate(req: GenerateRequest) -> GenerateResponse:
             candidate_loader=_lazy_pool_candidates,
             mega_choice=req.mega,
             format_mode=req.format,
+            archetype=req.archetype,
         )
+    except TeamBuildError as exc:
+        # Pool exhaustion / cold-cache / structural pool issues → 503 so the
+        # client knows to retry, vs a 200 with empty variants which silently
+        # masks the problem (Phase 4b fail-clearly fix).
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     variant_outs = []
+    versions = _meta_versions_mod.collect()
     for v in variants:
         members = [
             MemberOut(
@@ -101,6 +135,7 @@ def generate(req: GenerateRequest) -> GenerateResponse:
                 sp_distribution=_build_sp_dict(m.sp_distribution),
                 ev_note=ev_explainer.explain(m, _speed_db, _meta_svc),
                 move_names=m.pokemon.move_names,
+                sp_presets=_build_sp_presets(m),
             )
             for m in v.members
         ]
@@ -111,7 +146,12 @@ def generate(req: GenerateRequest) -> GenerateResponse:
                 pokepaste=to_pokepaste(v),
                 members=members,
                 format_mode=req.format,
-                lead_flexibility_score=round(v.lead_flexibility_ratio, 4),
+                core_flexibility_score=round(v.core_flexibility_ratio, 4),
+                archetype=v.archetype,
+                requires_speed_control=viability_rater.variant_requires_speed_control(
+                    v, v.archetype,
+                ),
+                meta_versions=versions,
             )
         )
 
@@ -166,7 +206,8 @@ def _hydrate_variant(v_in: VariantIn) -> TeamVariant:
         score=v_in.score,
         score_explanation="",
         is_recommended=False,
-        lead_flexibility_ratio=0.0,
+        # Phase 3 §11 rename (BREAKING).
+        core_flexibility_ratio=0.0,
     )
 
 
@@ -183,6 +224,7 @@ def _variant_to_out(v: TeamVariant, *, format_mode: str = "bo1") -> VariantOut:
             ev_note=ev_explainer.explain(m, _speed_db, _meta_svc),
             move_names=m.pokemon.move_names,
             mega_form_id=m.mega_form.form_id if m.mega_form else None,
+            sp_presets=_build_sp_presets(m),
         )
         for m in v.members
     ]
@@ -192,7 +234,12 @@ def _variant_to_out(v: TeamVariant, *, format_mode: str = "bo1") -> VariantOut:
         pokepaste=to_pokepaste(v),
         members=members,
         format_mode=format_mode,
-        lead_flexibility_score=round(v.lead_flexibility_ratio, 4),
+        core_flexibility_score=round(v.core_flexibility_ratio, 4),
+        archetype=v.archetype,
+        requires_speed_control=viability_rater.variant_requires_speed_control(
+            v, v.archetype,
+        ),
+        meta_versions=_meta_versions_mod.collect(),
     )
 
 
@@ -228,7 +275,8 @@ def import_pokepaste(req: ImportRequest) -> ImportResponse:
         "score": score,
         "score_explanation": explanation,
         "is_recommended": True,
-        "lead_flexibility_ratio": flex,
+        # Phase 3 §11 rename (BREAKING) — replaces lead_flexibility_ratio.
+        "core_flexibility_ratio": flex,
     })
 
     base_out = _variant_to_out(variant)
@@ -238,7 +286,10 @@ def import_pokepaste(req: ImportRequest) -> ImportResponse:
         pokepaste=base_out.pokepaste,
         members=base_out.members,
         format_mode=base_out.format_mode,
-        lead_flexibility_score=base_out.lead_flexibility_score,
+        core_flexibility_score=base_out.core_flexibility_score,
+        archetype=base_out.archetype,
+        requires_speed_control=base_out.requires_speed_control,
+        meta_versions=base_out.meta_versions,
         import_warnings=warnings,
     )
 

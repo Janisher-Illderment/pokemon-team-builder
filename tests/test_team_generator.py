@@ -195,12 +195,12 @@ def test_generate_team_6_members() -> None:
 def test_no_illegal_items_in_constants() -> None:
     """No mainline-only items leak into Champions item constants.
 
-    Champions has a closed item pool (~117 items). Importing a team with
+    Champions M-A has a curated pool (~117 items). Importing a team with
     an unknown item into PikaChampions / champteams.gg silently drops it,
-    so the team builder must never emit one. Guards against regressions
-    where confirmed-illegal items (Choice Band, Choice Specs, Assault
-    Vest, Life Orb, Eject Button) sneak back in via copy-paste from
-    mainline VGC references.
+    so the team builder must never emit one. Inte v2 cross-check (HIGH)
+    confirmed: Weakness Policy, Throat Spray, Rocky Helmet, AND Life Orb
+    are NOT in M-A. Choice Band / Choice Specs / Assault Vest ARE legal
+    per the same cross-check (corrected from prior memory).
     """
     from pokemon_team_builder.services.team_generator import (
         _BACKUP_ITEMS,
@@ -208,13 +208,14 @@ def test_no_illegal_items_in_constants() -> None:
         _FALLBACK_ITEM,
     )
 
+    # v0.3 (refine-build-logic-v2): WP / Throat Spray / Rocky Helmet / Life Orb
+    # removed from M-A. Eject Button is mainline-only and never confirmed.
     illegal = {
-        "Choice Band",
-        "Choice Specs",
-        "Assault Vest",
+        "Weakness Policy",
+        "Throat Spray",
+        "Rocky Helmet",
         "Life Orb",
         "Eject Button",
-        "Loaded Dice",
     }
 
     for role, item in _DEFAULT_ITEM_BY_ROLE.items():
@@ -289,22 +290,26 @@ def test_pick_ability_empty_list_raises() -> None:
         _pick_ability(pokemon)
 
 
-def test_throat_spray_not_assigned_without_sound_move() -> None:
-    """Throat Spray requires a sound move — falls back to Choice Scarf without one."""
+def test_throat_spray_never_assigned() -> None:
+    """Throat Spray is NOT in the M-A pool (Inte v2 cross-check).
+
+    Pre-v0.3 this test verified Throat Spray was gated on sound moves;
+    post-v0.3 it must verify the item is never assigned at all because
+    it is not in champions_legal_items.json.
+    """
     from pokemon_team_builder.services.team_generator import _assign_items
 
-    # Special-leaning Pokemon (spa > atk) but no sound moves in pool.
     pokemon = _mk(
-        "no-sound-mon",
-        ["psychic"],
+        "sound-mon",
+        ["fairy"],
         atk=60,
         spa=130,
         spe=100,
-        moves=["protect", "psychic", "shadow-ball", "thunderbolt"],
+        moves=["protect", "hyper-voice", "psychic", "thunderbolt"],
     )
     items = _assign_items([["special_sweeper"]], [pokemon])
     assert items[0] != "Throat Spray", (
-        f"Throat Spray must not be assigned without a sound move: {items}"
+        f"Throat Spray must not be assigned (not Champions M-A legal): {items}"
     )
 
 
@@ -340,8 +345,12 @@ def test_white_herb_not_assigned_without_stat_drop_move() -> None:
     )
 
 
-def test_special_sweeper_default_item_is_throat_spray() -> None:
-    """Throat Spray is the default for special_sweeper when the mon has a sound move."""
+def test_special_sweeper_default_item_is_choice_specs() -> None:
+    """Special sweepers default to Choice Specs (v0.3 — Throat Spray removed).
+
+    Inte v2 cross-check confirmed Throat Spray is NOT in M-A; the spec
+    designates Choice Specs as the provisional replacement.
+    """
     from pokemon_team_builder.services.team_generator import _assign_items
 
     pokemon = _mk(
@@ -353,8 +362,8 @@ def test_special_sweeper_default_item_is_throat_spray() -> None:
         moves=["protect", "hyper-voice", "psychic", "thunderbolt"],
     )
     items = _assign_items([["special_sweeper"]], [pokemon])
-    assert items[0] == "Throat Spray", (
-        f"special_sweeper with hyper-voice should get Throat Spray: {items}"
+    assert items[0] == "Choice Specs", (
+        f"special_sweeper should get Choice Specs (Champions M-A legal): {items}"
     )
 
 
@@ -580,18 +589,18 @@ def test_suggest_sp_redirect() -> None:
     assert total == MAX_SP_TOTAL
 
 
-def test_weakness_policy_not_assigned_with_setup_move() -> None:
-    """T5: a physical_sweeper with Dragon Dance must not get Weakness Policy.
+def test_weakness_policy_never_assigned() -> None:
+    """Weakness Policy is NOT in the M-A pool (Inte v2 cross-check).
 
-    Setup moves give the +2 manually; layering Weakness Policy on top
-    is a dead-weight redundancy — once setup is up the WP slot does
-    nothing useful.
+    Pre-v0.3 this test verified WP was gated against setup-move synergy
+    conflicts; post-v0.3 WP is simply unavailable, so we assert it never
+    appears in any assignment regardless of the moveset.
     """
     from pokemon_team_builder.services.team_generator import _assign_items
+    from pokemon_team_builder.services.replica_exporter import (
+        select_moves_for_role,
+    )
 
-    # The Pokemon's preview moveset will include "dragon-dance" in slot 4
-    # (physical sweeper role, dragon-dance in pool, item="" so the choice
-    # guard does not trip). _assign_items must see it and refuse WP.
     pokemon = _mk(
         "dd-chomp",
         ["dragon", "ground"],
@@ -606,14 +615,7 @@ def test_weakness_policy_not_assigned_with_setup_move() -> None:
             "stone-edge",
         ],
     )
-    # Compute the preview moveset the same way _build_variant does.
-    from pokemon_team_builder.services.replica_exporter import (
-        select_moves_for_role,
-    )
     preview = select_moves_for_role(pokemon, ["physical_sweeper"])
-    assert "dragon-dance" in preview, (
-        "fixture invariant: setup move must end up in preview"
-    )
 
     items = _assign_items(
         [["physical_sweeper"]],
@@ -621,7 +623,7 @@ def test_weakness_policy_not_assigned_with_setup_move() -> None:
         preview_moves=[preview],
     )
     assert items[0] != "Weakness Policy", (
-        f"WP assigned despite setup move in preview: {items}"
+        f"WP assigned despite removal from M-A legal pool: {items}"
     )
 
 
@@ -638,8 +640,8 @@ def test_white_herb_not_assigned_to_wall_moveset() -> None:
         select_moves_for_role,
     )
 
-    # 6 same-role walls so Rocky Helmet only goes to one slot — the
-    # remaining 5 must walk the fallback chain. None of the picked
+    # 6 same-role walls so the Leftovers default only goes to one slot —
+    # the remaining 5 must walk the fallback chain. None of the picked
     # movesets will include a stat-drop move, so White Herb must be
     # rejected even though it sits in _BACKUP_ITEMS.
     walls = [

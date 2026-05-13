@@ -95,10 +95,23 @@ def _balanced_variant() -> TeamVariant:
         "Leftovers",
         "Sitrus Berry",
         "Assault Vest",
-        "Rocky Helmet",
+        "Eviolite",
+    ]
+    # Phase 2a: STAB-based coverage requires the assigned moveset to contain
+    # the type's move, not just the typing. Each member here carries moves
+    # that cover its own STABs plus diverse coverage so the team scores
+    # well under the new rule.
+    movesets = [
+        ["protect", "earthquake", "dragon-claw", "rock-slide"],   # garchomp: ground+dragon STAB, rock cov
+        ["protect", "brave-bird", "flamethrower", "tailwind"],    # talonflame: flying+fire STAB
+        ["protect", "scald", "ice-beam", "recover"],              # milotic: water STAB + ice cov
+        ["protect", "thunderbolt", "hydro-pump", "shadow-ball"],  # rotom-wash: electric+water STAB + ghost cov
+        ["protect", "iron-head", "psychic", "earthquake"],        # metagross: steel+psychic STAB + ground cov
+        ["protect", "giga-drain", "sludge-bomb", "rage-powder"],  # amoonguss: grass+poison STAB
     ]
     members = [
-        _mk_member(p, item=item) for p, item in zip(pokemons, items)
+        _mk_member(p, item=item, moves=mv)
+        for p, item, mv in zip(pokemons, items, movesets)
     ]
     return TeamVariant(members=members)
 
@@ -116,7 +129,7 @@ def _weak_variant() -> TeamVariant:
     members = [
         _mk_member(
             p,
-            item="Life Orb",  # all the same → kills item diversity points
+            item="Choice Scarf",  # all the same → kills item diversity points
             moves=["protect", "tackle", "scald", "wing-attack"],
         )
         for p in pokemons

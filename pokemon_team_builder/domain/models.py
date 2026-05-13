@@ -105,4 +105,11 @@ class TeamVariant(BaseModel):
     score: float = 0.0
     score_explanation: str = ""
     is_recommended: bool = False
-    lead_flexibility_ratio: float = 0.0
+    # Phase 3 §11 — renamed from ``lead_flexibility_ratio`` (BREAKING).
+    # Internal field shared between viability_rater.score_team and the
+    # API serializer that derives VariantOut.core_flexibility_score.
+    core_flexibility_ratio: float = 0.0
+    # Phase 2b (strategy-archetype): echoes the archetype the team was
+    # built for. Default 'balance' keeps backward compatibility with
+    # pre-Phase-2b call sites that do not pass an archetype.
+    archetype: str = "balance"

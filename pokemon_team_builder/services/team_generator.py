@@ -1,10 +1,17 @@
 from __future__ import annotations
 
 import json
+import logging
 from functools import lru_cache
 from typing import Callable, Iterable
 
+from pathlib import Path
+
+_logger = logging.getLogger(__name__)
+
 from pokemon_team_builder.config import (
+    CHAMPIONS_LEGAL_ITEMS_FILE,
+    DATA_DIR,
     MAX_SP_TOTAL,
     ROLE_SP_TEMPLATES_FILE,
 )
@@ -22,6 +29,7 @@ from pokemon_team_builder.services import (
     replica_exporter,
     viability_rater,
 )
+from pokemon_team_builder.services import favorite_first_builder
 from pokemon_team_builder.services.meta_service import MetaService
 from pokemon_team_builder.services.synergy_engine import (
     ALL_TYPES,
@@ -33,25 +41,26 @@ from pokemon_team_builder.services.synergy_engine import (
 _meta_service = MetaService()
 
 
-_DEFAULT_ITEM_BY_ROLE: dict[str, str] = {
-    # Champions-confirmed. NOT in Champions: Choice Band, Choice Specs,
-    # Assault Vest, Life Orb, Eject Button, Safety Goggles, Covert Cloak,
-    # Adrenaline Orb. (Weakness Policy, Throat Spray, Rocky Helmet, Clear
-    # Amulet ARE confirmed in Champions as of Reg M-A.)
-    "physical_sweeper": "Weakness Policy",
-    "special_sweeper": "Throat Spray",
-    "physical_wall": "Rocky Helmet",
+# Default item by role. Champions Reg M-A legal items only — Weakness Policy,
+# Throat Spray, Rocky Helmet, and Life Orb are NOT in the M-A pool (Inte v2
+# cross-checked: Game8, Serebii, TheGamer, NintendoEverything, Smogon, VGC).
+# Source: champions_legal_items.json (data_version 1).
+# Provisional replacements per spec: physical_sweeper → Choice Band,
+# special_sweeper → Choice Specs, physical_wall → Leftovers.
+_DEFAULT_ITEM_BY_ROLE_FALLBACK: dict[str, str] = {
+    "physical_sweeper": "Choice Band",
+    "special_sweeper": "Choice Specs",
+    "physical_wall": "Leftovers",
     "special_wall": "Leftovers",
     "lead_support": "Focus Sash",
     "trick_room_setter": "Mental Herb",
     "redirect": "Clear Amulet",
 }
 _FALLBACK_ITEM = "Choice Scarf"
-# Champions-legal backup items (Serebii/MetaVGC confirmed). Order is
-# preference: utility items first (≥10), then type-boosting items so that
-# even six same-role mons can each receive a distinct, importable item.
-# Items in _DEFAULT_ITEM_BY_ROLE are excluded to avoid duplication.
-_BACKUP_ITEMS: tuple[str, ...] = (
+# Champions-legal backup pool (utility first, type-boosters last) — kept as a
+# fallback when champions_legal_items.json is missing or unparsable. The JSON
+# is the authoritative source; this constant just prevents a cold-start crash.
+_BACKUP_ITEMS_FALLBACK: tuple[str, ...] = (
     "Sitrus Berry",
     "Lum Berry",
     "Scope Lens",
@@ -64,6 +73,14 @@ _BACKUP_ITEMS: tuple[str, ...] = (
     "King's Rock",
     "Bright Powder",
     "Quick Claw",
+    "Assault Vest",
+    "Eviolite",
+    "Safety Goggles",
+    "Light Clay",
+    "Covert Cloak",
+    "Booster Energy",
+    "Mirror Herb",
+    "Loaded Dice",
     "Mystic Water",
     "Charcoal",
     "Magnet",
@@ -83,6 +100,83 @@ _BACKUP_ITEMS: tuple[str, ...] = (
     "Silk Scarf",
     "Fairy Feather",
 )
+
+
+@lru_cache(maxsize=1)
+def _load_champions_legal_items() -> tuple[frozenset[str], int]:
+    """Return ``(legal_item_names, data_version)``.
+
+    Reads ``champions_legal_items.json`` if present; on any failure falls
+    back to the in-code constants below — same shape (frozenset + version 0)
+    so callers don't need a None branch.
+    """
+    path: Path = CHAMPIONS_LEGAL_ITEMS_FILE  # type: ignore[name-defined]
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            raw = json.load(f)
+        items = raw.get("items", [])
+        names = frozenset(entry["name"] for entry in items if "name" in entry)
+        version = int(raw.get("data_version", 0))
+        return names, version
+    except Exception as exc:
+        _logger.warning(
+            "champions_legal_items.json load failed (%s: %s) at %s — using fallback pool with data_version=0",
+            type(exc).__name__, exc, path,
+        )
+        fallback = (
+            set(_DEFAULT_ITEM_BY_ROLE_FALLBACK.values())
+            | set(_BACKUP_ITEMS_FALLBACK)
+            | {_FALLBACK_ITEM}
+        )
+        return frozenset(fallback), 0
+
+
+@lru_cache(maxsize=1)
+def _build_default_item_by_role() -> dict[str, str]:
+    """Return the active role → default-item map.
+
+    Currently identical to ``_DEFAULT_ITEM_BY_ROLE_FALLBACK`` because the
+    JSON only carries the legal-pool inventory, not the role mapping. This
+    indirection keeps the call sites stable for when the role map graduates
+    to JSON.
+    """
+    return dict(_DEFAULT_ITEM_BY_ROLE_FALLBACK)
+
+
+@lru_cache(maxsize=1)
+def _build_backup_items() -> tuple[str, ...]:
+    """Return the backup item pool, sourced from JSON when available.
+
+    Backup pool = champions_legal_items.json items, excluding the role-
+    default items and the fallback (Choice Scarf). Order: utility first
+    (alphabetical within category), type_boost last. The JSON is the
+    authority; if it fails to load we use the in-code fallback so the
+    generator still works offline.
+    """
+    legal, _ = _load_champions_legal_items()
+    if not legal:
+        return _BACKUP_ITEMS_FALLBACK
+    defaults = set(_build_default_item_by_role().values()) | {_FALLBACK_ITEM}
+    # Preserve the ordering of _BACKUP_ITEMS_FALLBACK for any item that
+    # appears in both; append JSON-only items at the end. This keeps the
+    # competitive ordering we already had (utility before type-boost).
+    ordered: list[str] = []
+    seen: set[str] = set()
+    for item in _BACKUP_ITEMS_FALLBACK:
+        if item in legal and item not in defaults and item not in seen:
+            ordered.append(item)
+            seen.add(item)
+    for item in legal:
+        if item not in defaults and item not in seen:
+            ordered.append(item)
+            seen.add(item)
+    return tuple(ordered)
+
+
+# Public accessors — call-sites read these names so the loading is lazy
+# and the JSON cache is shared.
+_DEFAULT_ITEM_BY_ROLE: dict[str, str] = _build_default_item_by_role()
+_BACKUP_ITEMS: tuple[str, ...] = _build_backup_items()
 
 _SITUATIONAL_ABILITIES: frozenset[str] = frozenset({
     "sand-veil", "snow-cloak", "swift-swim", "chlorophyll",
@@ -108,7 +202,8 @@ _CHOICE_ITEMS: frozenset[str] = frozenset(
     {"Choice Scarf", "Choice Band", "Choice Specs"}
 )
 
-# Mirrors replica_exporter._SETUP_MOVES — needed for Weakness Policy predicate.
+# Mirrors replica_exporter._SETUP_MOVES — used by the Choice-item + setup-move
+# guard so a Choice-locked attacker doesn't get a useless setup move in slot 4.
 _SETUP_MOVES: frozenset[str] = frozenset({
     "nasty-plot", "calm-mind", "tail-glow",
     "swords-dance", "dragon-dance", "bulk-up",
@@ -182,6 +277,10 @@ def _load_sp_templates() -> dict[str, dict[str, int]]:
         raise ValueError("role_sp_templates.json: estructura raiz invalida.")
     out: dict[str, dict[str, int]] = {}
     for role, template in raw.items():
+        if role.startswith("_"):
+            # Reserved metadata keys (e.g. ``_meta`` carrying regulation /
+            # data_version). Skip — not a real role.
+            continue
         if not isinstance(template, dict):
             continue
         out[role] = {k: int(v) for k, v in template.items()}
@@ -316,19 +415,64 @@ def _partial_score(
     return score
 
 
+def _count_mega_potentials(
+    state: list[PokemonData], anchor_is_mega: bool
+) -> int:
+    """Count how many slots in ``state`` could end up holding a Mega Stone.
+
+    Used by the Phase 2a mega-clause prune in :func:`_beam_search`.
+
+    - Slot 0 (anchor) counts iff the caller has already locked a mega
+      assignment for it (``anchor_is_mega`` True).
+    - Any other slot counts iff its species has at least one
+      :class:`MegaForm` entry — i.e. it COULD be Mega-evolved if we
+      later assigned a stone. Since today only the anchor gets one
+      stone, two mega-capable members in slots ≥ 1 are a *latent*
+      duplication risk, not an actual one. We still prune them
+      conservatively because the favorite-first/best-partner phase
+      (Phase 2b) will introduce mega assignment for slot 2, at which
+      point the prune protects against the real duplicate case.
+    """
+    count = 0
+    for idx, member in enumerate(state):
+        if idx == 0:
+            if anchor_is_mega:
+                count += 1
+        else:
+            if member.megas:
+                count += 1
+    return count
+
+
 def _beam_search(
     anchor: PokemonData,
     candidates: list[PokemonData],
     role_map: dict[str, list[str]],
     target_size: int = 6,
     beam_width: int = _BEAM_WIDTH,
+    *,
+    anchor_is_mega: bool = False,
+    seed: list[PokemonData] | None = None,
 ) -> list[list[PokemonData]]:
     """Build candidate teams of ``target_size`` via beam search.
 
     Beam state = a list of PokemonData (already-chosen members starting
-    with the anchor). At each expansion we add one new candidate from
-    ``candidates`` (no duplicates) and score the resulting partial team,
-    keeping the top ``beam_width`` states.
+    with the anchor — or the full ``seed`` when one is provided). At each
+    expansion we add one new candidate from ``candidates`` (no duplicates)
+    and score the resulting partial team, keeping the top ``beam_width``
+    states.
+
+    Phase 2b ``seed``: when supplied, the initial beam state is exactly
+    ``seed`` (which MUST start with ``anchor``). This is how the
+    favorite-first flow pre-locks slots 1–3 — beam search then expands
+    only the remaining ``target_size - len(seed)`` slots. When ``seed``
+    is None we fall back to the legacy ``[[anchor]]`` initial state, so
+    older callers (tests + non-favorite-first paths) keep working.
+
+    Mega Clause (Phase 2a, spec §4.5): any partial state where the count
+    of mega-capable members exceeds 1 is pruned BEFORE scoring. This is a
+    structural hard constraint, not a soft penalty — Champions allows
+    exactly one mega per team. Pre-score pruning also reduces branching.
 
     Returns up to ``beam_width`` complete teams, sorted by their final
     partial score descending.
@@ -336,8 +480,25 @@ def _beam_search(
     if target_size <= 1:
         return [[anchor]]
 
-    states: list[list[PokemonData]] = [[anchor]]
-    for _ in range(target_size - 1):
+    if seed is not None:
+        if not seed or seed[0].name != anchor.name:
+            # Programmer error: the favorite-first flow always seeds with
+            # the anchor as slot 0. Fail loud rather than silently
+            # mis-anchor the variant.
+            raise ValueError(
+                "_beam_search: seed must start with the anchor "
+                f"(got first={seed[0].name if seed else None!r}, "
+                f"anchor={anchor.name!r})."
+            )
+        if len(seed) >= target_size:
+            return [list(seed)]
+        initial_state: list[PokemonData] = list(seed)
+    else:
+        initial_state = [anchor]
+
+    expansion_steps = target_size - len(initial_state)
+    states: list[list[PokemonData]] = [initial_state]
+    for _ in range(expansion_steps):
         next_states: list[tuple[float, list[PokemonData]]] = []
         for state in states:
             chosen_names = {p.name for p in state}
@@ -345,6 +506,9 @@ def _beam_search(
                 if cand.name in chosen_names:
                     continue
                 new_state = state + [cand]
+                # Phase 2a mega-clause hard prune (pre-score).
+                if _count_mega_potentials(new_state, anchor_is_mega) > 1:
+                    continue
                 next_states.append(
                     (_partial_score(new_state, role_map), new_state)
                 )
@@ -379,15 +543,10 @@ _ITEM_PRECONDITIONS_MOVESET: dict[str, Callable[[PokemonData, list[str] | None],
     "White Herb": lambda p, moves: any(
         m in _STAT_DROP_MOVES for m in (moves if moves is not None else p.move_names)
     ),
-    # Throat Spray boosts Special Attack on sound moves. Skip if no sound move.
-    "Throat Spray": lambda p, moves: any(
-        m in _SOUND_MOVES for m in (moves if moves is not None else p.move_names)
-    ),
-    # Weakness Policy activates on super-effective hits — redundant if the
-    # holder already has a setup move (which already boosts the relevant stat).
-    "Weakness Policy": lambda p, moves: not any(
-        m in _SETUP_MOVES for m in (moves if moves is not None else p.move_names)
-    ),
+    # NOTE: Throat Spray and Weakness Policy preconditions removed in v0.3
+    # (refine-build-logic-v2) — those items are NOT in the Champions Reg M-A
+    # legal pool. If meta-service returns them for a member they will be
+    # filtered upstream by the legal-items check, never reaching this map.
 }
 
 
@@ -460,11 +619,17 @@ def _assign_items(
         moves_for_i = preview_moves[i] if preview_moves is not None else None
 
         # Try meta items first (ranked by usage), subject to all existing guards.
+        # Filter against the Champions M-A legal pool so meta items like
+        # Life Orb / Weakness Policy (legal elsewhere, banned in M-A) never
+        # leak into a generated team.
+        legal_items, _ = _load_champions_legal_items()
         candidate: str | None = None
         meta_items = meta_items_by_member[i] if meta_items_by_member is not None else []
         for meta_item in meta_items:
             if meta_item in used:
                 continue
+            if legal_items and meta_item not in legal_items:
+                continue  # not Champions M-A legal
             if set(roles) & _NO_CHOICE_ROLES and meta_item in _CHOICE_ITEMS:
                 continue
             if members is not None and not _item_is_activatable(
@@ -509,9 +674,10 @@ def _assign_items(
                         break
             if chosen is None:
                 raise TeamBuildError(
-                    "Item Clause: el pool de items reales se agoto antes "
-                    "de asignar un item distinto a cada miembro del equipo. "
-                    "Amplia _BACKUP_ITEMS en team_generator."
+                    "Item Clause: pool insuficiente para 6 items unicos. "
+                    "El pool de Champions M-A legales (champions_legal_items.json) "
+                    "se agoto antes de asignar items distintos a todos los miembros. "
+                    "Amplia el pool o reduce el numero de Pokemon del mismo rol."
                 )
             candidate = chosen
         used.add(candidate)
@@ -570,6 +736,7 @@ def generate_team(
     candidate_loader: Callable[[PokemonData], list[PokemonData]] | None = None,
     mega_choice: str = "auto",
     format_mode: str = "bo1",
+    archetype: str = "balance",
 ) -> list[TeamVariant]:
     """Generate up to ``num_variants`` 6-mon team variants around ``anchor``.
 
@@ -583,6 +750,32 @@ def generate_team(
 
     Variants are deduplicated by member set: any two returned variants
     differ in at least one Pokemon.
+
+    Phase 2b — favorite-first build flow:
+      The generator now runs in four phases instead of pure beam search:
+        1. Resolve the anchor and its mega.
+        2. ``build_core_duo(anchor, archetype, pool, ...)`` picks slot 2.
+        3. ``cover_shared_weakness([anchor, partner], ...)`` picks slot 3.
+        4. ``_beam_search(seed=[anchor, partner, slot3], ...)`` fills
+           slots 4–6 only.
+
+      Backward compatibility: ``archetype`` defaults to ``"balance"``, so
+      callers that pre-date Phase 2b (tests, CLI scripts) automatically
+      run the new flow with balanced weights. We deliberately do NOT gate
+      the new flow behind the default — switching paths by archetype
+      would create two divergent code paths to maintain. Instead, the
+      ``balance`` weights matrix (all 1.0) reproduces the v0.2.0 scoring
+      ranking closely enough that the legacy tests pass. The two surface-
+      level changes vs v0.2.0 are:
+        - Slot 2 is now picked by ``build_core_duo`` (which honors meta
+          teammates and type complement, the same signals that
+          ``_heuristic_filter`` used to rank candidates).
+        - Slot 3 is now picked by ``cover_shared_weakness`` (which scores
+          against the duo's shared weakness, a strict subset of what beam
+          search used to do).
+      Legacy tests assert at the variant-level (anchor in slot 0, 6
+      distinct members, valid items / SPs) — none of those invariants are
+      affected by the flow change.
     """
     if num_variants < 1:
         return []
@@ -605,7 +798,11 @@ def generate_team(
             pool = _default_pool_loader(anchor)
 
     if not pool:
-        return []
+        raise TeamBuildError(
+            "Pool de candidatos vacío. Verifica que la caché de PokeAPI esté "
+            "caliente o que el host tenga conexión a pokeapi.co. Reintenta en "
+            "30 segundos."
+        )
 
     # Precompute roles once per Pokemon — assign_role is pure and pool is
     # fixed for this call. Avoids O(pool × beam_width × steps) recomputation.
@@ -617,13 +814,43 @@ def generate_team(
         role_map[anchor.name] = assign_role_with_mega(anchor, anchor_mega)
 
     candidates = _heuristic_filter(anchor, pool, role_map)
-    if not candidates:
-        return []
-
     if len(candidates) < 5:
-        return []
+        raise TeamBuildError(
+            f"Pool insuficiente tras heurística: solo {len(candidates)} "
+            f"candidatos compatibles con {anchor.name} (mínimo 5). "
+            "Posible cache PokeAPI fría — reintenta en 30 segundos."
+        )
 
-    states = _beam_search(anchor, candidates, role_map, target_size=6)
+    # ── Phase 2b: favorite-first build flow ─────────────────────────
+    # The favorite-first phases pick slots 2 and 3 deterministically; the
+    # heuristic-filtered ``candidates`` pool feeds both phases so the
+    # pruning logic stays consistent with the legacy beam-search input.
+    try:
+        partner, _partner_score = favorite_first_builder.build_core_duo(
+            anchor, archetype, candidates, _meta_service, role_map,
+        )
+        slot3 = favorite_first_builder.cover_shared_weakness(
+            [anchor, partner], archetype, candidates, role_map,
+        )
+    except ValueError as exc:
+        # Insufficient pool to form the duo / trio. Surface as a structured
+        # TeamBuildError so the API layer can map to HTTP 503 instead of
+        # silently returning an empty variants list.
+        raise TeamBuildError(
+            f"No se pudo formar el core duo para {anchor.name}: {exc}. "
+            "Pool puede estar parcialmente cargado."
+        ) from exc
+
+    seed = [anchor, partner, slot3]
+
+    states = _beam_search(
+        anchor,
+        candidates,
+        role_map,
+        target_size=6,
+        anchor_is_mega=anchor_mega is not None,
+        seed=seed,
+    )
     if not states:
         return []
 
@@ -637,16 +864,30 @@ def generate_team(
             continue
         seen_signatures.add(signature)
         try:
-            variant = _build_variant(state, role_map, anchor_mega=anchor_mega, format_mode=format_mode)
+            variant = _build_variant(
+                state, role_map,
+                anchor_mega=anchor_mega,
+                format_mode=format_mode,
+                archetype=archetype,
+            )
         except (ValueError, TeamBuildError):
             # ValueError → wrong member count; TeamBuildError → move
             # selection ran out of moves or items pool exhausted. In
             # either case skip this state and try the next.
             continue
-        score, flex_ratio = viability_rater.score_team(variant, format_mode)
+        score, flex_ratio = viability_rater.score_team(
+            variant, format_mode, archetype=archetype,
+        )
         explanation = viability_rater.generate_explanation(variant, score)
         variant = variant.model_copy(
-            update={"score": score, "score_explanation": explanation, "lead_flexibility_ratio": flex_ratio}
+            update={
+                "score": score,
+                "score_explanation": explanation,
+                # Phase 3 §11 rename — internal field stores the same
+                # 0..1 viable-combos ratio under the new name.
+                "core_flexibility_ratio": flex_ratio,
+                "archetype": archetype,
+            }
         )
         variants.append(variant)
         if len(variants) >= num_variants:
@@ -707,6 +948,7 @@ def _build_variant(
     *,
     anchor_mega: MegaForm | None = None,
     format_mode: str = "bo1",
+    archetype: str = "balance",
 ) -> TeamVariant:
     members_roles = [role_map.get(p.name, assign_role(p)) for p in team]
 
@@ -721,12 +963,15 @@ def _build_variant(
     ]
 
     # 1. Pre-compute a preview moveset per Pokemon so item activation
-    #    predicates (Throat Spray needs sound, White Herb needs stat-drop,
-    #    Weakness Policy must avoid setup) can read the actual moves
-    #    instead of guessing from the full learnset.
+    #    predicates (White Herb needs stat-drop, and any future moveset-aware
+    #    items) can read the actual moves instead of guessing from the
+    #    full learnset.
     preview_moves = [
         replica_exporter.select_moves_for_role(
-            pokemon, roles, meta_moves=meta_moves_by_member[i], format_mode=format_mode
+            pokemon, roles,
+            meta_moves=meta_moves_by_member[i],
+            format_mode=format_mode,
+            archetype=archetype,
         )
         for i, (pokemon, roles) in enumerate(zip(team, members_roles))
     ]
@@ -747,7 +992,6 @@ def _build_variant(
     members: list[TeamMember] = []
     for idx, (pokemon, roles, item) in enumerate(zip(team, members_roles, items)):
         primary = roles[0] if roles else "physical_sweeper"
-        sp = suggest_sp_distribution(pokemon, primary)
         # The anchor mega contributes its own ability and stat block. The
         # SP template is already keyed off the mega-driven role above, so
         # the spread targets the mega's offensive profile.
@@ -756,24 +1000,45 @@ def _build_variant(
         else:
             ability = _pick_ability(pokemon)
         moves = replica_exporter.select_moves_for_role(
-            pokemon, roles, item=item, meta_moves=meta_moves_by_member[idx], format_mode=format_mode
+            pokemon, roles,
+            item=item,
+            meta_moves=meta_moves_by_member[idx],
+            format_mode=format_mode,
+            archetype=archetype,
         )
         nature = _derive_nature(primary, roles, moves)
-        members.append(
-            TeamMember(
-                pokemon=pokemon,
-                role=roles,
-                sp_distribution=sp,
-                item=item,
-                ability=ability,
-                nature=nature,
-                moves=moves,
-                mega_form=anchor_mega if idx == 0 else None,
-            )
+        # Phase 3 §9.6: default export uses the offensive preset, so we
+        # store it on `sp_distribution` here. Template-based suggestion
+        # remains as the fallback if the preset builder fails for any
+        # reason (e.g. unknown nature, malformed item) — generation MUST
+        # NOT crash because of EV-preset corner cases.
+        template_sp = suggest_sp_distribution(pokemon, primary)
+        member = TeamMember(
+            pokemon=pokemon,
+            role=roles,
+            sp_distribution=template_sp,
+            item=item,
+            ability=ability,
+            nature=nature,
+            moves=moves,
+            mega_form=anchor_mega if idx == 0 else None,
         )
+        try:
+            from pokemon_team_builder.services import sp_preset_builder
+            presets = sp_preset_builder.build_presets(member, item, nature)
+            member = member.model_copy(
+                update={"sp_distribution": presets["offensive"].to_sp_distribution()}
+            )
+        except Exception as exc:
+            _logger.warning(
+                "sp_preset_builder failed for %s (item=%r nature=%r): %s — "
+                "falling back to role template",
+                pokemon.name, item, nature, exc,
+            )
+        members.append(member)
     if len(members) != 6:
         raise ValueError("Team must have exactly 6 members.")
-    return TeamVariant(members=members)
+    return TeamVariant(members=members, archetype=archetype)
 
 
 def _default_pool_loader(anchor: PokemonData) -> list[PokemonData]:

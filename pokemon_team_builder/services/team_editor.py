@@ -51,12 +51,19 @@ def apply_edit(variant: TeamVariant, member_index: int, edit: EditDict) -> TeamV
     new_members[member_index] = updated
     new_variant = variant.model_copy(update={"members": new_members})
 
-    score, flex = viability_rater.score_team(new_variant)
+    # Preserve the original variant's archetype so an edit doesn't
+    # silently relabel a hyper_offense team as balance. The rater honors
+    # the archetype's weight matrix, so passing it explicitly keeps the
+    # post-edit score on the same scale as the original.
+    score, flex = viability_rater.score_team(
+        new_variant, archetype=variant.archetype,
+    )
     explanation = viability_rater.generate_explanation(new_variant, score)
     return new_variant.model_copy(update={
         "score": score,
         "score_explanation": explanation,
-        "lead_flexibility_ratio": flex,
+        # Phase 3 §11 rename (BREAKING) — replaces lead_flexibility_ratio.
+        "core_flexibility_ratio": flex,
     })
 
 
