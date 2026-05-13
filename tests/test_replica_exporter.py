@@ -71,11 +71,11 @@ def _basic_variant() -> TeamVariant:
         for i in range(6)
     ]
     items = [
-        "Weakness Policy",
+        "Choice Band",
         "Focus Sash",
         "Sitrus Berry",
         "Leftovers",
-        "Rocky Helmet",
+        "Eviolite",
         "Choice Scarf",
     ]
     members = [
@@ -126,7 +126,7 @@ def test_sp_values_written_raw() -> None:
     )
     member = _mk_member(
         pokemon,
-        item="Weakness Policy",
+        item="Choice Band",
         nature="Jolly",
         moves=["protect", "earthquake", "dragon-claw", "swords-dance"],
         sp=SPDistribution.model_validate({"atk": 32, "spe": 32, "hp": 2}),

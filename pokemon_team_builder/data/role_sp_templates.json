@@ -1,4 +1,5 @@
 {
+  "_meta": {"regulation": "M-A", "data_version": 1, "note": "Role SP templates (66-SP system). _meta is a reserved key — loaders MUST skip it when iterating roles."},
   "physical_sweeper":  {"atk": 32, "spe": 32, "hp": 2},
   "special_sweeper":   {"spa": 32, "spe": 32, "hp": 2},
   "physical_wall":     {"hp": 32, "def": 32, "spd": 2},

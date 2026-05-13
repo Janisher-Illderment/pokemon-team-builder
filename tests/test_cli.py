@@ -55,7 +55,7 @@ def _mk_member(p: PokemonData, item: str) -> TeamMember:
 
 def _stub_variant(anchor: PokemonData) -> TeamVariant:
     members = [_mk_member(anchor, "Choice Band")]
-    items = ["Focus Sash", "Sitrus Berry", "Assault Vest", "Rocky Helmet", "Life Orb"]
+    items = ["Focus Sash", "Sitrus Berry", "Assault Vest", "Eviolite", "Leftovers"]
     for i, item in enumerate(items):
         # Reuse the same Pokemon shape for the stub fillers; the CLI tests
         # don't validate Item Clause / Species Clause from the stub.

@@ -16,11 +16,11 @@
 - **THEN** `_DEFAULT_ITEM_BY_ROLE` is populated from `champions_legal_items.json` with the in-code constant retained only as a fallback if the file is missing
 
 ### Requirement: Item Clause enforced as hard rejection
-Item duplication across a generated team SHALL be a **hard rejection**, not a scoring penalty. Beam search SHALL prune any partial team where two members hold the same item before partial scoring runs. `_assign_items` SHALL raise `TeamBuildError` if no legal-item assignment is possible without duplication.
+Item duplication across a generated team SHALL be a **hard rejection**, not a scoring penalty. Items are assigned post-beam-search inside `_build_variant`; if `_assign_items` cannot produce 6 distinct legal items for a given beam-state pokémon roster, the variant SHALL be dropped and the next beam state SHALL be tried. `score_team` SHALL NOT receive any variant with duplicate items.
 
-#### Scenario: Duplicate item discarded before scoring
-- **WHEN** beam search expansion produces a partial team with two members holding Choice Scarf
-- **THEN** the partial team is pruned and not passed to `_partial_score`
+#### Scenario: Variant assembly discards duplicate-item team
+- **WHEN** `_build_variant` runs item assignment on a beam-search output and `_assign_items` cannot produce 6 distinct legal items
+- **THEN** the variant is dropped and never passed to `score_team`; the orchestrator tries the next beam state
 
 #### Scenario: Item Clause failure on saturated pool
 - **WHEN** `_assign_items` cannot assign 6 distinct items because the legal pool is exhausted

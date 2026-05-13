@@ -26,6 +26,10 @@ def _load_type_chart() -> dict[str, dict[str, float]]:
         raise PokeAPIError("type_chart.json: estructura raiz invalida.")
     chart: dict[str, dict[str, float]] = {}
     for attacker, row in raw.items():
+        if attacker.startswith("_"):
+            # Reserved metadata keys (e.g. ``_meta`` carrying regulation /
+            # data_version). Skip — not a real attacker type.
+            continue
         if not isinstance(row, dict):
             raise PokeAPIError(
                 f"type_chart.json: fila invalida para '{attacker}'."

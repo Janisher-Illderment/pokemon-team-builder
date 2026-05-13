@@ -95,7 +95,7 @@ def _balanced_variant() -> TeamVariant:
         "Leftovers",
         "Sitrus Berry",
         "Assault Vest",
-        "Rocky Helmet",
+        "Eviolite",
     ]
     members = [
         _mk_member(p, item=item) for p, item in zip(pokemons, items)
@@ -116,7 +116,7 @@ def _weak_variant() -> TeamVariant:
     members = [
         _mk_member(
             p,
-            item="Life Orb",  # all the same → kills item diversity points
+            item="Choice Scarf",  # all the same → kills item diversity points
             moves=["protect", "tackle", "scald", "wing-attack"],
         )
         for p in pokemons

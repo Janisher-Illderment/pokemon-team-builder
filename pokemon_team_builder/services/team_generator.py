@@ -1,10 +1,17 @@
 from __future__ import annotations
 
 import json
+import logging
 from functools import lru_cache
 from typing import Callable, Iterable
 
+from pathlib import Path
+
+_logger = logging.getLogger(__name__)
+
 from pokemon_team_builder.config import (
+    CHAMPIONS_LEGAL_ITEMS_FILE,
+    DATA_DIR,
     MAX_SP_TOTAL,
     ROLE_SP_TEMPLATES_FILE,
 )
@@ -33,25 +40,26 @@ from pokemon_team_builder.services.synergy_engine import (
 _meta_service = MetaService()
 
 
-_DEFAULT_ITEM_BY_ROLE: dict[str, str] = {
-    # Champions-confirmed. NOT in Champions: Choice Band, Choice Specs,
-    # Assault Vest, Life Orb, Eject Button, Safety Goggles, Covert Cloak,
-    # Adrenaline Orb. (Weakness Policy, Throat Spray, Rocky Helmet, Clear
-    # Amulet ARE confirmed in Champions as of Reg M-A.)
-    "physical_sweeper": "Weakness Policy",
-    "special_sweeper": "Throat Spray",
-    "physical_wall": "Rocky Helmet",
+# Default item by role. Champions Reg M-A legal items only — Weakness Policy,
+# Throat Spray, Rocky Helmet, and Life Orb are NOT in the M-A pool (Inte v2
+# cross-checked: Game8, Serebii, TheGamer, NintendoEverything, Smogon, VGC).
+# Source: champions_legal_items.json (data_version 1).
+# Provisional replacements per spec: physical_sweeper → Choice Band,
+# special_sweeper → Choice Specs, physical_wall → Leftovers.
+_DEFAULT_ITEM_BY_ROLE_FALLBACK: dict[str, str] = {
+    "physical_sweeper": "Choice Band",
+    "special_sweeper": "Choice Specs",
+    "physical_wall": "Leftovers",
     "special_wall": "Leftovers",
     "lead_support": "Focus Sash",
     "trick_room_setter": "Mental Herb",
     "redirect": "Clear Amulet",
 }
 _FALLBACK_ITEM = "Choice Scarf"
-# Champions-legal backup items (Serebii/MetaVGC confirmed). Order is
-# preference: utility items first (≥10), then type-boosting items so that
-# even six same-role mons can each receive a distinct, importable item.
-# Items in _DEFAULT_ITEM_BY_ROLE are excluded to avoid duplication.
-_BACKUP_ITEMS: tuple[str, ...] = (
+# Champions-legal backup pool (utility first, type-boosters last) — kept as a
+# fallback when champions_legal_items.json is missing or unparsable. The JSON
+# is the authoritative source; this constant just prevents a cold-start crash.
+_BACKUP_ITEMS_FALLBACK: tuple[str, ...] = (
     "Sitrus Berry",
     "Lum Berry",
     "Scope Lens",
@@ -64,6 +72,14 @@ _BACKUP_ITEMS: tuple[str, ...] = (
     "King's Rock",
     "Bright Powder",
     "Quick Claw",
+    "Assault Vest",
+    "Eviolite",
+    "Safety Goggles",
+    "Light Clay",
+    "Covert Cloak",
+    "Booster Energy",
+    "Mirror Herb",
+    "Loaded Dice",
     "Mystic Water",
     "Charcoal",
     "Magnet",
@@ -83,6 +99,83 @@ _BACKUP_ITEMS: tuple[str, ...] = (
     "Silk Scarf",
     "Fairy Feather",
 )
+
+
+@lru_cache(maxsize=1)
+def _load_champions_legal_items() -> tuple[frozenset[str], int]:
+    """Return ``(legal_item_names, data_version)``.
+
+    Reads ``champions_legal_items.json`` if present; on any failure falls
+    back to the in-code constants below — same shape (frozenset + version 0)
+    so callers don't need a None branch.
+    """
+    path: Path = CHAMPIONS_LEGAL_ITEMS_FILE  # type: ignore[name-defined]
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            raw = json.load(f)
+        items = raw.get("items", [])
+        names = frozenset(entry["name"] for entry in items if "name" in entry)
+        version = int(raw.get("data_version", 0))
+        return names, version
+    except Exception as exc:
+        _logger.warning(
+            "champions_legal_items.json load failed (%s: %s) at %s — using fallback pool with data_version=0",
+            type(exc).__name__, exc, path,
+        )
+        fallback = (
+            set(_DEFAULT_ITEM_BY_ROLE_FALLBACK.values())
+            | set(_BACKUP_ITEMS_FALLBACK)
+            | {_FALLBACK_ITEM}
+        )
+        return frozenset(fallback), 0
+
+
+@lru_cache(maxsize=1)
+def _build_default_item_by_role() -> dict[str, str]:
+    """Return the active role → default-item map.
+
+    Currently identical to ``_DEFAULT_ITEM_BY_ROLE_FALLBACK`` because the
+    JSON only carries the legal-pool inventory, not the role mapping. This
+    indirection keeps the call sites stable for when the role map graduates
+    to JSON.
+    """
+    return dict(_DEFAULT_ITEM_BY_ROLE_FALLBACK)
+
+
+@lru_cache(maxsize=1)
+def _build_backup_items() -> tuple[str, ...]:
+    """Return the backup item pool, sourced from JSON when available.
+
+    Backup pool = champions_legal_items.json items, excluding the role-
+    default items and the fallback (Choice Scarf). Order: utility first
+    (alphabetical within category), type_boost last. The JSON is the
+    authority; if it fails to load we use the in-code fallback so the
+    generator still works offline.
+    """
+    legal, _ = _load_champions_legal_items()
+    if not legal:
+        return _BACKUP_ITEMS_FALLBACK
+    defaults = set(_build_default_item_by_role().values()) | {_FALLBACK_ITEM}
+    # Preserve the ordering of _BACKUP_ITEMS_FALLBACK for any item that
+    # appears in both; append JSON-only items at the end. This keeps the
+    # competitive ordering we already had (utility before type-boost).
+    ordered: list[str] = []
+    seen: set[str] = set()
+    for item in _BACKUP_ITEMS_FALLBACK:
+        if item in legal and item not in defaults and item not in seen:
+            ordered.append(item)
+            seen.add(item)
+    for item in legal:
+        if item not in defaults and item not in seen:
+            ordered.append(item)
+            seen.add(item)
+    return tuple(ordered)
+
+
+# Public accessors — call-sites read these names so the loading is lazy
+# and the JSON cache is shared.
+_DEFAULT_ITEM_BY_ROLE: dict[str, str] = _build_default_item_by_role()
+_BACKUP_ITEMS: tuple[str, ...] = _build_backup_items()
 
 _SITUATIONAL_ABILITIES: frozenset[str] = frozenset({
     "sand-veil", "snow-cloak", "swift-swim", "chlorophyll",
@@ -108,7 +201,8 @@ _CHOICE_ITEMS: frozenset[str] = frozenset(
     {"Choice Scarf", "Choice Band", "Choice Specs"}
 )
 
-# Mirrors replica_exporter._SETUP_MOVES — needed for Weakness Policy predicate.
+# Mirrors replica_exporter._SETUP_MOVES — used by the Choice-item + setup-move
+# guard so a Choice-locked attacker doesn't get a useless setup move in slot 4.
 _SETUP_MOVES: frozenset[str] = frozenset({
     "nasty-plot", "calm-mind", "tail-glow",
     "swords-dance", "dragon-dance", "bulk-up",
@@ -182,6 +276,10 @@ def _load_sp_templates() -> dict[str, dict[str, int]]:
         raise ValueError("role_sp_templates.json: estructura raiz invalida.")
     out: dict[str, dict[str, int]] = {}
     for role, template in raw.items():
+        if role.startswith("_"):
+            # Reserved metadata keys (e.g. ``_meta`` carrying regulation /
+            # data_version). Skip — not a real role.
+            continue
         if not isinstance(template, dict):
             continue
         out[role] = {k: int(v) for k, v in template.items()}
@@ -379,15 +477,10 @@ _ITEM_PRECONDITIONS_MOVESET: dict[str, Callable[[PokemonData, list[str] | None],
     "White Herb": lambda p, moves: any(
         m in _STAT_DROP_MOVES for m in (moves if moves is not None else p.move_names)
     ),
-    # Throat Spray boosts Special Attack on sound moves. Skip if no sound move.
-    "Throat Spray": lambda p, moves: any(
-        m in _SOUND_MOVES for m in (moves if moves is not None else p.move_names)
-    ),
-    # Weakness Policy activates on super-effective hits — redundant if the
-    # holder already has a setup move (which already boosts the relevant stat).
-    "Weakness Policy": lambda p, moves: not any(
-        m in _SETUP_MOVES for m in (moves if moves is not None else p.move_names)
-    ),
+    # NOTE: Throat Spray and Weakness Policy preconditions removed in v0.3
+    # (refine-build-logic-v2) — those items are NOT in the Champions Reg M-A
+    # legal pool. If meta-service returns them for a member they will be
+    # filtered upstream by the legal-items check, never reaching this map.
 }
 
 
@@ -460,11 +553,17 @@ def _assign_items(
         moves_for_i = preview_moves[i] if preview_moves is not None else None
 
         # Try meta items first (ranked by usage), subject to all existing guards.
+        # Filter against the Champions M-A legal pool so meta items like
+        # Life Orb / Weakness Policy (legal elsewhere, banned in M-A) never
+        # leak into a generated team.
+        legal_items, _ = _load_champions_legal_items()
         candidate: str | None = None
         meta_items = meta_items_by_member[i] if meta_items_by_member is not None else []
         for meta_item in meta_items:
             if meta_item in used:
                 continue
+            if legal_items and meta_item not in legal_items:
+                continue  # not Champions M-A legal
             if set(roles) & _NO_CHOICE_ROLES and meta_item in _CHOICE_ITEMS:
                 continue
             if members is not None and not _item_is_activatable(
@@ -509,9 +608,10 @@ def _assign_items(
                         break
             if chosen is None:
                 raise TeamBuildError(
-                    "Item Clause: el pool de items reales se agoto antes "
-                    "de asignar un item distinto a cada miembro del equipo. "
-                    "Amplia _BACKUP_ITEMS en team_generator."
+                    "Item Clause: pool insuficiente para 6 items unicos. "
+                    "El pool de Champions M-A legales (champions_legal_items.json) "
+                    "se agoto antes de asignar items distintos a todos los miembros. "
+                    "Amplia el pool o reduce el numero de Pokemon del mismo rol."
                 )
             candidate = chosen
         used.add(candidate)
@@ -721,9 +821,9 @@ def _build_variant(
     ]
 
     # 1. Pre-compute a preview moveset per Pokemon so item activation
-    #    predicates (Throat Spray needs sound, White Herb needs stat-drop,
-    #    Weakness Policy must avoid setup) can read the actual moves
-    #    instead of guessing from the full learnset.
+    #    predicates (White Herb needs stat-drop, and any future moveset-aware
+    #    items) can read the actual moves instead of guessing from the
+    #    full learnset.
     preview_moves = [
         replica_exporter.select_moves_for_role(
             pokemon, roles, meta_moves=meta_moves_by_member[i], format_mode=format_mode

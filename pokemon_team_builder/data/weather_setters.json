@@ -1,0 +1,42 @@
+{
+  "regulation": "M-A",
+  "data_version": 1,
+  "note": "Champions M-A weather setters by weather type. Ability-based setters dominate the meta; move-based setters tracked separately with lower priority. Inte v1 verified HIGH confidence.",
+  "setters": {
+    "sun": {
+      "ability_setters": [
+        {"pokemon": "torkoal",        "ability": "drought"}
+      ],
+      "move_setters": [
+        {"move": "sunny-day", "available_to": "any"}
+      ]
+    },
+    "rain": {
+      "ability_setters": [
+        {"pokemon": "pelipper",       "ability": "drizzle"}
+      ],
+      "move_setters": [
+        {"move": "rain-dance", "available_to": "any"}
+      ]
+    },
+    "sand": {
+      "ability_setters": [
+        {"pokemon": "tyranitar",      "ability": "sand-stream"},
+        {"pokemon": "hippowdon",      "ability": "sand-stream"}
+      ],
+      "move_setters": [
+        {"move": "sandstorm", "available_to": "any"}
+      ]
+    },
+    "snow": {
+      "ability_setters": [
+        {"pokemon": "ninetales-alola","ability": "snow-warning"},
+        {"pokemon": "abomasnow",      "ability": "snow-warning"},
+        {"pokemon": "froslass-mega",  "ability": "snow-warning", "mega_only": true}
+      ],
+      "move_setters": [
+        {"move": "snowscape", "available_to": "any"}
+      ]
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "regulation": "M-A",
+  "data_version": 1,
+  "note": "Abilities that require a specific weather to be active to gain their primary effect. Inte v1 verified HIGH confidence (Bulbapedia + StrataDex + Game8).",
+  "abilities": {
+    "chlorophyll":     {"weather": "sun",  "effect": "speed"},
+    "solar-power":     {"weather": "sun",  "effect": "special_attack"},
+    "leaf-guard":      {"weather": "sun",  "effect": "status_immunity"},
+    "flower-gift":     {"weather": "sun",  "effect": "attack_specialdef"},
+    "orichalcum-pulse":{"weather": "sun",  "effect": "attack"},
+    "protosynthesis":  {"weather": "sun",  "effect": "highest_stat"},
+    "harvest":         {"weather": "sun",  "effect": "berry_recycle"},
+    "swift-swim":      {"weather": "rain", "effect": "speed"},
+    "dry-skin":        {"weather": "rain", "effect": "healing"},
+    "hydration":       {"weather": "rain", "effect": "status_cure"},
+    "rain-dish":       {"weather": "rain", "effect": "healing"},
+    "sand-rush":       {"weather": "sand", "effect": "speed"},
+    "sand-force":      {"weather": "sand", "effect": "power"},
+    "sand-veil":       {"weather": "sand", "effect": "evasion"},
+    "slush-rush":      {"weather": "snow", "effect": "speed"},
+    "ice-body":        {"weather": "snow", "effect": "healing"},
+    "snow-cloak":      {"weather": "snow", "effect": "evasion"},
+    "ice-face":        {"weather": "snow", "effect": "form_restore"}
+  }
+}

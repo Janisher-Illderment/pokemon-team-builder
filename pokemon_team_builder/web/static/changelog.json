@@ -1,5 +1,18 @@
 [
   {
+    "version": "0.7.0-phase1",
+    "date": "2026-05-13",
+    "highlights": "Refine build logic v2 — Phase 1: static data + 66-SP calculator + items pool limpio",
+    "changes": [
+      { "type": "fix", "text": "Item pool Champions M-A corregido: Weakness Policy, Throat Spray, Rocky Helmet y Life Orb removidos del generador (Inte v2 cross-check confirmó NO están en M-A); reemplazos: physical_sweeper → Choice Band, special_sweeper → Choice Specs, physical_wall → Leftovers" },
+      { "type": "feat", "text": "Item pool ahora se carga desde champions_legal_items.json (data_version 1) — meta items ilegales (Life Orb) se filtran antes de asignar" },
+      { "type": "feat", "text": "Item Clause hard-reject: TeamBuildError explícito si el pool legal se agota antes de asignar 6 items distintos" },
+      { "type": "feat", "text": "Nuevo módulo services/sp_calc.py: stat formula canónica 66-SP + nature jumps detection + optimal_sp_for_target (base para multi-preset builder en Phase 3)" },
+      { "type": "feat", "text": "Static data nuevos (versionados, data_version 1): weather_dependent_abilities.json, weather_setters.json, archetype_weights.json, ability_implicit_roles.json — consumidos por Phase 2/3" },
+      { "type": "feat", "text": "Versioning log al boot: una línea estructurada por archivo data versionado para trazabilidad de provenance" }
+    ]
+  },
+  {
     "version": "0.6.1",
     "date": "2026-05-11",
     "highlights": "Import top teams ahora propaga SPs (spread sugerido por rol)",

@@ -14,6 +14,11 @@ else:
 LEGAL_POOL_FILE = DATA_DIR / "legal_pool_mA.json"
 TYPE_CHART_FILE = DATA_DIR / "type_chart.json"
 ROLE_SP_TEMPLATES_FILE = DATA_DIR / "role_sp_templates.json"
+CHAMPIONS_LEGAL_ITEMS_FILE = DATA_DIR / "champions_legal_items.json"
+WEATHER_DEPENDENT_ABILITIES_FILE = DATA_DIR / "weather_dependent_abilities.json"
+WEATHER_SETTERS_FILE = DATA_DIR / "weather_setters.json"
+ARCHETYPE_WEIGHTS_FILE = DATA_DIR / "archetype_weights.json"
+ABILITY_IMPLICIT_ROLES_FILE = DATA_DIR / "ability_implicit_roles.json"
 MAX_SP_TOTAL = 66
 MAX_SP_STAT = 32
 POKEAPI_BASE = "https://pokeapi.co/api/v2"

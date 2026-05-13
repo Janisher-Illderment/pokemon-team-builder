@@ -208,7 +208,7 @@ def test_analyze_matchup_unknown_threat_returns_422():
 # ---------------------------------------------------------------------------
 
 _MEMBER_NAMES = ["mon1", "mon2", "mon3", "mon4", "mon5", "mon6"]
-_MEMBER_ITEMS = ["Sitrus Berry", "Lum Berry", "Focus Sash", "Rocky Helmet", "Leftovers", "Mental Herb"]
+_MEMBER_ITEMS = ["Sitrus Berry", "Lum Berry", "Focus Sash", "Eviolite", "Leftovers", "Mental Herb"]
 
 
 def _basic_member_in(name: str, item: str, idx: int = 0) -> dict:
