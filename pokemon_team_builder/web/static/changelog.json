@@ -1,5 +1,21 @@
 [
   {
+    "version": "0.9.0-phase3",
+    "date": "2026-05-13",
+    "highlights": "Refine build logic v2 — Phase 3: weather synergy + speed control + SP presets + bo3 core rename + meta versioning",
+    "changes": [
+      { "type": "feat", "text": "Weather synergy scoring: +3 cuando un miembro con habilidad weather-dependent comparte equipo con un setter compatible (Excadrill+Tyranitar, Venusaur+Torkoal); +2 cuando hay setter pero el miembro solo se beneficia pasivamente (Hurricane/Solar Beam/Blizzard). Amplificado por archetype_weights.weather_synergy (weather_based ≥1.5; stall = 0)" },
+      { "type": "feat", "text": "Speed control mandatorio: equipos sin Tailwind/Trick Room/Icy Wind/Electroweb/Thunder Wave/Glare/Nuzzle/Stun Spore/Sticky Web/Fake Out/Quick Guard reciben -15 puntos (Static/Cute Charm dan medio crédito; stall exento). VariantOut.requires_speed_control flag para UI" },
+      { "type": "feat", "text": "SP presets Champions 66-cap: services/sp_preset_builder.build_presets() retorna {offensive, defensive} por miembro con max 32/stat. Item-aware: Choice Band invierte menos atk + más speed; Eviolite NFE libera defensas para offense; Assault Vest invierte en Def en lugar de SpD" },
+      { "type": "feat", "text": "Nature jumps en runtime via sp_calc.find_nature_jumps — no hay nature_jumps.json estático; el optimiser detecta +2 jumps por (pokémon, stat, nature) y baja la SP allocation al jump value, redistribuyendo SPs sobrantes a HP" },
+      { "type": "feat", "text": "Cada MemberOut incluye sp_presets:{offensive,defensive} para UI toggle (Phase 4 lo consume)" },
+      { "type": "fix", "text": "BREAKING: VariantOut.lead_flexibility_score renombrado a VariantOut.core_flexibility_score (Bo3 mode). UI: badge 'Flex: X%' → 'Núcleo flex: X%'. TeamVariant.lead_flexibility_ratio → core_flexibility_ratio internamente. _lead_flexibility_points → _core_flexibility_points" },
+      { "type": "feat", "text": "VariantOut.meta_versions: dict con data_version de cada archivo estático (legal_pool, items, weather, archetype_weights, sp_mechanics, ability_roles, mega_evolutions, doubles_roles, type_chart, role_sp_templates) — provenance trazable" },
+      { "type": "feat", "text": "GET /health expone meta_versions para verificar qué meta cargó la app sin generar equipo" },
+      { "type": "feat", "text": "Nuevo data loader services/weather_data_loader: lru_cache para weather_dependent_abilities.json + weather_setters.json (datos Phase 1, Inte HIGH confidence)" }
+    ]
+  },
+  {
     "version": "0.8.0-phase2b",
     "date": "2026-05-13",
     "highlights": "Refine build logic v2 — Phase 2b: favorite-first build flow + strategy archetype selector",

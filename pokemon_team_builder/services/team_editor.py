@@ -62,7 +62,8 @@ def apply_edit(variant: TeamVariant, member_index: int, edit: EditDict) -> TeamV
     return new_variant.model_copy(update={
         "score": score,
         "score_explanation": explanation,
-        "lead_flexibility_ratio": flex,
+        # Phase 3 §11 rename (BREAKING) — replaces lead_flexibility_ratio.
+        "core_flexibility_ratio": flex,
     })
 
 

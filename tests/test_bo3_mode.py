@@ -5,7 +5,7 @@ from pokemon_team_builder.domain.models import (
     BaseStats, PokemonData, SPDistribution, TeamMember, TeamVariant,
 )
 from pokemon_team_builder.services.viability_rater import (
-    _lead_flexibility_points,
+    _core_flexibility_points,
     _core_diversity_points,
     score_team,
 )
@@ -52,33 +52,33 @@ def _six_members(overrides: dict[int, TeamMember] | None = None) -> list[TeamMem
     return base
 
 
-# ── lead flexibility ──────────────────────────────────────────────────────────
+# ── core flexibility (Phase 3 §11 rename: lead → core) ────────────────────────
 
-def test_lead_flexibility_all_speed_control():
+def test_core_flexibility_all_speed_control():
     members = [
         _make_member(f"mon{i}", ["lead_support"], moves=["tailwind", "tackle", "growl", "roost"])
         for i in range(6)
     ]
-    ratio, pts = _lead_flexibility_points(members)
+    ratio, pts = _core_flexibility_points(members)
     assert ratio == pytest.approx(1.0)
     assert pts == pytest.approx(25.0)
 
 
-def test_lead_flexibility_none_viable():
+def test_core_flexibility_none_viable():
     members = [
         _make_member(f"mon{i}", ["physical_sweeper"], moves=["tackle", "scratch", "growl", "ember"])
         for i in range(6)
     ]
-    ratio, pts = _lead_flexibility_points(members)
+    ratio, pts = _core_flexibility_points(members)
     assert ratio == pytest.approx(0.0)
     assert pts == pytest.approx(0.0)
 
 
-def test_lead_flexibility_single_viable_member():
+def test_core_flexibility_single_viable_member():
     members = _six_members({
         0: _make_member("supporter", ["lead_support"], moves=["fake-out", "tackle", "growl", "roost"])
     })
-    ratio, pts = _lead_flexibility_points(members)
+    ratio, pts = _core_flexibility_points(members)
     # C(5,3)/C(6,4) = 10/15 combos include the viable member
     assert ratio == pytest.approx(10 / 15)
 

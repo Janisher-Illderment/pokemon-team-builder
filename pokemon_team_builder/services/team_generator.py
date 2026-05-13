@@ -874,7 +874,9 @@ def generate_team(
             update={
                 "score": score,
                 "score_explanation": explanation,
-                "lead_flexibility_ratio": flex_ratio,
+                # Phase 3 §11 rename — internal field stores the same
+                # 0..1 viable-combos ratio under the new name.
+                "core_flexibility_ratio": flex_ratio,
                 "archetype": archetype,
             }
         )

@@ -31,6 +31,19 @@ class GenerateRequest(BaseModel):
     archetype: Archetype = "balance"
 
 
+class SpReadOut(BaseModel):
+    """Phase 3 §9 — single SP preset (sums to 66, max 32 per stat)."""
+
+    hp: int = 0
+    atk: int = 0
+    def_: int = Field(default=0, alias="def")
+    spa: int = 0
+    spd: int = 0
+    spe: int = 0
+
+    model_config = {"populate_by_name": True}
+
+
 class MemberOut(BaseModel):
     name: str
     item: str
@@ -42,6 +55,10 @@ class MemberOut(BaseModel):
     ev_note: str = ""
     move_names: list[str] = []
     mega_form_id: str | None = None
+    # Phase 3 §9 — keyed dict ``{"offensive": SpReadOut, "defensive": SpReadOut}``.
+    # Empty dict for imported/edited variants that pre-date Phase 3 — UI
+    # falls back to the legacy ``sp_distribution`` field in that case.
+    sp_presets: dict[str, SpReadOut] = {}
 
 
 class VariantOut(BaseModel):
@@ -50,10 +67,18 @@ class VariantOut(BaseModel):
     pokepaste: str
     members: list[MemberOut]
     format_mode: str = "bo1"
-    lead_flexibility_score: float = 0.0
+    # Phase 3 §11 — renamed from ``lead_flexibility_score`` (BREAKING).
+    core_flexibility_score: float = 0.0
     # Phase 2b: echoes the archetype the team was generated under. The
     # UI uses this to render an archetype badge per variant.
     archetype: str = "balance"
+    # Phase 3 §10 — true when the team has no speed-control mechanism
+    # and archetype != "stall". UI renders a warning banner.
+    requires_speed_control: bool = False
+    # Phase 3 §13 — data-file versions baked into this team. Keys:
+    # legal_pool, items, weather, archetype_weights, sp_mechanics,
+    # ability_roles, meta_teams. Missing files default to 0.
+    meta_versions: dict[str, int] = {}
 
 
 class GenerateResponse(BaseModel):

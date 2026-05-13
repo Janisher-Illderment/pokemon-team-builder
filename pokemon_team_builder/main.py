@@ -21,6 +21,7 @@ from pokemon_team_builder.config import (
     WEATHER_SETTERS_FILE,
 )
 from pokemon_team_builder.services import sp_calc
+from pokemon_team_builder.services import meta_versions as _meta_versions_mod
 
 _logger = logging.getLogger("pokemon_team_builder.data_versions")
 _logger.setLevel(logging.INFO)
@@ -79,6 +80,11 @@ def _log_data_versions() -> None:
 
 
 _log_data_versions()
+# Phase 3 §13.2 — emit a single structured line summarising every data
+# file's version. The verbose per-file lines above remain for ops who
+# want to filter / grep individual files; this line is the canonical
+# "meta_versions" marker expected by the spec scenario.
+_logger.info("meta_versions=%s", _meta_versions_mod.collect())
 
 app = FastAPI(title="Pokemon Team Builder", version="0.2.0")
 

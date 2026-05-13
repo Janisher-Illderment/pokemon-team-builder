@@ -72,7 +72,13 @@ def _fake_variant(recommended: bool = False, score: float = 1.0) -> TeamVariant:
 def test_health_returns_200():
     res = client.get("/health")
     assert res.status_code == 200
-    assert res.json() == {"status": "ok"}
+    body = res.json()
+    assert body["status"] == "ok"
+    # Phase 3 §13: /health exposes loaded data versions.
+    assert "meta_versions" in body
+    assert isinstance(body["meta_versions"], dict)
+    # Sanity: at least the legal_pool version is reported.
+    assert "legal_pool" in body["meta_versions"]
 
 
 def test_generate_unknown_anchor_returns_422():
