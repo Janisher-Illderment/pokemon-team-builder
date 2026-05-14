@@ -35,6 +35,33 @@ function app() {
         const r = await fetch('/legal-pool');
         if (r.ok) { const d = await r.json(); this.legalPool = d.names || []; }
       } catch {}
+      // C3 light: pre-fill form from URL query params so SEO landing
+      // pages (/pokemon/{slug} and /archetype/{slug}) can CTA-link here
+      // with the user's intent already loaded. Supported params:
+      //   ?anchor=garchomp      → fills the anchor input
+      //   ?archetype=hyper_offense
+      //   ?format=bo1 | bo3
+      //   ?team_sheet=auto | open | closed
+      //   ?auto=1               → triggers generate() once form is ready
+      const params = new URLSearchParams(window.location.search);
+      const validArchetypes = new Set([
+        'balance', 'hyper_offense', 'hard_trick_room', 'bulky_offense',
+        'weather_based', 'stall', 'perish_trap',
+      ]);
+      const anchorParam = params.get('anchor');
+      if (anchorParam) this.anchor = anchorParam.trim().toLowerCase();
+      const archParam = params.get('archetype');
+      if (archParam && validArchetypes.has(archParam)) this.archetype = archParam;
+      const formatParam = params.get('format');
+      if (formatParam === 'bo1' || formatParam === 'bo3') this.format = formatParam;
+      const sheetParam = params.get('team_sheet');
+      if (sheetParam === 'auto' || sheetParam === 'open' || sheetParam === 'closed') {
+        this.teamSheet = sheetParam;
+      }
+      if (params.get('auto') === '1' && this.anchor) {
+        // Defer one tick so Alpine state is fully bound + form rendered.
+        setTimeout(() => this.generate(), 50);
+      }
       window.addEventListener('meta-prefill-import', (e) => {
         this.importPaste = e.detail.paste || '';
         this.importError = '';

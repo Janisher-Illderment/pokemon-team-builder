@@ -40,7 +40,7 @@
   </script>
 
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-  <link rel="stylesheet" href="style.css?v=20260514-5" />
+  <link rel="stylesheet" href="style.css?v=20260514-6" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -145,9 +145,17 @@
           placeholder="Anchor Pokémon (ej: garchomp)"
           autocomplete="off"
           spellcheck="false"
+          list="legal-pool-options"
           :disabled="loading"
           required
         />
+        <!-- HTML5 native autocomplete sourced from /legal-pool fetched
+             at init. Browser handles fuzzy matching + dropdown. -->
+        <datalist id="legal-pool-options">
+          <template x-for="name in legalPool" :key="name">
+            <option :value="name"></option>
+          </template>
+        </datalist>
         <label class="variants-label">
           Variantes
           <select x-model="variants" :disabled="loading">
@@ -188,6 +196,44 @@
           <span x-show="loading">Cargando…</span>
         </button>
       </form>
+
+      <!-- C3 light: Explora section — internal links to SEO landing pages.
+           Helps crawlers find /archetype/* and /pokemon/* + gives users
+           quick discovery paths into the generator. -->
+      <details class="explore-section" x-show="!loading && results.length === 0" open>
+        <summary>📚 Explora arquetipos y Pokémon populares</summary>
+        <div class="explore-body">
+          <div class="explore-group">
+            <h3>Arquetipos</h3>
+            <div class="explore-chips">
+              <a href="/archetype/balance" class="explore-chip">Balance</a>
+              <a href="/archetype/hyper_offense" class="explore-chip">Hiperofensivo</a>
+              <a href="/archetype/hard_trick_room" class="explore-chip">Trick Room</a>
+              <a href="/archetype/bulky_offense" class="explore-chip">Bulky Offense</a>
+              <a href="/archetype/weather_based" class="explore-chip">Weather</a>
+              <a href="/archetype/stall" class="explore-chip">Stall</a>
+              <a href="/archetype/perish_trap" class="explore-chip">Perish Trap</a>
+            </div>
+          </div>
+          <div class="explore-group">
+            <h3>Pokémon populares</h3>
+            <div class="explore-chips">
+              <a href="/pokemon/garchomp" class="explore-chip">Garchomp</a>
+              <a href="/pokemon/dragapult" class="explore-chip">Dragapult</a>
+              <a href="/pokemon/tyranitar" class="explore-chip">Tyranitar</a>
+              <a href="/pokemon/excadrill" class="explore-chip">Excadrill</a>
+              <a href="/pokemon/pelipper" class="explore-chip">Pelipper</a>
+              <a href="/pokemon/torkoal" class="explore-chip">Torkoal</a>
+              <a href="/pokemon/incineroar" class="explore-chip">Incineroar</a>
+              <a href="/pokemon/rillaboom" class="explore-chip">Rillaboom</a>
+              <a href="/pokemon/whimsicott" class="explore-chip">Whimsicott</a>
+              <a href="/pokemon/amoonguss" class="explore-chip">Amoonguss</a>
+              <a href="/pokemon/landorus-therian" class="explore-chip">Landorus-T</a>
+              <a href="/pokemon/heatran" class="explore-chip">Heatran</a>
+            </div>
+          </div>
+        </div>
+      </details>
 
       <p x-show="error" class="error-msg" x-text="error"></p>
 
