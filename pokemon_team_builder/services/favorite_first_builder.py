@@ -287,6 +287,8 @@ def build_core_duo(
     legal_pool: list[PokemonData],
     meta_service: MetaService,
     role_map: dict[str, list[str]],
+    *,
+    anchor_is_mega: bool = False,
 ) -> tuple[PokemonData, float]:
     """Pick the single best partner for ``anchor`` given ``archetype``.
 
@@ -296,11 +298,20 @@ def build_core_duo(
 
     Determinism: ties on synergy score are broken by ``(name, id)``
     ascending. Two calls with the same inputs return the same partner.
+
+    Mega Clause (Phase 4b hot-fix): when ``anchor_is_mega`` is True the
+    anchor already occupies the team's single mega slot, so any candidate
+    that *could* hold a Mega Stone is filtered out here — otherwise the
+    seed [mega_anchor, mega_partner, slot3] would have
+    ``_count_mega_potentials > 1`` and the beam search would prune every
+    possible expansion, producing 0 variants silently.
     """
     weights = get_weights(archetype)
 
     # Filter out the anchor itself; everything else is a candidate.
     candidates = [c for c in legal_pool if c.name != anchor.name]
+    if anchor_is_mega:
+        candidates = [c for c in candidates if not c.megas]
     if not candidates:
         raise ValueError(
             f"build_core_duo: legal_pool has no candidates other than "
@@ -332,6 +343,8 @@ def cover_shared_weakness(
     archetype: str,
     legal_pool: list[PokemonData],
     role_map: dict[str, list[str]],
+    *,
+    anchor_is_mega: bool = False,
 ) -> PokemonData:
     """Pick slot 3 — the member that best covers the *shared* weakness of
     ``core_duo``.
@@ -352,6 +365,11 @@ def cover_shared_weakness(
 
     chosen_names = {m.name for m in core_duo}
     candidates = [c for c in legal_pool if c.name not in chosen_names]
+    if anchor_is_mega:
+        # Phase 4b hot-fix: anchor already owns the team's single mega
+        # slot, so slot 3 candidates that could hold a Mega Stone would
+        # poison the seed and starve the beam-search expansion.
+        candidates = [c for c in candidates if not c.megas]
     if not candidates:
         raise ValueError(
             "cover_shared_weakness: legal_pool has no candidates left "

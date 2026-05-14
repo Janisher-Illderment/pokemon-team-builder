@@ -828,9 +828,11 @@ def generate_team(
     try:
         partner, _partner_score = favorite_first_builder.build_core_duo(
             anchor, archetype, candidates, _meta_service, role_map,
+            anchor_is_mega=anchor_mega is not None,
         )
         slot3 = favorite_first_builder.cover_shared_weakness(
             [anchor, partner], archetype, candidates, role_map,
+            anchor_is_mega=anchor_mega is not None,
         )
     except ValueError as exc:
         # Insufficient pool to form the duo / trio. Surface as a structured

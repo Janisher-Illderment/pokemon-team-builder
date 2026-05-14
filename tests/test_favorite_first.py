@@ -454,3 +454,96 @@ def test_beam_search_receives_3_member_seed() -> None:
     assert seed[0].name == anchor.name, (
         f"seed must start with the anchor; got {seed[0].name}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Phase 4b hot-fix: mega-anchor + mega-partner seed must not starve beam
+# ---------------------------------------------------------------------------
+
+def test_mega_anchor_partner_must_not_be_mega_capable() -> None:
+    """When anchor_is_mega=True, build_core_duo SHALL filter out candidates
+    with .megas non-empty. Regression for the silent-empty-variants bug
+    observed on master 2026-05-14: garchomp (mega) → aggron (mega) partner
+    poisoned the beam seed (_count_mega_potentials > 1) and starved every
+    expansion, returning HTTP 200 with variants=[].
+    """
+    garchomp = _mk(
+        "garchomp", ["ground", "dragon"],
+        atk=130, spe=102, hp=108,
+        abilities=["sand-veil"],
+        pid=445,
+    )
+    # Two equally-good candidates: one mega-capable, one not.
+    # Without the filter, aggron (mega-aggron exists) would win by raw
+    # type-complement score, poisoning the seed downstream.
+    aggron_mega = _mk(
+        "aggron", ["steel", "rock"],
+        hp=70, atk=110, def_=180, spa=60, spd=60, spe=50,
+        abilities=["sturdy"],
+        pid=306,
+    )
+    aggron_mega.megas.append(object())  # type: ignore[arg-type]  # sentinel: any non-empty
+    empoleon_no_mega = _mk(
+        "empoleon", ["water", "steel"],
+        hp=84, atk=86, def_=88, spa=111, spd=101, spe=60,
+        abilities=["torrent"],
+        pid=395,
+    )
+
+    pool = [aggron_mega, empoleon_no_mega]
+    role_map = _build_role_map(garchomp, *pool)
+
+    # anchor_is_mega=True → aggron filtered out, empoleon wins by default.
+    partner, _ = build_core_duo(
+        garchomp, "balance", pool, _StubMetaService(), role_map,
+        anchor_is_mega=True,
+    )
+    assert partner.name == "empoleon", (
+        f"with anchor_is_mega=True, mega-capable partner must be filtered; "
+        f"got {partner.name}"
+    )
+
+    # Same call with anchor_is_mega=False → aggron is eligible again.
+    partner_no_mega_lock, _ = build_core_duo(
+        garchomp, "balance", pool, _StubMetaService(), role_map,
+        anchor_is_mega=False,
+    )
+    assert partner_no_mega_lock.name in {"aggron", "empoleon"}, (
+        "without the mega-lock the picker should consider both"
+    )
+
+
+def test_mega_anchor_slot3_filters_mega_capable() -> None:
+    """Same regression for cover_shared_weakness: slot 3 must not poison
+    the seed with a second mega-capable member when the anchor is already
+    mega.
+    """
+    garchomp = _mk(
+        "garchomp", ["ground", "dragon"], atk=130, spe=102,
+        abilities=["sand-veil"], pid=445,
+    )
+    empoleon = _mk(
+        "empoleon", ["water", "steel"], spa=111, spd=101,
+        abilities=["torrent"], pid=395,
+    )
+    metagross_mega = _mk(
+        "metagross", ["steel", "psychic"], atk=135, def_=130,
+        abilities=["clear-body"], pid=376,
+    )
+    metagross_mega.megas.append(object())  # type: ignore[arg-type]
+    arcanine_no_mega = _mk(
+        "arcanine", ["fire"], atk=110, spa=100, spe=95,
+        abilities=["intimidate"], pid=59,
+    )
+
+    pool = [metagross_mega, arcanine_no_mega]
+    role_map = _build_role_map(garchomp, empoleon, *pool)
+
+    slot3 = cover_shared_weakness(
+        [garchomp, empoleon], "balance", pool, role_map,
+        anchor_is_mega=True,
+    )
+    assert slot3.name == "arcanine", (
+        f"with anchor_is_mega=True, mega-capable slot 3 must be filtered; "
+        f"got {slot3.name}"
+    )
