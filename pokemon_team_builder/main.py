@@ -87,7 +87,7 @@ _log_data_versions()
 # "meta_versions" marker expected by the spec scenario.
 _logger.info("meta_versions=%s", _meta_versions_mod.collect())
 
-app = FastAPI(title="Pokemon Team Builder", version="0.2.0")
+app = FastAPI(title="Pokemon Team Builder", version="0.10.0")
 
 app.add_middleware(
     CORSMiddleware,

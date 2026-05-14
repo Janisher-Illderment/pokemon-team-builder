@@ -1,6 +1,6 @@
 # pokemon-team-builder
 
-> **Champions VGC Doubles team builder · Regulation M-A · v0.9.0**
+> **Champions VGC Doubles team builder · Regulation M-A · v0.10.0**
 
 Generador de equipos competitivos para **Pokémon Champions** (formato Doubles, Regulation M-A). Web app + CLI. Construye equipos alrededor de tu Pokémon favorito con archetype selector, weather synergy, EV presets y análisis de matchups.
 
@@ -11,7 +11,15 @@ Generador de equipos competitivos para **Pokémon Champions** (formato Doubles, 
 
 ---
 
-## ✨ Features (v0.9.0)
+## ✨ Features (v0.10.0)
+
+### Nuevo en v0.10.0
+
+- **🎴 Toggle Carta abierta/cerrada** independiente de Bo1/Bo3. Auto-resuelve (Bo3 = abierta, Bo1 = cerrada) o override manual. Cheese moves bloqueados en carta abierta (multiplicador 0.5) incluso en `perish_trap`.
+- **🔍 Páginas SEO server-rendered**: `/pokemon/{slug}` y `/archetype/{slug}` (~210 URLs indexables). Cada página renderiza datos competitivos + Schema.org JSON-LD + CTA al generador pre-filled.
+- **🔗 Loop SEO cerrado**: home lee `?anchor=` `?archetype=` `?format=` `?team_sheet=` y pre-rellena form. Sección "Explora" en home con 7 archetypes + 12 Pokémon populares.
+- **🔤 Autocomplete nativo** en input de anchor (HTML5 datalist con 201 nombres legales).
+- **🧹 Backlog técnico 100% resuelto** (11 items Tecle DEFER cerrados: `_MOVE_TYPE` extraído, weather setter validation strict, mega-only flag respected, meta_service pre-fetch, `_partial_score` archetype-aware, ADRs documentados).
 
 ### Core generation
 
@@ -38,7 +46,7 @@ Generador de equipos competitivos para **Pokémon Champions** (formato Doubles, 
 - Selector archetype + format (Bo1/Bo3) + variants
 - Preset toggle por miembro (Ofensivo / Defensivo)
 - Speed control warning banner cuando aplica
-- "Núcleo flex" badge en Bo3 (renamed from "Lead" pre-v0.9.0)
+- "Núcleo flex" badge en Bo3 (renamed from "Lead" pre-v0.10.0)
 - Top Teams del Meta (LabMaus integration)
 - Torneos Próximos (geolocation + Leaflet map)
 - Import/Export PokePaste
@@ -170,7 +178,7 @@ uv run pytest --cov
 
 ---
 
-## 🔄 BREAKING changes en v0.9.0
+## 🔄 BREAKING changes en v0.10.0
 
 Ver [MIGRATION.md](MIGRATION.md) completo. Cambios principales:
 
@@ -185,7 +193,7 @@ Ver [MIGRATION.md](MIGRATION.md) completo. Cambios principales:
 
 Documentación de cambios en `openspec/changes/`:
 
-- `refine-build-logic-v2/` — release v0.9.0 (10 capabilities, 5 NEW + 5 MODIFIED) — MERGED 2026-05-14
+- `refine-build-logic-v2/` — release v0.10.0 (10 capabilities, 5 NEW + 5 MODIFIED) — MERGED 2026-05-14
 - Archivos `archive/` — cambios anteriores
 
 ---
