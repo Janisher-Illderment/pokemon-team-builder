@@ -40,7 +40,7 @@
   </script>
 
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-  <link rel="stylesheet" href="style.css?v=20260514-3" />
+  <link rel="stylesheet" href="style.css?v=20260514-4" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -527,47 +527,49 @@ Jolly Nature
       </div>
     </section>
 
-    <!-- Footer global compacto — disclaimer colapsable, links + BMC en
-         línea. Reduce dominio visual cuando aún no hay equipo generado. -->
-    <footer class="app-footer">
-      <div class="footer-disclaimer">
-        <details>
-          <summary>Fan-made tool — aviso legal</summary>
-          <p class="disclaimer-body">
-            <strong>Pokémon</strong> y todos los nombres, marcas e imágenes relacionados son
-            © Nintendo / Game Freak / The Pokémon Company. Herramienta fan-made NO oficial,
-            NO afiliada ni respaldada por ellos. Sprites derivative de Pokémon Showdown vía hot-link.
-            Datos competitivos = información factual + uso justo.
-          </p>
-        </details>
-      </div>
-
-      <p class="footer-links">
-        <a href="/terms.html">Términos</a> ·
-        <a href="/privacy.html">Privacidad</a> ·
-        <a href="https://github.com/Janisher-Illderment/pokemon-team-builder" target="_blank" rel="noopener noreferrer">GitHub</a>
-      </p>
-
-      <!-- Buy Me a Coffee placeholder. Replace href with real BMC URL when registered. -->
-      <div class="footer-support">
-        <span>¿Útil?</span>
-        <a class="bmc-button" href="https://www.buymeacoffee.com/PLACEHOLDER" target="_blank" rel="noopener noreferrer">
-          ☕ Apóyame
-        </a>
-      </div>
-
-      <!-- AdSense bottom slot placeholder. Uncomment + replace IDs when account approved.
-      <ins class="adsbygoogle"
-           style="display:block"
-           data-ad-client="ca-pub-PLACEHOLDER"
-           data-ad-slot="PLACEHOLDER"
-           data-ad-format="auto"
-           data-full-width-responsive="true"></ins>
-      <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
-      -->
-    </footer>
-
   </div><!-- end savedTeams wrapper -->
+
+  <!-- Footer global compacto. Moved OUT of .app-shell so it's a direct
+       body grid item — the body grid template "1fr auto" pins it to the
+       bottom of the viewport on empty-state and lets it flow naturally
+       when content overflows. -->
+  <footer class="app-footer">
+    <div class="footer-disclaimer">
+      <details>
+        <summary>Fan-made tool — aviso legal</summary>
+        <p class="disclaimer-body">
+          <strong>Pokémon</strong> y todos los nombres, marcas e imágenes relacionados son
+          © Nintendo / Game Freak / The Pokémon Company. Herramienta fan-made NO oficial,
+          NO afiliada ni respaldada por ellos. Sprites derivative de Pokémon Showdown vía hot-link.
+          Datos competitivos = información factual + uso justo.
+        </p>
+      </details>
+    </div>
+
+    <p class="footer-links">
+      <a href="/terms.html">Términos</a> ·
+      <a href="/privacy.html">Privacidad</a> ·
+      <a href="https://github.com/Janisher-Illderment/pokemon-team-builder" target="_blank" rel="noopener noreferrer">GitHub</a>
+    </p>
+
+    <!-- Buy Me a Coffee placeholder. Replace href with real BMC URL when registered. -->
+    <div class="footer-support">
+      <span>¿Útil?</span>
+      <a class="bmc-button" href="https://www.buymeacoffee.com/PLACEHOLDER" target="_blank" rel="noopener noreferrer">
+        ☕ Apóyame
+      </a>
+    </div>
+
+    <!-- AdSense bottom slot placeholder. Uncomment + replace IDs when account approved.
+    <ins class="adsbygoogle"
+         style="display:block"
+         data-ad-client="ca-pub-PLACEHOLDER"
+         data-ad-slot="PLACEHOLDER"
+         data-ad-format="auto"
+         data-full-width-responsive="true"></ins>
+    <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+    -->
+  </footer>
 
   <!-- Cookie banner — GDPR/LSSI-CE compliance. Renders only when consent
        is not already stored in localStorage. AdSense / Analytics should be
