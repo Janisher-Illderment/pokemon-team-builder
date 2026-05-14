@@ -11,10 +11,12 @@ body {
   display: flex;
   flex-direction: column;
 }
-/* The Alpine root wrapper holds header + main + sections + footer. It
-   must grow to fill the body so .app-footer's margin-top: auto pushes
-   it to the bottom on empty-state. */
-body > div[x-data] {
+/* The Alpine root wrapper (.app-shell) holds header + main + sections
+   + footer. It must grow to fill the body so .app-footer's
+   margin-top: auto pushes the footer to the bottom on empty-state.
+   Explicit class instead of [x-data] attribute selector — more robust
+   in case Alpine strips the attribute after init. */
+.app-shell {
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
@@ -615,11 +617,14 @@ main { max-width: 960px; margin: 0 auto; padding: 1.5rem 1rem; }
 
 .meta-section {
   margin: 1.5rem auto;
+  width: calc(100% - 2rem);
   max-width: 900px;
   border: 1px solid #334;
   border-radius: 10px;
   overflow: hidden;
   background: #1a1d2e;
+  align-self: center;
+  box-sizing: border-box;
 }
 
 .meta-toggle {
