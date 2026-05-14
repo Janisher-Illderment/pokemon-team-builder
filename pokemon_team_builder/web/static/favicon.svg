@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Pokeball — classic red top, white bottom, black equator + center button.
+       Colors lean toward our brand palette (red #ef4444, off-white #f8fafc). -->
+  <circle cx="32" cy="32" r="29" fill="#f8fafc" stroke="#1a1a1a" stroke-width="2.5"/>
+  <path d="M32 3 A29 29 0 0 1 61 32 L3 32 A29 29 0 0 1 32 3 Z" fill="#ef4444"/>
+  <rect x="3" y="29" width="58" height="6" fill="#1a1a1a"/>
+  <circle cx="32" cy="32" r="9" fill="#1a1a1a"/>
+  <circle cx="32" cy="32" r="5" fill="#f8fafc" stroke="#1a1a1a" stroke-width="1.5"/>
+</svg>
