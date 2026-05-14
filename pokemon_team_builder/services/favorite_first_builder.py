@@ -365,10 +365,17 @@ def cover_shared_weakness(
 
     chosen_names = {m.name for m in core_duo}
     candidates = [c for c in legal_pool if c.name not in chosen_names]
-    if anchor_is_mega:
-        # Phase 4b hot-fix: anchor already owns the team's single mega
-        # slot, so slot 3 candidates that could hold a Mega Stone would
-        # poison the seed and starve the beam-search expansion.
+    # Phase 4b hot-fix (extended): the beam-search mega clause requires
+    # ``_count_mega_potentials(seed, anchor_is_mega) <= 1``. Count what
+    # the seed already carries (anchor + partner) and, if that's already
+    # 1, filter out any mega-capable slot-3 candidate. Without this, a
+    # non-mega anchor (e.g. Raichu) paired with a mega-capable partner
+    # (e.g. Aerodactyl) plus a mega-capable slot 3 (e.g. Alakazam) would
+    # silently starve the beam expansion → 0 variants.
+    seed_mega_count = (1 if anchor_is_mega else 0) + sum(
+        1 for m in core_duo[1:] if m.megas
+    )
+    if seed_mega_count >= 1:
         candidates = [c for c in candidates if not c.megas]
     if not candidates:
         raise ValueError(

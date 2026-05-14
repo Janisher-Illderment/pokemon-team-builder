@@ -513,6 +513,51 @@ def test_mega_anchor_partner_must_not_be_mega_capable() -> None:
     )
 
 
+def test_non_mega_anchor_with_mega_partner_filters_mega_slot3() -> None:
+    """Even when the anchor is NOT mega-capable, if the partner picked
+    by build_core_duo IS mega-capable the seed already burns the team's
+    single mega slot. cover_shared_weakness MUST filter mega candidates
+    in slot 3 to keep _count_mega_potentials(seed, anchor_is_mega) ≤ 1.
+
+    Regression: Raichu (no mega) + Aerodactyl (mega) partner + Alakazam
+    (mega) slot 3 → seed had 2 mega potentials → beam-search hard prune
+    starved every expansion → silent 0 variants.
+    """
+    raichu = _mk(
+        "raichu", ["electric"], spa=90, spe=110,
+        abilities=["static"], pid=26,
+    )
+    aerodactyl_mega = _mk(
+        "aerodactyl", ["rock", "flying"], atk=105, spe=130,
+        abilities=["rock-head"], pid=142,
+    )
+    aerodactyl_mega.megas.append(object())  # type: ignore[arg-type]
+    alakazam_mega = _mk(
+        "alakazam", ["psychic"], spa=135, spe=120,
+        abilities=["synchronize"], pid=65,
+    )
+    alakazam_mega.megas.append(object())  # type: ignore[arg-type]
+    snorlax_no_mega = _mk(
+        "snorlax", ["normal"], hp=160, atk=110, def_=65, spd=110,
+        abilities=["thick-fat"], pid=143,
+    )
+
+    # core_duo already carries 1 mega potential (the partner Aerodactyl);
+    # slot 3 must NOT add another → Alakazam filtered, Snorlax wins.
+    core_duo = [raichu, aerodactyl_mega]
+    pool = [alakazam_mega, snorlax_no_mega]
+    role_map = _build_role_map(*core_duo, *pool)
+
+    slot3 = cover_shared_weakness(
+        core_duo, "balance", pool, role_map,
+        anchor_is_mega=False,
+    )
+    assert slot3.name == "snorlax", (
+        f"with a mega-capable partner already in seed, slot 3 must filter "
+        f"mega candidates; got {slot3.name}"
+    )
+
+
 def test_mega_anchor_slot3_filters_mega_capable() -> None:
     """Same regression for cover_shared_weakness: slot 3 must not poison
     the seed with a second mega-capable member when the anchor is already
