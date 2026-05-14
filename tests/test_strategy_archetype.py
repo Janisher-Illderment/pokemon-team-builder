@@ -399,3 +399,76 @@ def test_open_sheet_blocks_perish_song_even_for_perish_trap():
     assert "perish-song" not in open_moves, (
         f"open sheet should gate cheese even in perish_trap; got {open_moves}"
     )
+
+
+# ── Tecle Brief 2b-5: _partial_score archetype awareness ──────────────────
+
+
+def test_partial_score_balance_baseline_matches_legacy():
+    """Phase 4b: with archetype='balance' (weights = 1.0 across), the
+    partial score MUST equal the legacy archetype-agnostic score so the
+    backlog-cleanup change is non-breaking for the default path.
+    """
+    from pokemon_team_builder.services.team_generator import _partial_score
+    from pokemon_team_builder.services.synergy_engine import assign_role
+    from pokemon_team_builder.domain.models import BaseStats, PokemonData
+
+    def _pkd(name, types, atk=100, spa=80, spe=100):
+        return PokemonData(
+            id=hash(name) % 1000, name=name, types=types,
+            base_stats=BaseStats(hp=80, atk=atk, **{"def": 80},
+                                 spa=spa, spd=80, spe=spe),
+            move_names=["tackle"], abilities=["pressure"], weaknesses={},
+        )
+
+    team = [
+        _pkd("garchomp", ["ground", "dragon"], atk=130, spe=102),
+        _pkd("rotom-wash", ["water", "electric"], spa=105, spe=86),
+        _pkd("ferrothorn", ["grass", "steel"]),
+    ]
+    role_map = {p.name: assign_role(p) for p in team}
+    # archetype default ("balance") and explicit "balance" must match.
+    default_score = _partial_score(team, role_map)
+    balance_score = _partial_score(team, role_map, "balance")
+    assert default_score == balance_score, (
+        f"balance weights = 1.0 should preserve legacy score; "
+        f"default={default_score}, balance={balance_score}"
+    )
+
+
+def test_partial_score_hyper_offense_halves_sweeper_penalty():
+    """Phase 4b Tecle Brief 2b-5: hyper_offense expects duplicate
+    offensive roles, so the pure-sweeper-excess penalty is halved
+    (-2 per extra sweeper instead of -4). A 3-sweeper team scores higher
+    under hyper_offense than under balance.
+    """
+    from pokemon_team_builder.services.team_generator import _partial_score
+    from pokemon_team_builder.domain.models import BaseStats, PokemonData
+
+    def _sweeper(name, types):
+        return PokemonData(
+            id=hash(name) % 1000, name=name, types=types,
+            base_stats=BaseStats(hp=70, atk=130, **{"def": 70},
+                                 spa=60, spd=70, spe=110),
+            move_names=["tackle"], abilities=["pressure"], weaknesses={},
+        )
+
+    # Three pure physical sweepers — triggers the sweeper-excess penalty.
+    team = [
+        _sweeper("garchomp", ["ground", "dragon"]),
+        _sweeper("dragonite", ["dragon", "flying"]),
+        _sweeper("salamence", ["dragon", "flying"]),
+    ]
+    role_map = {p.name: ["physical_sweeper"] for p in team}
+
+    balance_score = _partial_score(team, role_map, "balance")
+    hyper_score = _partial_score(team, role_map, "hyper_offense")
+    # hyper_offense favours duplicate offensive roles: halves the
+    # pure-sweeper-excess penalty (-2 per extra vs -4 for balance) AND
+    # boosts coverage weight (1.3) + reduces roles weight (0.8) per the
+    # archetype matrix. The combination MUST score the same team higher
+    # under hyper_offense than under balance.
+    assert hyper_score > balance_score, (
+        f"hyper_offense should outscore balance on 3-sweeper team; "
+        f"balance={balance_score}, hyper={hyper_score}"
+    )

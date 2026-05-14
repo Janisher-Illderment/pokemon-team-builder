@@ -30,6 +30,9 @@ from pokemon_team_builder.services import (
     viability_rater,
 )
 from pokemon_team_builder.services import favorite_first_builder
+from pokemon_team_builder.data.archetype_weights_loader import (
+    get_weights as _archetype_get_weights,
+)
 from pokemon_team_builder.services.meta_service import MetaService
 from pokemon_team_builder.services.synergy_engine import (
     ALL_TYPES,
@@ -377,26 +380,46 @@ def _heuristic_filter(
 
 
 def _partial_score(
-    partial_team: list[PokemonData], role_map: dict[str, list[str]]
+    partial_team: list[PokemonData],
+    role_map: dict[str, list[str]],
+    archetype: str = "balance",
 ) -> float:
-    """Heuristic score for a beam state. Higher is better."""
+    """Heuristic score for a beam state. Higher is better.
+
+    Phase 4b cleanup (Tecle Brief 2b-5): the heuristic now respects
+    archetype weights so candidates for slots 4–6 are biased toward the
+    chosen archetype, not just toward generic balance. Coverage and role
+    diversity multiply by ``archetype.coverage`` and ``archetype.roles``
+    respectively. ``hyper_offense`` halves the pure-sweeper-excess
+    penalty (the archetype expects duplicate offensive roles).
+    """
     if not partial_team:
         return 0.0
 
+    # Pre-compute archetype weights once. ``balance`` weights = 1.0 on
+    # every key, so callers that omit archetype get identical behavior
+    # to the pre-Phase-4b implementation.
+    weights = _archetype_get_weights(archetype)
+
     report = analyze_coverage(partial_team)
     score = 0.0
-    score += (len(ALL_TYPES) - len(report.offensive_gaps)) * 1.0
-    score -= len(report.defensive_weaknesses) * 2.0
+    # Coverage components scaled by archetype.coverage.
+    score += (len(ALL_TYPES) - len(report.offensive_gaps)) * 1.0 * weights.coverage
+    score -= len(report.defensive_weaknesses) * 2.0 * weights.coverage
 
     role_counter: set[str] = set()
     for member in partial_team:
         role_counter.update(role_map.get(member.name, assign_role(member)))
-    score += len(role_counter) * 1.5
+    # Role diversity bonus scaled by archetype.roles.
+    score += len(role_counter) * 1.5 * weights.roles
 
     type_counts: dict[str, int] = {}
     for member in partial_team:
         for t in member.types:
             type_counts[t] = type_counts.get(t, 0) + 1
+    # Type-stacking penalty is structural (not archetype-dependent) —
+    # too many of one type opens shared weaknesses regardless of how
+    # offensive or defensive the archetype is.
     for count in type_counts.values():
         if count >= 3:
             score -= (count - 2) * 1.5
@@ -409,7 +432,11 @@ def _partial_score(
         and not set(role_map.get(member.name, assign_role(member))) & _support_roles
     )
     if pure_sweeper_count > 2:
-        score -= (pure_sweeper_count - 2) * 4.0
+        # hyper_offense expects duplicate offensive roles — halve the
+        # excess-sweeper penalty for that archetype only. Mirrors the
+        # final-scoring rule in viability_rater._roles_points.
+        penalty_per_extra = 2.0 if archetype == "hyper_offense" else 4.0
+        score -= (pure_sweeper_count - 2) * penalty_per_extra
 
     return score
 
@@ -452,6 +479,7 @@ def _beam_search(
     *,
     anchor_is_mega: bool = False,
     seed: list[PokemonData] | None = None,
+    archetype: str = "balance",
 ) -> list[list[PokemonData]]:
     """Build candidate teams of ``target_size`` via beam search.
 
@@ -509,7 +537,7 @@ def _beam_search(
                 if _count_mega_potentials(new_state, anchor_is_mega) > 1:
                     continue
                 next_states.append(
-                    (_partial_score(new_state, role_map), new_state)
+                    (_partial_score(new_state, role_map, archetype), new_state)
                 )
         if not next_states:
             break
@@ -526,7 +554,7 @@ def _beam_search(
                 break
         states = kept
 
-    states.sort(key=lambda s: _partial_score(s, role_map), reverse=True)
+    states.sort(key=lambda s: _partial_score(s, role_map, archetype), reverse=True)
     return states
 
 
@@ -865,6 +893,7 @@ def generate_team(
         target_size=6,
         anchor_is_mega=anchor_mega is not None,
         seed=seed,
+        archetype=archetype,
     )
     if not states:
         return []
