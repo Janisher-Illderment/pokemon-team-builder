@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block title %}{{ pokemon.display_name }} · Builder Champions VGC M-A{% endblock %}
+{% block description %}Datos competitivos de {{ pokemon.display_name }} en Pokémon Champions Regulation M-A: stats, tipos, debilidades, roles sugeridos y partners ideales. Genera un equipo VGC Doubles con {{ pokemon.display_name }} como anchor.{% endblock %}
+{% block canonical_path %}/pokemon/{{ pokemon.slug }}{% endblock %}
+
+{% block schema_jsonld %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "{{ pokemon.display_name }} VGC Doubles Builder (Champions Reg M-A)",
+  "description": "{{ self.description() }}",
+  "inLanguage": "es",
+  "about": "{{ pokemon.display_name }}",
+  "isAccessibleForFree": true
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<article class="seo-detail">
+  <h1>{{ pokemon.display_name }}</h1>
+  <p class="seo-lead">
+    {{ pokemon.display_name }} es un Pokémon{% if pokemon.types|length == 1 %} de tipo {{ pokemon.types[0]|capitalize }}{% else %} de tipos {{ pokemon.types[0]|capitalize }} / {{ pokemon.types[1]|capitalize }}{% endif %} disponible en el pool legal de Pokémon Champions (Regulation M-A).
+    Esta página resume sus datos competitivos clave; usa el <a href="/?anchor={{ pokemon.slug }}">generador</a> para construir un equipo VGC Doubles a su alrededor.
+  </p>
+
+  <h2>Stats base</h2>
+  <table class="seo-table">
+    <tbody>
+      <tr><th>HP</th><td>{{ pokemon.base_stats.hp }}</td></tr>
+      <tr><th>Ataque</th><td>{{ pokemon.base_stats.atk }}</td></tr>
+      <tr><th>Defensa</th><td>{{ pokemon.base_stats.def_ }}</td></tr>
+      <tr><th>Ataque Especial</th><td>{{ pokemon.base_stats.spa }}</td></tr>
+      <tr><th>Defensa Especial</th><td>{{ pokemon.base_stats.spd }}</td></tr>
+      <tr><th>Velocidad</th><td>{{ pokemon.base_stats.spe }}</td></tr>
+      <tr><th>BST</th><td>{{ pokemon.bst }}</td></tr>
+    </tbody>
+  </table>
+
+  {% if pokemon.weaknesses_4x or pokemon.weaknesses_2x %}
+  <h2>Debilidades de tipo</h2>
+  <ul class="seo-list">
+    {% for type in pokemon.weaknesses_4x %}<li>×4: <strong>{{ type|capitalize }}</strong></li>{% endfor %}
+    {% for type in pokemon.weaknesses_2x %}<li>×2: <strong>{{ type|capitalize }}</strong></li>{% endfor %}
+  </ul>
+  {% endif %}
+
+  {% if pokemon.suggested_roles %}
+  <h2>Roles competitivos sugeridos</h2>
+  <ul class="seo-list">
+    {% for role in pokemon.suggested_roles %}<li>{{ role|replace('_', ' ')|capitalize }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+
+  <h2>Generar un equipo</h2>
+  <p>
+    Usa el botón inferior para abrir el generador con {{ pokemon.display_name }} pre-seleccionado como anchor.
+    Elige arquetipo (Balance, Hyper Offense, Trick Room, Weather, Stall, Perish Trap, Bulky Offense) y formato
+    (Bo1 cerrada / Bo3 abierta) para obtener variantes scored 0–100.
+  </p>
+  <p>
+    <a class="seo-cta" href="/?anchor={{ pokemon.slug }}">→ Construir equipo con {{ pokemon.display_name }}</a>
+  </p>
+
+  <h2>Otros Pokémon populares</h2>
+  <ul class="seo-related">
+    {% for related in related_pokemon %}
+      <li><a href="/pokemon/{{ related }}">{{ related|capitalize }}</a></li>
+    {% endfor %}
+  </ul>
+
+  <h2>Arquetipos disponibles</h2>
+  <ul class="seo-related">
+    {% for arch in archetypes %}
+      <li><a href="/archetype/{{ arch }}">{{ arch|replace('_', ' ')|capitalize }}</a></li>
+    {% endfor %}
+  </ul>
+</article>
+{% endblock %}

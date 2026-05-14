@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from pokemon_team_builder.api.router import router
+from pokemon_team_builder.api.seo_pages import seo_router
 from pokemon_team_builder.config import (
     ABILITY_IMPLICIT_ROLES_FILE,
     ARCHETYPE_WEIGHTS_FILE,
@@ -96,6 +97,10 @@ app.add_middleware(
 )
 
 app.include_router(router)
+# SEO router MUST be registered before the StaticFiles mount so the
+# /pokemon/{name} and /archetype/{name} routes are matched here instead
+# of falling through to the static handler (which would 404).
+app.include_router(seo_router)
 
 _STATIC_DIR = os.path.join(os.path.dirname(__file__), "web", "static")
 if os.path.isdir(_STATIC_DIR):

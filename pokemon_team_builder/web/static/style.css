@@ -984,3 +984,107 @@ main { max-width: 960px; margin: 0 auto; padding: 1.5rem 1rem; }
   background: #1a1d2e;
   color: #ffd060;
 }
+
+/* ── C3 light: SEO server-rendered pages (/pokemon/* and /archetype/*) ─── */
+.seo-page-header {
+  background: linear-gradient(135deg, #cc0000 0%, #7a0000 30%, #1e1e2e 65%);
+  padding: 1rem;
+  text-align: center;
+  border-bottom: 2px solid #ff3b3b;
+}
+.seo-home-link {
+  color: #fff;
+  text-decoration: none;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+.seo-home-link:hover { text-decoration: underline; }
+.seo-main {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+.seo-detail h1 {
+  color: #fff;
+  margin-bottom: 0.5rem;
+  font-size: 1.8rem;
+}
+.seo-lead {
+  color: #c8d0e8;
+  font-size: 0.95rem;
+  margin-bottom: 1.5rem;
+  line-height: 1.5;
+}
+.seo-detail h2 {
+  color: #ffd060;
+  margin-top: 2rem;
+  font-size: 1.15rem;
+  border-bottom: 1px solid #2d3150;
+  padding-bottom: 0.3rem;
+}
+.seo-detail p {
+  color: #c8d0e8;
+  line-height: 1.6;
+  margin: 0.75rem 0;
+}
+.seo-table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.75rem 0;
+  font-size: 0.9rem;
+}
+.seo-table th, .seo-table td {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #2d3150;
+  text-align: left;
+}
+.seo-table th {
+  background: #1a1d2e;
+  color: #ffd060;
+  width: 38%;
+}
+.seo-list {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0;
+}
+.seo-list li {
+  padding: 0.3rem 0.6rem;
+  background: #1a1d2e;
+  border-left: 3px solid #60a0ff;
+  margin: 0.3rem 0;
+  color: #e2e8f0;
+}
+.seo-cta {
+  display: inline-block;
+  padding: 0.6rem 1.2rem;
+  background: #ef4444;
+  color: #fff;
+  text-decoration: none;
+  border-radius: 6px;
+  font-weight: 600;
+  margin: 0.5rem 0 1rem;
+}
+.seo-cta:hover { background: #dc2626; }
+.seo-related {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  list-style: none;
+  padding: 0;
+  margin: 0.75rem 0;
+}
+.seo-related li a {
+  display: inline-block;
+  padding: 0.3rem 0.7rem;
+  background: #1a1d2e;
+  border: 1px solid #334155;
+  border-radius: 4px;
+  color: #60a0ff;
+  text-decoration: none;
+  font-size: 0.85rem;
+}
+.seo-related li a:hover {
+  border-color: #60a0ff;
+  background: #22263a;
+}

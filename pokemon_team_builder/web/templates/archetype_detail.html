@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}{{ archetype.label }} · Equipo VGC Doubles Champions{% endblock %}
+{% block description %}{{ archetype.label }} en Pokémon Champions VGC Doubles (Regulation M-A): definición, pesos de scoring, qué archetypes funcionan mejor para qué estilo. Genera un equipo con este arquetipo.{% endblock %}
+{% block canonical_path %}/archetype/{{ archetype.slug }}{% endblock %}
+
+{% block schema_jsonld %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "{{ archetype.label }} VGC Doubles (Champions Reg M-A)",
+  "description": "{{ self.description() }}",
+  "inLanguage": "es",
+  "about": "{{ archetype.label }}",
+  "isAccessibleForFree": true
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<article class="seo-detail">
+  <h1>{{ archetype.label }}</h1>
+  <p class="seo-lead">{{ archetype.lead }}</p>
+
+  <h2>Estrategia</h2>
+  <p>{{ archetype.description }}</p>
+
+  <h2>Pesos de scoring</h2>
+  <table class="seo-table">
+    <thead><tr><th>Componente</th><th>Peso</th></tr></thead>
+    <tbody>
+      <tr><th>Coverage</th><td>{{ archetype.weights.coverage }}</td></tr>
+      <tr><th>Roles</th><td>{{ archetype.weights.roles }}</td></tr>
+      <tr><th>SP / EVs</th><td>{{ archetype.weights.sp }}</td></tr>
+      <tr><th>Items</th><td>{{ archetype.weights.items }}</td></tr>
+      <tr><th>Speed</th><td>{{ archetype.weights.speed }}</td></tr>
+      <tr><th>Bulk</th><td>{{ archetype.weights.bulk }}</td></tr>
+      <tr><th>Weather synergy</th><td>{{ archetype.weights.weather_synergy }}</td></tr>
+      <tr><th>Cheese allowance</th><td>{{ archetype.weights.cheese_allowance }} {% if archetype.weights.cheese_allowance >= 1.0 %}<em>(cheese permitido)</em>{% else %}<em>(cheese bloqueado)</em>{% endif %}</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Ejemplos de uso</h2>
+  <p>{{ archetype.examples }}</p>
+
+  <h2>Generar un equipo {{ archetype.label }}</h2>
+  <p>
+    Elige tu Pokémon favorito como anchor y deja que el generador construya un equipo {{ archetype.label }} a su alrededor.
+    Los pesos de scoring se aplican automáticamente para favorecer la estrategia.
+  </p>
+  <p>
+    <a class="seo-cta" href="/?archetype={{ archetype.slug }}">→ Generar equipo {{ archetype.label }}</a>
+  </p>
+
+  <h2>Otros arquetipos</h2>
+  <ul class="seo-related">
+    {% for other in other_archetypes %}
+      <li><a href="/archetype/{{ other.slug }}">{{ other.label }}</a></li>
+    {% endfor %}
+  </ul>
+</article>
+{% endblock %}
