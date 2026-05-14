@@ -8,4 +8,4 @@ Disallow: /health
 Allow: /terms.html
 Allow: /privacy.html
 
-Sitemap: https://pokemon-team-builder.onrender.com/sitemap.xml
+Sitemap: https://pokemon-team-builder-jswg.onrender.com/sitemap.xml
