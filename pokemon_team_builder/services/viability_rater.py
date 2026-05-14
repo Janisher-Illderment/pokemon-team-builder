@@ -70,13 +70,23 @@ _SPEED_CONTROL_PARTIAL_ABILITIES = frozenset({
 })
 
 
-# Phase 3 §8 — passive weather benefits per (weather, move_or_type) pair.
+# Phase 3 §8 — passive weather benefits per (weather, move) pair.
 # Surfaced when the team HAS the weather but the member's ability isn't
-# weather-dependent.  Stays narrow (Hurricane/Solar Beam/Blizzard) per spec.
+# weather-dependent. Expanded in Phase 4b cleanup (Tecle Brief #3-4) to
+# cover the most common moves whose accuracy or power changes with
+# weather but don't require a weather-dependent ability.
 _PASSIVE_WEATHER_MOVES: dict[str, frozenset[str]] = {
-    "rain": frozenset({"hurricane"}),
-    "sun":  frozenset({"solar-beam"}),
-    "snow": frozenset({"blizzard"}),
+    # Rain: Thunder + Hurricane go to 100% accuracy. Weather Ball Water.
+    "rain":  frozenset({"hurricane", "thunder", "weather-ball"}),
+    # Sun: Solar Beam skips charge turn. Weather Ball Fire. Synthesis +HP.
+    "sun":   frozenset({"solar-beam", "solar-blade", "weather-ball",
+                        "synthesis", "morning-sun"}),
+    # Snow: Blizzard 100% accuracy. Aurora Veil only sets in snow.
+    "snow":  frozenset({"blizzard", "aurora-veil", "weather-ball"}),
+    # Sand: SpD ×1.5 for Rock types is automatic, not move-based; only
+    # Weather Ball changes type. Keep the entry so the iterator covers
+    # all 4 weathers symmetrically.
+    "sand":  frozenset({"weather-ball"}),
 }
 
 
@@ -204,21 +214,28 @@ def _weather_synergy_points(members: list[TeamMember]) -> float:
         return 0.0
 
     # Build a map of {weather -> set of setter member indices on this team}.
+    # Phase 4b strict validation (Tecle Briefs 3-1 + 3-2):
+    #   - Require member.ability to match the setter's ability slug. This
+    #     prevents false positives like Hippowdon-with-Sand-Force (the
+    #     species is a setter but only with Sand Stream ability).
+    #   - Respect mega_only: Froslass-mega sets Snow via Snow Warning,
+    #     but base Froslass (Cursed Body) does not. Only count when the
+    #     member has a mega_form assigned.
     weather_on_team: dict[str, set[int]] = {}
     for idx, member in enumerate(members):
         ability_slug = member.ability.strip().lower().replace(" ", "-")
         species_slug = member.pokemon.name.strip().lower()
-        # An ability-setter only counts when the member is currently
-        # holding that ability (otherwise e.g. Hippowdon-with-Sand-Force
-        # would falsely count). We check membership in the spec's setter
-        # map directly: the species → weather inverse.
-        for weather, setter_names in setters_map.items():
-            if species_slug in setter_names:
-                # The species is a known setter; trust the assigned ability
-                # matches when set.  Conservative fallback: count regardless,
-                # because the species' default ability in the team_generator
-                # picks the setter ability when available.
+        is_mega = member.mega_form is not None
+        for weather, setter_entries in setters_map.items():
+            for entry in setter_entries:
+                if entry.pokemon != species_slug:
+                    continue
+                if entry.ability and entry.ability != ability_slug:
+                    continue  # species matches but wrong ability assigned
+                if entry.mega_only and not is_mega:
+                    continue  # mega-only setter, member is not mega-evolved
                 weather_on_team.setdefault(weather, set()).add(idx)
+                break  # one match per (idx, weather) suffices
 
     total = 0.0
     awarded_member_indices: set[int] = set()

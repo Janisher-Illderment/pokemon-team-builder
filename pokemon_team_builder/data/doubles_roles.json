@@ -1,0 +1,6 @@
+{
+  "regulation": "M-A",
+  "data_version": 0,
+  "note": "Reserved for future per-pokemon Doubles-specific role overrides (e.g. Whimsicott → forced 'lead_support' regardless of stats). Currently empty — roles are derived live by synergy_engine.assign_role_weights. data_version stays at 0 until first real override is added.",
+  "overrides": {}
+}

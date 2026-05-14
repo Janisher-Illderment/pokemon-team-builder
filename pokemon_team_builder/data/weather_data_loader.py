@@ -2,7 +2,7 @@
 
 Reads the two Phase 1 JSONs (`weather_dependent_abilities.json` and
 `weather_setters.json`) into memoised maps that the viability rater
-consumes.  Both files carry a ``data_version`` integer that propagates
+consumes. Both files carry a ``data_version`` integer that propagates
 to ``VariantOut.meta_versions.weather``.
 
 Design choices:
@@ -14,12 +14,19 @@ Design choices:
   - Ability and pokemon names are normalised to lowercase-hyphen slugs
     so callers can compare against the slug-form already used in
     ``pokemon.abilities`` / ``pokemon.name``.
+
+Phase 4b cleanup (Tecle Briefs 3-1 + 3-2): `load_weather_setters`
+returns ``WeatherSetterEntry`` dataclasses (not bare slugs) so the
+rater can verify ``member.ability`` matches the setter ability AND
+respect the ``mega_only`` flag (e.g. Froslass only sets Snow when
+mega-evolved).
 """
 
 from __future__ import annotations
 
 import json
 import logging
+from dataclasses import dataclass
 from functools import lru_cache
 
 from pokemon_team_builder.config import (
@@ -32,6 +39,21 @@ _logger = logging.getLogger(__name__)
 
 def _slug(name: str) -> str:
     return name.strip().lower().replace(" ", "-")
+
+
+@dataclass(frozen=True)
+class WeatherSetterEntry:
+    """One row of the setters list — species + the ability that sets weather.
+
+    ``mega_only`` means the species sets the weather **only** when its
+    mega form is active. E.g. Froslass-mega sets Snow via Snow Warning,
+    but base Froslass (Cursed Body) does not. Consumers must check the
+    member's ``mega_form`` before counting this setter.
+    """
+
+    pokemon: str
+    ability: str
+    mega_only: bool = False
 
 
 @lru_cache(maxsize=1)
@@ -63,14 +85,14 @@ def load_weather_dependent_abilities() -> tuple[dict[str, str], int]:
 
 
 @lru_cache(maxsize=1)
-def load_weather_setters() -> tuple[dict[str, set[str]], int]:
-    """Return ``(weather -> set of setter pokemon slugs, data_version)``.
+def load_weather_setters() -> tuple[dict[str, list[WeatherSetterEntry]], int]:
+    """Return ``(weather -> list[WeatherSetterEntry], data_version)``.
 
     Only ability-based setters are included (move-setters carry lower
-    confidence per the spec).  ``mega_only`` setters still appear under
-    the species slug — the rater is conservative and assumes the mega
-    form is available; future work may gate this on the variant's mega
-    assignment.
+    confidence per the spec). The entries carry the setter ability slug
+    AND the ``mega_only`` flag so consumers can verify the member
+    actually has the setter ability assigned (not just shares a species
+    slug with a setter) and respect mega-form gating.
     """
     try:
         with open(WEATHER_SETTERS_FILE, "r", encoding="utf-8") as f:
@@ -84,14 +106,18 @@ def load_weather_setters() -> tuple[dict[str, set[str]], int]:
         return {}, 0
 
     setters_raw = raw.get("setters", {})
-    out: dict[str, set[str]] = {}
+    out: dict[str, list[WeatherSetterEntry]] = {}
     for weather, payload in setters_raw.items():
-        names: set[str] = set()
+        entries: list[WeatherSetterEntry] = []
         if isinstance(payload, dict):
             for entry in payload.get("ability_setters", []) or []:
                 if isinstance(entry, dict) and "pokemon" in entry:
-                    names.add(_slug(entry["pokemon"]))
-        out[weather.lower()] = names
+                    entries.append(WeatherSetterEntry(
+                        pokemon=_slug(entry["pokemon"]),
+                        ability=_slug(entry.get("ability", "")),
+                        mega_only=bool(entry.get("mega_only", False)),
+                    ))
+        out[weather.lower()] = entries
     version = int(raw.get("data_version", 0))
     return out, version
 

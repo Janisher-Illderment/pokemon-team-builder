@@ -1,7 +1,7 @@
 {
   "regulation": "M-A",
   "data_version": 1,
-  "note": "Per-archetype scoring weight matrices. Multipliers re-scale scoring components: coverage, roles, sp, items, speed, bulk, cheese_allowance, weather_synergy. Baseline (balance) = 1.0 across the board. Initial calibration is a best-effort guess; treat as v1 and tune after user testing.",
+  "note": "Per-archetype scoring weight matrices. Multipliers re-scale scoring components: coverage, roles, sp, items, speed, bulk, weather_synergy → balance baseline = 1.0 for these. cheese_allowance is semantically different (gate threshold, not scoring multiplier): ≥1.0 unlocks cheese moves, <1.0 skips them. balance.cheese_allowance = 0.8 by spec mandate (no Destiny Bond / Mirror Coat / Counter / Memento in balance). See design.md D13 for the full ADR.",
   "archetypes": {
     "hyper_offense": {
       "coverage": 1.3,

@@ -66,7 +66,7 @@ class ArchetypeWeights:
     weather_synergy: float
 
 
-def _balance_default() -> ArchetypeWeights:
+def _balance_baseline() -> ArchetypeWeights:
     """Return a hard-coded ``balance`` weight matrix.
 
     Used as a last-resort fallback when ``archetype_weights.json`` is
@@ -123,7 +123,7 @@ def load_archetype_weights() -> dict[str, ArchetypeWeights]:
             "balance-only defaults",
             ARCHETYPE_WEIGHTS_FILE,
         )
-        return {_DEFAULT_ARCHETYPE: _balance_default()}
+        return {_DEFAULT_ARCHETYPE: _balance_baseline()}
     except json.JSONDecodeError as exc:
         raise TeamBuildError(
             f"archetype_weights.json is not valid JSON at "
@@ -181,7 +181,7 @@ def load_archetype_weights() -> dict[str, ArchetypeWeights]:
             "in-code defaults (all 1.0).",
             _DEFAULT_ARCHETYPE,
         )
-        out[_DEFAULT_ARCHETYPE] = _balance_default()
+        out[_DEFAULT_ARCHETYPE] = _balance_baseline()
 
     return out
 
@@ -202,7 +202,7 @@ def get_weights(archetype: str) -> ArchetypeWeights:
         "Unknown archetype '%s' — falling back to '%s'.",
         archetype, _DEFAULT_ARCHETYPE,
     )
-    return weights.get(_DEFAULT_ARCHETYPE, _balance_default())
+    return weights.get(_DEFAULT_ARCHETYPE, _balance_baseline())
 
 
 def known_archetypes() -> tuple[str, ...]:

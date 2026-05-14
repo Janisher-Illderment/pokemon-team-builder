@@ -439,11 +439,17 @@ def build_presets(
         member: The team member (provides base stats and role hints).
         item: The held item name (display form, e.g. "Choice Band").
         nature: The nature name (any case, e.g. "Jolly" or "jolly").
-        threats_to_OHKO: List of threat names the offensive preset
-            should be able to OHKO/2HKO. Currently only the length is
-            consulted; future versions will run damage calc per threat.
-        threats_to_survive: List of threat names the defensive preset
-            should survive. Same caveat as above.
+        threats_to_OHKO: Advisory list of threat names the offensive
+            preset should be able to OHKO/2HKO. **Currently only the
+            length is consulted** to bias offensive lean intensity; a
+            future damage_calc integration (post-v0.9 — see Tecle Brief
+            3-3) will run real calculations per threat. Pass ``[]`` if
+            no threat list available — the role-based fallback handles
+            allocation correctly.
+        threats_to_survive: Advisory list of threat names the defensive
+            preset should survive. Same length-only behavior + same
+            damage_calc integration path. Pass ``[]`` to use the
+            role-based defensive fallback.
 
     Returns:
         ``{"offensive": SpRead, "defensive": SpRead}`` — each preset

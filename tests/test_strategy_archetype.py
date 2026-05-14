@@ -23,7 +23,7 @@ from pokemon_team_builder.api.schemas import GenerateRequest
 from pokemon_team_builder.main import app
 from pokemon_team_builder.config import ARCHETYPE_WEIGHTS_FILE
 from pokemon_team_builder.data.archetype_weights_loader import (
-    _balance_default,
+    _balance_baseline,
     get_weights,
     load_archetype_weights,
     known_archetypes,
@@ -110,7 +110,7 @@ def test_get_weights_falls_back_to_balance() -> None:
     assert weird == bal
 
 
-def test_balance_default_scoring_multipliers_are_baseline() -> None:
+def test_balance_baseline_scoring_multipliers_are_baseline() -> None:
     """The in-code balance fallback is the scoring-multiplier baseline.
 
     Scoring components (coverage/roles/sp/items/speed/bulk/weather_synergy)
@@ -119,7 +119,7 @@ def test_balance_default_scoring_multipliers_are_baseline() -> None:
     threshold, not a multiplier — per the strategy-archetype spec only
     ``perish_trap`` opens the cheese-move gate.
     """
-    bal = _balance_default()
+    bal = _balance_baseline()
     assert bal.coverage == 1.0
     assert bal.roles == 1.0
     assert bal.sp == 1.0

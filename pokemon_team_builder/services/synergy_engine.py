@@ -421,17 +421,17 @@ def analyze_coverage(
     offensive_gaps: list[str] = []
 
     if movesets is not None:
-        # Lazy-import to keep synergy_engine free of replica_exporter cycles.
-        # The local _MOVE_TYPE table is the canonical move→type map.
-        from pokemon_team_builder.services.replica_exporter import _MOVE_TYPE
-
         # STAB filter: only count a move toward type-X coverage when the
-        # move's type matches one of the carrying member's types.
+        # move's type matches one of the carrying member's types. The
+        # MOVE_TYPE table lives in data/move_types.py (Phase 4b cleanup,
+        # Tecle Brief #9: was previously a lazy cross-service import).
+        from pokemon_team_builder.data.move_types import MOVE_TYPE
+
         move_types: set[str] = set()
         for member, moves in zip(team, movesets):
             member_types = {t.lower() for t in member.types}
             for move in moves:
-                mtype = _MOVE_TYPE.get(move)
+                mtype = MOVE_TYPE.get(move)
                 if mtype and mtype.lower() in member_types:
                     move_types.add(mtype.lower())
         for type_name in ALL_TYPES:

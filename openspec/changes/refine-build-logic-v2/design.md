@@ -128,6 +128,30 @@ Item modifiers are baked into the optimisation: Choice Band → physical_attack 
 
 **Why.** Without versioning, the user cannot tell whether a team was generated under pre-patch or post-patch data. Versioned files also unlock a future "rebuild this team under the latest meta" workflow.
 
+### D12: TR-setter bonus uses composite weight (weather_synergy + roles + bulk)
+
+**Decision (Phase 4b ADR, Tecle Brief 2b-1).** In `favorite_first_builder._synergy_score`, the Trick Room setter bonus for `hard_trick_room` archetype is computed as a composite weight `(weather_synergy + roles + bulk) × bonus_unit` rather than the spec-literal `weather_synergy × N`. Same composition for the `hyper_offense` redirect bonus.
+
+**Why.** The spec originally said TR-setter / redirect bonuses scale by `archetype.weather_synergy × 3.0`. But the `archetype_weights.json` entry for `hard_trick_room.weather_synergy` is `0.3` (correctly low — Trick Room ignores weather), giving a bonus of `0.9` which is insufficient to beat type-complement scoring. The compound weight `(weather_synergy + roles + bulk)` (e.g. `0.3 + 1.2 + 1.3 = 2.8`) produces ~3× the effective bonus, which is enough for the spec scenario "partner is a known Trick Room setter" to hold against alternatives.
+
+**Why this composition specifically.** The three weight axes are semantically aligned with the TR-setter use case: `weather_synergy` represents ability-driven situational bonuses, `roles` represents role complement value, `bulk` represents the slow + bulky stat profile typical of TR setters. Multiplying them effectively means "this candidate is a strategic linchpin for this archetype" — exactly what we want to reward.
+
+**Alternative considered.** Add a new weight `tr_setter_bonus` (or `linchpin_bonus`) per archetype. Rejected for v0.9 because it requires extending `ArchetypeWeights` schema + JSON migration. Future enhancement if more linchpin bonuses appear.
+
+**Trade-off.** Spec literal text is not honored (`weather_synergy × N`). Documented here as accepted ADR — the spec scenario is what matters, not the formula expression.
+
+### D13: balance.cheese_allowance = 0.8, not 1.0
+
+**Decision (Phase 4b ADR, Tecle Briefs 2b-2 + 2b-6).** `archetype_weights.json` sets `balance.cheese_allowance = 0.8` despite the spec describing `balance` as "baseline = 1.0 across the board".
+
+**Why.** `cheese_allowance` is semantically a **gate threshold** (≥ 1.0 = unlocks cheese moves), not a balancing **scoring multiplier**. The spec separately mandates "balance SHALL have cheese_allowance < 1.0 so cheese moves are skipped" — directly contradicting the "baseline = 1.0" statement. Interpretation: `1.0` is baseline for scoring multipliers (coverage, roles, sp, items, speed, bulk, weather_synergy — these scale component scores); `cheese_allowance` is a separate axis with different semantics where `1.0` means "allow cheese" and `<1.0` means "skip cheese". Both are simultaneously true for `balance` under this reading.
+
+**Why this matters.** Without the lower cheese_allowance, `balance` teams would emit Destiny Bond / Mirror Coat / Counter / Memento / Perish Song as slot-4 moves. Spec is explicit those should be skipped in `balance`. The implementation respects spec scenario behavior over spec wording consistency.
+
+**Alternative considered.** Split `cheese_allowance` into a separate `_ARCHETYPE_CHEESE_GATES` dict outside `ArchetypeWeights`. Rejected — that would mean two parallel structures for archetype-driven behavior, complicating data-driven tuning.
+
+**Trade-off.** A reader of `archetype_weights.json` might expect all balance values to be 1.0. The JSON file has a comment explaining the asymmetry. The `_balance_baseline()` helper (renamed from `_balance_default()` in same Phase 4b cleanup) documents this.
+
 ## Tradeoffs and decisions
 
 ### Why favorite-first over greedy

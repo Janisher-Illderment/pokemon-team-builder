@@ -182,6 +182,7 @@ def _synergy_score(
     meta_service: MetaService,
     *,
     weights: ArchetypeWeights | None = None,
+    anchor_meta_teammates: frozenset[str] | None = None,
 ) -> float:
     """Score ``candidate`` as a potential partner for ``anchor``.
 
@@ -200,6 +201,12 @@ def _synergy_score(
 
     ``weights`` is an optional override to avoid re-reading the loader in
     tight loops — passing None looks it up by archetype name.
+    ``anchor_meta_teammates`` is an optional pre-fetched frozenset of
+    lowercased teammate names. Pre-computing this once outside the loop
+    (Phase 4b cleanup Tecle Brief 2-4) skips a per-candidate
+    ``meta_service.get(anchor.name)`` cache hit + frozenset() build.
+    Even though MetaService is cached, the call adds non-trivial overhead
+    over a 50-candidate loop. Pass None to fall back to per-call lookup.
     """
     if weights is None:
         weights = get_weights(archetype)
@@ -255,11 +262,17 @@ def _synergy_score(
 
     # (d) Meta presence — fixed weight (not archetype-scaled) so meta
     #     pairings remain visible even in archetypes that downweight
-    #     other components.
-    anchor_meta = meta_service.get(anchor.name)
-    if anchor_meta is not None and candidate.name.lower() in {
-        t.lower() for t in anchor_meta.teammates
-    }:
+    #     other components. Phase 4b: prefer the pre-fetched teammates
+    #     set when caller supplied one — avoids N redundant lookups.
+    if anchor_meta_teammates is None:
+        anchor_meta = meta_service.get(anchor.name)
+        if anchor_meta is None:
+            teammates_lower: frozenset[str] = frozenset()
+        else:
+            teammates_lower = frozenset(t.lower() for t in anchor_meta.teammates)
+    else:
+        teammates_lower = anchor_meta_teammates
+    if candidate.name.lower() in teammates_lower:
         score += 3.0
 
     return score
@@ -318,6 +331,17 @@ def build_core_duo(
             f"the anchor '{anchor.name}'."
         )
 
+    # Phase 4b perf (Tecle Brief 2-4): pre-fetch anchor meta teammates
+    # once. Inside the scoring loop, _synergy_score would otherwise
+    # invoke meta_service.get(anchor.name) per candidate (N=50 typical)
+    # — even with hishel cache the deserialization cost adds up.
+    anchor_meta = meta_service.get(anchor.name)
+    anchor_meta_teammates: frozenset[str] = (
+        frozenset(t.lower() for t in anchor_meta.teammates)
+        if anchor_meta is not None
+        else frozenset()
+    )
+
     # Stable secondary sort first, then sort by score desc — Python's
     # sort is stable, so equal scores fall back to the (name, id) order.
     ordered = _sorted_for_determinism(candidates)
@@ -326,6 +350,7 @@ def build_core_duo(
             _synergy_score(
                 anchor, cand, archetype, role_map, meta_service,
                 weights=weights,
+                anchor_meta_teammates=anchor_meta_teammates,
             ),
             cand,
         )
