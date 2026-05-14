@@ -353,19 +353,31 @@ function savedTeams() {
   };
 }
 
+// ─── EXPERIMENTAL: Option D sprite preview (branch feat/sprite-preview) ───
+// Generates an inline SVG data-URI from the Pokémon name: 2 letters on a
+// colored rounded square, hue derived from a stable hash of the full name.
+// No external IP, no hot-linking, zero bandwidth from third parties.
+// Trade-off: loses Pokémon visual identity entirely. Evaluate UX before
+// promoting to master. Master keeps the Showdown hot-link sprites.
 function spriteUrl(name) {
-  const gender = ['-male', '-female'];
-  const regional = ['-alola', '-galar', '-hisui', '-paldea'];
-  let base = name.toLowerCase();
-  // Gender variants → use base species sprite (Showdown doesn't split by gender)
-  for (const s of gender) {
-    if (base.endsWith(s)) { base = base.slice(0, -s.length); break; }
+  if (!name) return '';
+  const clean = name.toLowerCase();
+  const initials = clean.slice(0, 2).toUpperCase();
+  // FNV-1a-ish hash → stable hue per name.
+  let hash = 0;
+  for (let i = 0; i < clean.length; i++) {
+    hash = (clean.charCodeAt(i) + ((hash << 5) - hash)) | 0;
   }
-  let suffix = '';
-  for (const s of regional) {
-    if (base.endsWith(s)) { suffix = s; base = base.slice(0, -s.length); break; }
-  }
-  return `https://play.pokemonshowdown.com/sprites/dex/${base.replace(/-/g, '')}${suffix}.png`;
+  const hue = Math.abs(hash) % 360;
+  const sat = 60 + (Math.abs(hash) % 25);   // 60-84%
+  const light = 38 + (Math.abs(hash >> 4) % 12); // 38-49%
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">` +
+    `<rect width="64" height="64" rx="10" fill="hsl(${hue},${sat}%,${light}%)"/>` +
+    `<text x="32" y="42" font-family="Inter,Arial,sans-serif" font-size="24" ` +
+    `font-weight="700" fill="white" text-anchor="middle" letter-spacing="-1">` +
+    `${initials}</text></svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
 function metaTeams() {
