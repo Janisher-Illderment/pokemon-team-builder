@@ -760,51 +760,90 @@ main { max-width: 960px; margin: 0 auto; padding: 1.5rem 1rem; }
 }
 
 /* ── Footer + monetization (Phase 5: legal + monetization layer) ──────── */
+/* Compact strip — sits at the bottom without dominating the viewport on
+   empty-state (no team generated yet). Disclaimer is collapsed behind
+   <details> so the default visible height is one row of links + BMC. */
 .app-footer {
-  margin-top: 3rem;
-  padding: 2rem 1rem 1.5rem;
+  margin-top: 2rem;
+  padding: 0.8rem 1rem;
   border-top: 1px solid #2d3150;
   background: #14172a;
   color: #8a93b0;
-  font-size: 0.85rem;
-  line-height: 1.5;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
 }
-.footer-disclaimer p {
-  margin: 0.4rem 0;
+.footer-disclaimer {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.footer-disclaimer summary {
+  cursor: pointer;
+  color: #c8d0e8;
+  font-weight: 500;
+  list-style: none;
+  user-select: none;
+}
+.footer-disclaimer summary::before {
+  content: "▸ ";
+  font-size: 0.7rem;
+  color: #6a7090;
+}
+.footer-disclaimer details[open] summary::before {
+  content: "▾ ";
+}
+.footer-disclaimer .disclaimer-body {
+  margin: 0.4rem 0 0;
   max-width: 900px;
+  color: #8a93b0;
 }
-.footer-disclaimer strong { color: #c8d0e8; }
+.footer-disclaimer .disclaimer-body strong { color: #c8d0e8; }
 .footer-links {
-  margin-top: 0.8rem !important;
+  flex: 0 0 auto;
+  margin: 0;
+  white-space: nowrap;
 }
 .footer-links a {
   color: #60a0ff;
   text-decoration: none;
-  margin-right: 0.4rem;
+  margin: 0 0.25rem;
 }
 .footer-links a:hover { text-decoration: underline; }
 
 .footer-support {
-  margin-top: 1.6rem;
-  padding-top: 1.2rem;
-  border-top: 1px dashed #2d3150;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
 }
-.footer-support p {
-  margin: 0 0 0.6rem 0;
+.footer-support span {
   color: #b8c1d8;
+  font-size: 0.75rem;
 }
 .bmc-button {
   display: inline-block;
-  padding: 0.5rem 1rem;
+  padding: 0.3rem 0.7rem;
   background: #ffdd00;
   color: #1a1a1a !important;
   font-weight: 600;
-  border-radius: 6px;
+  font-size: 0.78rem;
+  border-radius: 5px;
   text-decoration: none !important;
   transition: transform 0.1s;
 }
 .bmc-button:hover {
-  transform: translateY(-2px);
+  transform: translateY(-1px);
+}
+
+/* Mobile stack: vertical on narrow screens to avoid cramped horizontal */
+@media (max-width: 720px) {
+  .app-footer { flex-direction: column; align-items: stretch; }
+  .footer-links, .footer-support { justify-content: center; }
 }
 
 /* ── Cookie banner (GDPR/LSSI-CE) ──────────────────────────────────────── */
