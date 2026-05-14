@@ -73,7 +73,6 @@ _BACKUP_ITEMS_FALLBACK: tuple[str, ...] = (
     "King's Rock",
     "Bright Powder",
     "Quick Claw",
-    "Assault Vest",
     "Eviolite",
     "Safety Goggles",
     "Light Clay",

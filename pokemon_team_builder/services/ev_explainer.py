@@ -46,13 +46,21 @@ def _speed_note(member: TeamMember, speed_db: SpeedTierDB) -> str:
     nature_mod = get_nature_mod(member.nature, "spe")
     my_speed = speed_db.compute_speed(bs.spe, sp.spe, member.nature)
 
-    # Compute neutral-0SP speed for each entry in the DB for display
+    # Phase 4b feedback fix: opponents in the speed tier are assumed to
+    # run **max SP (32) + neutral nature** rather than the prior
+    # 0 SP + neutral baseline. The old baseline produced misleading
+    # comparisons — e.g. Aerodactyl (base 130) reported as 146 when its
+    # realistic competitive speed sits around 182 (max SP, neutral). We
+    # don't force a +Spe nature on opponents because that would assume a
+    # strategy the user can't infer from typing alone; max-SP-neutral is
+    # the closest neutral-strategy approximation. A future enhancement
+    # can override per-entry via speed_tiers.json (e.g. Trick Room mons).
     entries_with_speed = [
-        (e.name, speed_db.compute_speed(e.base_spe, 0, "hardy"), e.usage_rank)
+        (e.name, speed_db.compute_speed(e.base_spe, 32, "hardy"), e.usage_rank)
         for e in speed_db.entries()
     ]
 
-    # What we outspeed: their 0-SP neutral speed < our speed
+    # What we outspeed: their max-SP neutral speed < our speed
     we_beat = [(name, spd) for name, spd, _ in entries_with_speed if spd < my_speed]
     # Sort by usage_rank (competitive relevance = lower rank first)
     we_beat_ranked = sorted(
@@ -60,7 +68,7 @@ def _speed_note(member: TeamMember, speed_db: SpeedTierDB) -> str:
         key=lambda x: next(e.usage_rank for e in speed_db.entries() if e.name == x[0]),
     )[:_MAX_COMPARISONS]
 
-    # What outspeeds us: their 0-SP neutral speed > our speed
+    # What outspeeds us: their max-SP neutral speed > our speed
     threats_ranked = sorted(
         [(name, spd) for name, spd, rank in entries_with_speed if spd > my_speed],
         key=lambda x: next(e.usage_rank for e in speed_db.entries() if e.name == x[0]),
@@ -70,7 +78,9 @@ def _speed_note(member: TeamMember, speed_db: SpeedTierDB) -> str:
         return ""
 
     nature_tag = "+" if nature_mod > 1.0 else ("−" if nature_mod < 1.0 else "")
-    spe_label = f"{sp.spe} Spe{nature_tag}"
+    # Show final stat (my_speed) so the user sees the real competitive
+    # number, not just the SP investment. Format: "Spe 222 (32 SP+)".
+    spe_label = f"Spe {my_speed} ({sp.spe} SP{nature_tag})"
 
     beat_str = ""
     if we_beat_ranked:

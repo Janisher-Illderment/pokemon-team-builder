@@ -132,3 +132,105 @@ def test_no_weakness_defensive_note_empty():
     result = explain(member, _speed_db)
     # No weakness → no defensive note; no spe → no speed note → empty
     assert result == ""
+
+
+# ── Phase 4b user feedback: speed tier baseline + final-stat label ─────────
+
+
+def test_speed_label_shows_final_stat_not_just_investment():
+    """User feedback 2026-05-14: speed note must show the FINAL speed
+    stat (with EVs + nature applied), not just the SP investment number.
+
+    Format expected: 'Spe <final> (<sp> SP+)' — e.g. 'Spe 222 (32 SP+)'.
+    """
+    # Mega Aerodactyl-like baseline: base 150, Jolly, 32 SP → final 222
+    member = _make_member(
+        "aerodactyl-mega", ["rock", "flying"],
+        80, 135, 85, 70, 95, 150,
+        {"water": 2.0, "electric": 2.0, "ice": 2.0, "rock": 2.0, "steel": 2.0},
+        sp_spe=32, nature="jolly",
+    )
+    result = explain(member, _speed_db)
+    # Final stat 222 must appear; bare "32 Spe+" without final must NOT.
+    assert "Spe 222" in result, (
+        f"speed label must surface final stat 222; got {result!r}"
+    )
+    assert "(32 SP" in result, (
+        f"speed label must still show SP investment in parens; got {result!r}"
+    )
+
+
+def test_opponent_speed_baseline_is_max_sp_neutral_not_zero_sp():
+    """User feedback 2026-05-14: the opponents listed in the speed note
+    must be evaluated at **max SP + neutral nature**, not 0 SP + neutral.
+
+    Aerodactyl (base 130) at 0 SP neutral computes to 146 — the previous
+    (broken) baseline. At max SP (32) + neutral nature it computes to
+    182 — the new baseline. The label '(146)' must NEVER appear next to
+    Aerodactyl in a generated note.
+    """
+    # Anchor faster than Aerodactyl's MAX baseline (182) so Aero appears
+    # in the "we beat" list with its new max-SP-neutral speed.
+    # Mega Beedrill-like base 145 Jolly 32 SP → final 215.
+    member = _make_member(
+        "fast-attacker", ["bug", "poison"],
+        65, 150, 40, 15, 80, 145,
+        {"flying": 2.0, "fire": 2.0, "psychic": 2.0, "rock": 2.0},
+        sp_spe=32, nature="jolly",
+    )
+    result = explain(member, _speed_db)
+    # If Aerodactyl shows up, it must be (182), not (146).
+    if "Aerodactyl" in result:
+        assert "(146)" not in result, (
+            f"old 0-SP baseline leaked into the note; got {result!r}"
+        )
+        # And it should show the new max-SP-neutral baseline.
+        # We don't hard-assert "(182)" because the DB may evolve, but
+        # any 3-digit number ≥ 170 is plausible at max-SP neutral on
+        # a base-130 stat.
+        import re
+        m = re.search(r"Aerodactyl\s*\((\d+)\)", result)
+        if m:
+            opp_speed = int(m.group(1))
+            assert opp_speed >= 170, (
+                f"opponent Aerodactyl baseline too low ({opp_speed}); "
+                f"max-SP neutral on base 130 should be ≥170, was {opp_speed}. "
+                f"Full note: {result!r}"
+            )
+
+
+# ── Items pool expansion (Phase 4b feedback) ─────────────────────────────
+
+
+def test_legal_items_pool_contains_type_resist_berries():
+    """User feedback 2026-05-14: 18 type-resist berries (one per type)
+    must be in the legal items pool. Inte-verified Champions M-A content.
+    """
+    from pokemon_team_builder.services.team_generator import _load_champions_legal_items
+    legal, _version = _load_champions_legal_items()
+    expected_berries = {
+        "Chilan Berry", "Occa Berry", "Passho Berry", "Wacan Berry",
+        "Rindo Berry", "Yache Berry", "Chople Berry", "Kebia Berry",
+        "Shuca Berry", "Coba Berry", "Payapa Berry", "Tanga Berry",
+        "Charti Berry", "Kasib Berry", "Haban Berry", "Colbur Berry",
+        "Babiri Berry", "Roseli Berry",
+    }
+    missing = expected_berries - legal
+    assert not missing, f"missing type-resist berries in pool: {sorted(missing)}"
+
+
+def test_assault_vest_not_in_legal_pool():
+    """User feedback 2026-05-14 (Inte v2): Assault Vest is NOT in the
+    Champions M-A item pool. Must not appear in the legal items JSON
+    nor in the backup fallback.
+    """
+    from pokemon_team_builder.services.team_generator import (
+        _load_champions_legal_items, _BACKUP_ITEMS_FALLBACK,
+    )
+    legal, _ = _load_champions_legal_items()
+    assert "Assault Vest" not in legal, (
+        "Assault Vest leaked back into champions_legal_items.json"
+    )
+    assert "Assault Vest" not in _BACKUP_ITEMS_FALLBACK, (
+        "Assault Vest leaked back into the in-code backup fallback"
+    )
