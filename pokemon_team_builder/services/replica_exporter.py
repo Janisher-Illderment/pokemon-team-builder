@@ -308,6 +308,7 @@ def select_moves_for_role(
     meta_moves: list[str] | None = None,
     format_mode: str = "bo1",
     archetype: str = "balance",
+    team_sheet: str = "closed",
 ) -> list[str]:
     """Pick exactly 4 moves for a Pokemon given its assigned roles.
 
@@ -317,19 +318,33 @@ def select_moves_for_role(
 
     Falls back gracefully: missing slot-3 / slot-4 candidates are filled
     by the first known move, then by ``tackle`` if the move pool is empty.
+
+    C1: ``team_sheet`` ("open" | "closed") tightens the cheese gate when
+    the opponent will see the team before lead selection. Open sheets
+    make Destiny Bond / Mirror Coat / Counter / Memento / Perish Song
+    far less valuable because the opponent can play around them. We
+    apply a 0.5 multiplier to the effective cheese_allowance so even
+    archetypes with the highest cheese_allowance (perish_trap = 1.6)
+    fall below the 1.0 gate when running open sheet (1.6 × 0.5 = 0.8 →
+    blocked). Closed sheet keeps the full allowance so archetypes
+    designed for cheese (perish_trap) can still emit Perish Song.
     """
     primary_role = roles[0] if roles else "physical_sweeper"
     move_pool = list(pokemon.move_names)
     used: set[str] = set()
 
-    # Phase 2b cheese-allowance gate. We resolve the archetype's weights
-    # once and decide whether the cheese set is on-limits. Any move
-    # selection pass below (meta, STAB tables, coverage, role priority,
-    # fallback) must respect this gate when ``archetype_blocks_cheese``
-    # is True.
+    # Phase 2b cheese-allowance gate, C1-tightened by team_sheet.
+    # archetype.cheese_allowance is the baseline; open sheet multiplies
+    # it by 0.7 so cheese is harder to clear. A future enhancement may
+    # split the gate so perish_trap can keep cheese in open sheet
+    # specifically — for v0.9 we accept the simpler global multiplier.
     archetype_weights = get_weights(archetype)
+    sheet_cheese_multiplier = 0.5 if team_sheet == "open" else 1.0
+    effective_cheese_allowance = (
+        archetype_weights.cheese_allowance * sheet_cheese_multiplier
+    )
     archetype_blocks_cheese = (
-        archetype_weights.cheese_allowance < _CHEESE_GATE_THRESHOLD
+        effective_cheese_allowance < _CHEESE_GATE_THRESHOLD
     )
 
     # Slot 1: protect when the Pokemon actually knows it. Most legal mons
@@ -510,6 +525,11 @@ def select_moves_for_role(
         archetype == "perish_trap"
         and "perish-song" in move_pool
         and "perish-song" not in used
+        # C1: open sheet gates cheese even in perish_trap. The cheese
+        # multiplier already lowered effective_cheese_allowance; respect
+        # the resulting gate flag here too, otherwise this special case
+        # would silently bypass the team_sheet semantics.
+        and not archetype_blocks_cheese
     ):
         slot4 = "perish-song"
 

@@ -18,6 +18,14 @@ Archetype = Literal[
     "perish_trap",
 ]
 
+# C1 (2026-05-14): team sheet visibility — affects whether opponent sees
+# the team before lead selection. Decouples sheet visibility from Bo1/Bo3
+# since Bo1 is NOT always closed in casual leagues.
+#   "auto"   → bo3 = open, bo1 = closed (current default behavior)
+#   "open"   → opponent will see all 6, cheese moves less valuable
+#   "closed" → opponent picks blind, lure / surprise sets viable
+TeamSheet = Literal["auto", "open", "closed"]
+
 
 class GenerateRequest(BaseModel):
     anchor: str = Field(min_length=1, examples=["garchomp"])
@@ -29,6 +37,10 @@ class GenerateRequest(BaseModel):
     # validates the literal automatically — invalid values produce HTTP
     # 422 with the list of valid options.
     archetype: Archetype = "balance"
+    # C1: team sheet visibility (open/closed). Default "auto" preserves
+    # legacy behavior (bo3=open, bo1=closed). Override with explicit
+    # "open" / "closed" for casual leagues that don't follow that pattern.
+    team_sheet: TeamSheet = "auto"
 
 
 class SpReadOut(BaseModel):
@@ -79,6 +91,9 @@ class VariantOut(BaseModel):
     # legal_pool, items, weather, archetype_weights, sp_mechanics,
     # ability_roles, meta_teams. Missing files default to 0.
     meta_versions: dict[str, int] = {}
+    # C1 (2026-05-14): resolved team_sheet for this variant. Always
+    # "open" or "closed" (never "auto" — that's resolved server-side).
+    team_sheet: Literal["open", "closed"] = "closed"
 
 
 class GenerateResponse(BaseModel):

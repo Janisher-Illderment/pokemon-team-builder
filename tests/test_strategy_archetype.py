@@ -19,7 +19,7 @@ import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
-from pokemon_team_builder.api.schemas import GenerateRequest
+from pokemon_team_builder.api.schemas import GenerateRequest, VariantOut
 from pokemon_team_builder.main import app
 from pokemon_team_builder.config import ARCHETYPE_WEIGHTS_FILE
 from pokemon_team_builder.data.archetype_weights_loader import (
@@ -331,3 +331,71 @@ def test_variantout_echoes_archetype() -> None:
         format_mode="bo1",
     )
     assert v2.archetype == "balance"
+
+
+# ── C1: team_sheet propagation + auto-resolution ──────────────────────────
+
+
+def test_generate_request_defaults_team_sheet_to_auto():
+    req = GenerateRequest(anchor="garchomp")
+    assert req.team_sheet == "auto"
+
+
+def test_generate_request_accepts_explicit_open_closed():
+    req_open = GenerateRequest(anchor="garchomp", team_sheet="open")
+    assert req_open.team_sheet == "open"
+    req_closed = GenerateRequest(anchor="garchomp", team_sheet="closed")
+    assert req_closed.team_sheet == "closed"
+
+
+def test_generate_request_rejects_invalid_team_sheet():
+    with pytest.raises(ValidationError):
+        GenerateRequest(anchor="garchomp", team_sheet="halfopen")
+
+
+def test_variantout_team_sheet_defaults_to_closed():
+    """Phase 1 importers and legacy paths should produce closed by default."""
+    from pokemon_team_builder.api.schemas import MemberOut
+    m = MemberOut(
+        name="garchomp", item="Choice Band", ability="sand-veil",
+        nature="jolly",
+        moves=["protect", "earthquake", "dragon-claw", "rock-slide"],
+        roles=["physical_sweeper"],
+    )
+    v = VariantOut(
+        score=80.0, recommended=False, pokepaste="",
+        members=[m] * 6, format_mode="bo1",
+    )
+    assert v.team_sheet == "closed"
+
+
+def test_open_sheet_blocks_perish_song_even_for_perish_trap():
+    """C1 trade-off: open sheet × 0.7 multiplier reduces perish_trap's
+    cheese_allowance from 1.0 to 0.7, which trips the < 1.0 gate. Per
+    the design rationale in select_moves_for_role, open sheet pressures
+    EVERY archetype away from cheese. Test confirms that semantics.
+    """
+    from pokemon_team_builder.domain.models import BaseStats, PokemonData
+    from pokemon_team_builder.services.replica_exporter import select_moves_for_role
+    gengar = PokemonData(
+        id=94, name="gengar", types=["ghost", "poison"],
+        base_stats=BaseStats(hp=60, atk=65, **{"def": 60},
+                             spa=130, spd=75, spe=110),
+        move_names=["protect", "shadow-ball", "sludge-bomb", "thunderbolt",
+                    "perish-song", "destiny-bond"],
+        abilities=["cursed-body"], weaknesses={},
+    )
+    # Closed sheet + perish_trap → Perish Song allowed
+    closed_moves = select_moves_for_role(
+        gengar, ["lead_support"], archetype="perish_trap", team_sheet="closed",
+    )
+    # Open sheet + perish_trap → cheese gated (multiplier drops below 1.0)
+    open_moves = select_moves_for_role(
+        gengar, ["lead_support"], archetype="perish_trap", team_sheet="open",
+    )
+    assert "perish-song" in closed_moves, (
+        f"closed sheet + perish_trap should allow perish-song; got {closed_moves}"
+    )
+    assert "perish-song" not in open_moves, (
+        f"open sheet should gate cheese even in perish_trap; got {open_moves}"
+    )

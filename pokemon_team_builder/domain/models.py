@@ -113,3 +113,7 @@ class TeamVariant(BaseModel):
     # built for. Default 'balance' keeps backward compatibility with
     # pre-Phase-2b call sites that do not pass an archetype.
     archetype: str = "balance"
+    # C1 (2026-05-14): resolved team sheet ("open" / "closed"). Always
+    # one of the two concrete values; "auto" resolution happens upstream
+    # in generate_team / score_team.
+    team_sheet: str = "closed"

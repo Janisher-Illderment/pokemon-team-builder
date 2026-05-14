@@ -736,6 +736,7 @@ def generate_team(
     mega_choice: str = "auto",
     format_mode: str = "bo1",
     archetype: str = "balance",
+    team_sheet: str = "auto",
 ) -> list[TeamVariant]:
     """Generate up to ``num_variants`` 6-mon team variants around ``anchor``.
 
@@ -783,6 +784,19 @@ def generate_team(
         raise TeamBuildError(
             "Ditto cannot be used as a team anchor — it has no buildable "
             "moveset in Champions."
+        )
+
+    # C1: resolve team_sheet up-front. "auto" maps to legacy behavior
+    # (bo3 = open sheet for tournaments, bo1 = closed for ladder).
+    # Explicit "open" / "closed" overrides this mapping — useful for
+    # casual leagues that run Bo1 with open sheet.
+    if team_sheet == "auto":
+        resolved_sheet = "open" if format_mode == "bo3" else "closed"
+    elif team_sheet in ("open", "closed"):
+        resolved_sheet = team_sheet
+    else:
+        raise TeamBuildError(
+            f"Invalid team_sheet={team_sheet!r}; expected 'auto', 'open' or 'closed'."
         )
 
     # Resolve the anchor's Mega Evolution choice up-front. This raises
@@ -870,6 +884,7 @@ def generate_team(
                 anchor_mega=anchor_mega,
                 format_mode=format_mode,
                 archetype=archetype,
+                team_sheet=resolved_sheet,
             )
         except (ValueError, TeamBuildError):
             # ValueError → wrong member count; TeamBuildError → move
@@ -878,6 +893,7 @@ def generate_team(
             continue
         score, flex_ratio = viability_rater.score_team(
             variant, format_mode, archetype=archetype,
+            team_sheet=resolved_sheet,
         )
         explanation = viability_rater.generate_explanation(variant, score)
         variant = variant.model_copy(
@@ -888,6 +904,7 @@ def generate_team(
                 # 0..1 viable-combos ratio under the new name.
                 "core_flexibility_ratio": flex_ratio,
                 "archetype": archetype,
+                "team_sheet": resolved_sheet,
             }
         )
         variants.append(variant)
@@ -950,6 +967,7 @@ def _build_variant(
     anchor_mega: MegaForm | None = None,
     format_mode: str = "bo1",
     archetype: str = "balance",
+    team_sheet: str = "closed",
 ) -> TeamVariant:
     members_roles = [role_map.get(p.name, assign_role(p)) for p in team]
 
@@ -973,6 +991,7 @@ def _build_variant(
             meta_moves=meta_moves_by_member[i],
             format_mode=format_mode,
             archetype=archetype,
+            team_sheet=team_sheet,
         )
         for i, (pokemon, roles) in enumerate(zip(team, members_roles))
     ]
@@ -1006,6 +1025,7 @@ def _build_variant(
             meta_moves=meta_moves_by_member[idx],
             format_mode=format_mode,
             archetype=archetype,
+            team_sheet=team_sheet,
         )
         nature = _derive_nature(primary, roles, moves)
         # Phase 3 §9.6: default export uses the offensive preset, so we

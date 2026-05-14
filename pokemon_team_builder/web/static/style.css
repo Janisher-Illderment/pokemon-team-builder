@@ -452,6 +452,12 @@ main { max-width: 960px; margin: 0 auto; padding: 1.5rem 1rem; }
   color: #fff;
 }
 
+/* C1 — Team sheet badge (open/closed) */
+.badge-sheet {
+  background: #0ea5e9;
+  color: #fff;
+}
+
 /* Phase 4a — Speed control warning banner */
 .speed-warning {
   background: #422006;

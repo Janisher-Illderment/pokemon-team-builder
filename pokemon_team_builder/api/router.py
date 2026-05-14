@@ -112,6 +112,7 @@ def generate(req: GenerateRequest) -> GenerateResponse:
             mega_choice=req.mega,
             format_mode=req.format,
             archetype=req.archetype,
+            team_sheet=req.team_sheet,
         )
     except TeamBuildError as exc:
         # Pool exhaustion / cold-cache / structural pool issues → 503 so the
@@ -152,6 +153,7 @@ def generate(req: GenerateRequest) -> GenerateResponse:
                     v, v.archetype,
                 ),
                 meta_versions=versions,
+                team_sheet=v.team_sheet if v.team_sheet in ("open", "closed") else "closed",
             )
         )
 
@@ -240,6 +242,7 @@ def _variant_to_out(v: TeamVariant, *, format_mode: str = "bo1") -> VariantOut:
             v, v.archetype,
         ),
         meta_versions=_meta_versions_mod.collect(),
+        team_sheet=v.team_sheet if v.team_sheet in ("open", "closed") else "closed",
     )
 
 
@@ -290,6 +293,7 @@ def import_pokepaste(req: ImportRequest) -> ImportResponse:
         archetype=base_out.archetype,
         requires_speed_control=base_out.requires_speed_control,
         meta_versions=base_out.meta_versions,
+        team_sheet=base_out.team_sheet,
         import_warnings=warnings,
     )
 

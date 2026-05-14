@@ -317,6 +317,7 @@ def score_team(
     format_mode: str = "bo1",
     *,
     archetype: str = "balance",
+    team_sheet: str = "closed",
 ) -> tuple[float, float]:
     """Score a 6-member team variant on a 0-100 scale.
 

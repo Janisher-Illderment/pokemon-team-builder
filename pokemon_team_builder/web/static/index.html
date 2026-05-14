@@ -40,7 +40,7 @@
   </script>
 
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-  <link rel="stylesheet" href="style.css?v=20260514-4" />
+  <link rel="stylesheet" href="style.css?v=20260514-5" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -175,6 +175,14 @@
             <option value="perish_trap">Perish trap</option>
           </select>
         </label>
+        <label class="archetype-label" title="Carta del equipo. Abierta = rival ve tu equipo antes (Bo3 / torneos). Cerrada = rival picka a ciegas (Bo1 / ladder). Auto resuelve por formato.">
+          Carta
+          <select x-model="teamSheet" :disabled="loading" class="archetype-select">
+            <option value="auto">Auto</option>
+            <option value="open">Abierta</option>
+            <option value="closed">Cerrada</option>
+          </select>
+        </label>
         <button type="submit" :disabled="loading">
           <span x-show="!loading">Generar</span>
           <span x-show="loading">Cargando…</span>
@@ -192,6 +200,9 @@
               <span x-show="v.archetype" class="badge badge-archetype"
                 x-text="archetypeLabel(v.archetype)"
                 :title="'Arquetipo: ' + v.archetype"></span>
+              <span x-show="v.team_sheet" class="badge badge-sheet"
+                x-text="v.team_sheet === 'open' ? 'Carta abierta' : 'Carta cerrada'"
+                :title="'Visibilidad del equipo al rival'"></span>
               <span class="score" x-text="'Score: ' + v.score"></span>
               <span x-show="v.format_mode === 'bo3'" class="badge badge-flex"
                 x-text="'Núcleo flex: ' + Math.round(v.core_flexibility_score * 100) + '%'"></span>

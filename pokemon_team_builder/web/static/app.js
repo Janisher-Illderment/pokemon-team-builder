@@ -4,6 +4,8 @@ function app() {
     variants: '3',
     format: 'bo1',
     archetype: 'balance',
+    // C1: team sheet visibility. 'auto' = legacy mapping (bo3=open, bo1=closed).
+    teamSheet: 'auto',
     loading: false,
     error: '',
     results: [],
@@ -57,6 +59,7 @@ function app() {
             variants: parseInt(this.variants),
             format: this.format,
             archetype: this.archetype,
+            team_sheet: this.teamSheet,
           }),
         });
         const data = await res.json();
