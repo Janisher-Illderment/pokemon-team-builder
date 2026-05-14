@@ -5,6 +5,33 @@ body {
   background: #0f172a;
   color: #e2e8f0;
   min-height: 100vh;
+  /* Sticky-footer pattern: body is a flex column so the wrapper grows
+     to fill the viewport, and the footer hugs the bottom without
+     leaving an empty black gap below it on short pages. */
+  display: flex;
+  flex-direction: column;
+}
+/* The Alpine root wrapper holds header + main + sections + footer. It
+   must grow to fill the body so .app-footer's margin-top: auto pushes
+   it to the bottom on empty-state. */
+body > div[x-data] {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.app-footer {
+  margin-top: auto;
+}
+/* When the cookie banner is still showing (consent pending) it overlays
+   the bottom of the viewport via position:fixed. Reserve space for it
+   so the sticky footer is not hidden underneath. The script in
+   index.html toggles .cookie-pending on <body>. */
+body.cookie-pending {
+  padding-bottom: 140px;
+}
+@media (max-width: 720px) {
+  body.cookie-pending { padding-bottom: 200px; }
 }
 
 header {

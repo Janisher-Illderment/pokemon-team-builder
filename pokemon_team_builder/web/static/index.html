@@ -593,18 +593,19 @@ Jolly Nature
       window.__cookieConsent = stored === "accept";
       if (!stored) {
         banner.hidden = false;
+        // Reserve space at the bottom so the fixed banner doesn't
+        // overlap the sticky footer.
+        document.body.classList.add("cookie-pending");
       }
-      document.getElementById("cookie-accept").addEventListener("click", () => {
-        localStorage.setItem(KEY, "accept");
-        window.__cookieConsent = true;
+      function dismiss(decision) {
+        localStorage.setItem(KEY, decision);
+        window.__cookieConsent = decision === "accept";
         banner.hidden = true;
-        // Future: trigger AdSense / Analytics init here.
-      });
-      document.getElementById("cookie-reject").addEventListener("click", () => {
-        localStorage.setItem(KEY, "reject");
-        window.__cookieConsent = false;
-        banner.hidden = true;
-      });
+        document.body.classList.remove("cookie-pending");
+        // Future: if decision === "accept", trigger AdSense / Analytics init.
+      }
+      document.getElementById("cookie-accept").addEventListener("click", () => dismiss("accept"));
+      document.getElementById("cookie-reject").addEventListener("click", () => dismiss("reject"));
     })();
   </script>
 
