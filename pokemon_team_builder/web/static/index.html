@@ -3,11 +3,52 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Pokemon Team Builder</title>
+
+  <!-- Primary SEO -->
+  <title>Pokémon Champions Team Builder · VGC Doubles Regulation M-A</title>
+  <meta name="description" content="Generador de equipos Pokémon Champions (VGC Doubles, Regulation M-A). Construye equipos competitivos con archetype selector, weather synergy, EV presets y análisis de matchups. Fan-made, no oficial." />
+  <meta name="keywords" content="pokémon champions, team builder, VGC, doubles, regulation M-A, generador equipos, archetype, weather synergy" />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://pokemon-team-builder.onrender.com/" />
+
+  <!-- Open Graph (Facebook / LinkedIn / Discord) -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Pokémon Champions Team Builder" />
+  <meta property="og:description" content="Generador de equipos Champions VGC Doubles con archetype selector, weather synergy y EV presets." />
+  <meta property="og:url" content="https://pokemon-team-builder.onrender.com/" />
+  <meta property="og:locale" content="es_ES" />
+
+  <!-- Twitter Cards -->
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Pokémon Champions Team Builder" />
+  <meta name="twitter:description" content="Generador de equipos Champions VGC Doubles. Fan-made." />
+
+  <!-- Schema.org structured data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "Pokémon Champions Team Builder",
+    "description": "Generador de equipos Pokémon Champions VGC Doubles Regulation M-A. Archetype selector, weather synergy, EV presets, matchup analyzer.",
+    "applicationCategory": "GameApplication",
+    "operatingSystem": "Web",
+    "inLanguage": "es",
+    "isAccessibleForFree": true,
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" },
+    "creator": { "@type": "Person", "name": "Sergio" }
+  }
+  </script>
+
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
   <link rel="stylesheet" href="style.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Google AdSense placeholder — replace data-ad-client when account approved.
+       Until then the script is commented out so it doesn't load and break the
+       page or trigger AdSense policy issues by loading an unapproved client.
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-PLACEHOLDER" crossorigin="anonymous"></script>
+  -->
 </head>
 <body>
 
@@ -486,7 +527,81 @@ Jolly Nature
       </div>
     </section>
 
+    <!-- Footer global con disclaimer trademark + monetization placeholders -->
+    <footer class="app-footer">
+      <div class="footer-disclaimer">
+        <p>
+          <strong>Aviso:</strong> Pokémon y todos los nombres, marcas e imágenes relacionados son
+          © Nintendo / Game Freak / The Pokémon Company. Esta es una herramienta fan-made
+          NO oficial, NO afiliada ni respaldada por ellos. Los sprites son derivative de Pokémon Showdown,
+          servidos vía hot-link. Los datos competitivos se basan en información factual y son uso justo.
+        </p>
+        <p class="footer-links">
+          <a href="/terms.html">Términos de uso</a> ·
+          <a href="/privacy.html">Política de privacidad</a> ·
+          <a href="https://github.com/Janisher-Illderment/pokemon-team-builder" target="_blank" rel="noopener noreferrer">Código fuente (MIT)</a>
+        </p>
+      </div>
+
+      <!-- Buy Me a Coffee placeholder. Replace href with real BMC URL when registered. -->
+      <div class="footer-support">
+        <p>¿Te resulta útil? Ayuda a mantener el servidor encendido:</p>
+        <a class="bmc-button" href="https://www.buymeacoffee.com/PLACEHOLDER" target="_blank" rel="noopener noreferrer">
+          ☕ Buy me a coffee
+        </a>
+      </div>
+
+      <!-- AdSense bottom slot placeholder. Uncomment + replace IDs when account approved.
+      <ins class="adsbygoogle"
+           style="display:block"
+           data-ad-client="ca-pub-PLACEHOLDER"
+           data-ad-slot="PLACEHOLDER"
+           data-ad-format="auto"
+           data-full-width-responsive="true"></ins>
+      <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+      -->
+    </footer>
+
   </div><!-- end savedTeams wrapper -->
+
+  <!-- Cookie banner — GDPR/LSSI-CE compliance. Renders only when consent
+       is not already stored in localStorage. AdSense / Analytics should be
+       gated by window.__cookieConsent === true before initialising. -->
+  <div id="cookie-banner" class="cookie-banner" hidden>
+    <div class="cookie-banner-inner">
+      <p>
+        Usamos cookies técnicas necesarias para el funcionamiento (presets guardados).
+        Si aceptas, también podremos cargar cookies de terceros (análisis y publicidad).
+        Consulta nuestra <a href="/privacy.html">política de privacidad</a>.
+      </p>
+      <div class="cookie-banner-actions">
+        <button id="cookie-accept" type="button">Aceptar todo</button>
+        <button id="cookie-reject" type="button">Solo necesarias</button>
+      </div>
+    </div>
+  </div>
+  <script>
+    (function () {
+      const KEY = "cookie_consent_v1";
+      const banner = document.getElementById("cookie-banner");
+      const stored = localStorage.getItem(KEY);
+      window.__cookieConsent = stored === "accept";
+      if (!stored) {
+        banner.hidden = false;
+      }
+      document.getElementById("cookie-accept").addEventListener("click", () => {
+        localStorage.setItem(KEY, "accept");
+        window.__cookieConsent = true;
+        banner.hidden = true;
+        // Future: trigger AdSense / Analytics init here.
+      });
+      document.getElementById("cookie-reject").addEventListener("click", () => {
+        localStorage.setItem(KEY, "reject");
+        window.__cookieConsent = false;
+        banner.hidden = true;
+      });
+    })();
+  </script>
 
   <script src="app.js"></script>
 </body>

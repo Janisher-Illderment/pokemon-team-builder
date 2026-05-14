@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Política de privacidad · Pokémon Champions Team Builder</title>
+  <meta name="description" content="Política de privacidad del Pokémon Champions Team Builder. GDPR / LSSI-CE compliant." />
+  <meta name="robots" content="index, follow" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <article class="legal-page">
+    <h1>Política de privacidad</h1>
+    <p class="legal-meta">Última actualización: 2026-05-14 · GDPR (EU 2016/679) + LSSI-CE (Ley 34/2002, España)</p>
+
+    <h2>1. Responsable del tratamiento</h2>
+    <p>
+      Esta herramienta es un proyecto personal mantenido por un desarrollador individual
+      (en adelante, "el responsable"). Contacto a través del repositorio
+      <a href="https://github.com/Janisher-Illderment/pokemon-team-builder" target="_blank" rel="noopener noreferrer">GitHub</a>.
+    </p>
+
+    <h2>2. Qué datos recopilamos</h2>
+    <p><strong>Datos de uso directo:</strong></p>
+    <ul>
+      <li>
+        <strong>localStorage del navegador:</strong> guardamos hasta 20 equipos generados,
+        tu consentimiento de cookies, y preferencias de UI (preset toggle). Estos datos
+        <strong>nunca salen de tu navegador</strong> — no se envían al servidor ni a terceros.
+      </li>
+      <li>
+        <strong>Geolocalización (opcional):</strong> si pulsas "📍 Usar mi ubicación" para
+        ver torneos cercanos, tu navegador nos da coordenadas aproximadas. Se usan en
+        memoria para filtrar torneos y se descartan al cerrar la pestaña. No se almacenan.
+      </li>
+      <li>
+        <strong>Logs del servidor:</strong> nuestro hosting (Render) registra IPs y
+        timestamps de las peticiones HTTP por seguridad y debugging. Render conserva
+        estos logs según su propia política — consulta
+        <a href="https://render.com/privacy" target="_blank" rel="noopener noreferrer">Render Privacy Policy</a>.
+      </li>
+    </ul>
+
+    <p><strong>Datos recopilados por terceros que cargamos:</strong></p>
+    <ul>
+      <li>
+        <strong>PokeAPI</strong> (pokeapi.co): consultamos datos de Pokémon. Tu IP llega a
+        sus servidores. Política: <a href="https://pokeapi.co/" target="_blank" rel="noopener noreferrer">pokeapi.co</a>.
+      </li>
+      <li>
+        <strong>Pokémon Showdown</strong> (play.pokemonshowdown.com): cargamos sprites
+        desde sus servidores. Tu IP llega a ellos.
+      </li>
+      <li>
+        <strong>jsDelivr / unpkg</strong> (CDN): servimos Alpine.js y Leaflet desde CDNs.
+        Tu IP llega a ellos.
+      </li>
+      <li>
+        <strong>Leaflet + OpenStreetMap</strong>: si abres el mapa de torneos, se cargan
+        tiles desde OSM. Tu IP llega a ellos.
+      </li>
+      <li>
+        <strong>Google AdSense</strong> (CUANDO esté aprobado y solo si aceptas cookies):
+        actualmente NO activo. Cuando se active, cargará scripts publicitarios y cookies
+        de tracking. Se podrán inhabilitar rechazando cookies en el banner.
+      </li>
+    </ul>
+
+    <h2>3. Base legal y finalidad</h2>
+    <ul>
+      <li><strong>Cookies técnicas necesarias</strong> (consentimiento del banner, presets):
+        base legal = interés legítimo + funcionalidad básica. No requieren consentimiento
+        explícito según LSSI-CE.</li>
+      <li><strong>Cookies de terceros</strong> (analytics, publicidad): base legal =
+        consentimiento explícito. Solo se activan si pulsas "Aceptar todo" en el banner.</li>
+    </ul>
+
+    <h2>4. Cookies</h2>
+    <p>La herramienta usa los siguientes mecanismos de almacenamiento:</p>
+    <table class="legal-table">
+      <thead>
+        <tr><th>Nombre</th><th>Tipo</th><th>Finalidad</th><th>Duración</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>cookie_consent_v1</td><td>localStorage</td><td>Recordar elección banner</td><td>Persistente</td></tr>
+        <tr><td>poke_builder_saved_teams</td><td>localStorage</td><td>Guardar equipos</td><td>Persistente</td></tr>
+        <tr><td>AdSense (futuro)</td><td>Cookie 3rd-party</td><td>Publicidad personalizada</td><td>Según Google</td></tr>
+      </tbody>
+    </table>
+    <p>
+      Puedes borrar localStorage en cualquier momento desde la configuración de tu navegador
+      (DevTools → Application → Local Storage → Clear).
+    </p>
+
+    <h2>5. Tus derechos (GDPR)</h2>
+    <ul>
+      <li><strong>Acceso:</strong> los únicos datos personales que tratamos son tu IP en logs (controlados por Render). Para solicitar acceso, contacta a Render directamente.</li>
+      <li><strong>Rectificación / Supresión / Oposición:</strong> los datos en tu navegador puedes borrarlos tú directamente desde DevTools.</li>
+      <li><strong>Portabilidad:</strong> tus equipos guardados en localStorage son exportables como PokePaste desde la propia app (botón "Copy Pokepaste").</li>
+      <li><strong>Reclamación:</strong> puedes reclamar ante la Agencia Española de Protección de Datos (AEPD), <a href="https://www.aepd.es/" target="_blank" rel="noopener noreferrer">aepd.es</a>.</li>
+    </ul>
+
+    <h2>6. Transferencias internacionales</h2>
+    <p>
+      Nuestro hosting (Render) está en EEUU. Los CDNs (jsDelivr, unpkg) son globales.
+      PokeAPI y Pokémon Showdown sirven desde EEUU. Estas transferencias se realizan al
+      amparo de las cláusulas contractuales estándar de la UE (SCCs) o equivalentes.
+    </p>
+
+    <h2>7. Menores</h2>
+    <p>
+      La herramienta no está dirigida a menores de 14 años. No recopilamos
+      intencionadamente datos de menores. Si descubres tal recopilación, contacta y
+      eliminaremos los datos.
+    </p>
+
+    <h2>8. Cambios en esta política</h2>
+    <p>
+      Esta política puede actualizarse. La fecha de última actualización aparece al inicio.
+      Cambios materiales se anunciarán en el banner de la app durante 14 días.
+    </p>
+
+    <p class="legal-meta">
+      <a href="/">← Volver a la app</a> · <a href="/terms.html">Términos de uso</a>
+    </p>
+  </article>
+</body>
+</html>
