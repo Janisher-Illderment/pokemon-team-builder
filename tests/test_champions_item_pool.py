@@ -1,10 +1,11 @@
 """Tests for the Champions M-A legal item pool.
 
-Pins the v0.3 refactor: WP / Throat Spray / Rocky Helmet / Life Orb are
-NOT in the M-A pool, the item map is JSON-sourced (with an in-code
-fallback), Item Clause is enforced as a hard rejection in _assign_items,
-and the backup pool is large enough to satisfy Item Clause for a team
-of 6 same-role members.
+Pins the v0.3 refactor + v0.10.1 Choice removal: WP / Throat Spray /
+Rocky Helmet / Life Orb / Assault Vest / Choice Band / Choice Specs /
+Choice Scarf are NOT in the M-A pool. The item map is JSON-sourced
+(data_version 3) with an in-code fallback, Item Clause is enforced as a
+hard rejection in _assign_items, and the backup pool is large enough to
+satisfy Item Clause for a team of 6 same-role members.
 """
 
 from __future__ import annotations
@@ -30,6 +31,31 @@ _REMOVED_ITEMS = frozenset({
     "Throat Spray",
     "Rocky Helmet",
     "Life Orb",
+    "Assault Vest",
+    "Choice Band",
+    "Choice Specs",
+    "Choice Scarf",
+    "Eviolite",
+    "Booster Energy",
+    "Mirror Herb",
+    "Loaded Dice",
+    "Covert Cloak",
+    "Safety Goggles",
+    "Clear Amulet",
+    "Light Clay",
+    "Power Herb",
+    # v0.10.3 (2026-05-15): Sergio's COMPLETE in-game store paste removed
+    # the last cohort of "obvious VGC items" that Champions does NOT ship
+    # with. Champions has a deliberately minimal 48-item economy.
+    "Leftovers",
+    "Focus Sash",
+    "Focus Band",
+    "Bright Powder",
+    "Quick Claw",
+    "King's Rock",
+    "White Herb",
+    "Sitrus Berry",
+    "Lum Berry",
 })
 
 
@@ -81,10 +107,12 @@ def test_fallback_item_is_legal() -> None:
 
 
 def test_provisional_replacements_pinned() -> None:
-    # Spec D5 + tasks 3.1-3.3: explicit replacement targets.
-    assert _DEFAULT_ITEM_BY_ROLE["physical_sweeper"] == "Choice Band"
-    assert _DEFAULT_ITEM_BY_ROLE["special_sweeper"] == "Choice Specs"
-    assert _DEFAULT_ITEM_BY_ROLE["physical_wall"] == "Leftovers"
+    # v0.10.3 (2026-05-15): role defaults after Sergio's full in-game store
+    # paste — Champions has only 48 items so the defaults shifted to what
+    # IS legal. Each entry MUST appear in champions_legal_items.json v5.
+    assert _DEFAULT_ITEM_BY_ROLE["physical_sweeper"] == "Shell Bell"
+    assert _DEFAULT_ITEM_BY_ROLE["special_sweeper"] == "Scope Lens"
+    assert _DEFAULT_ITEM_BY_ROLE["physical_wall"] == "Oran Berry"
 
 
 # ---------------------------------------------------------------------------
@@ -175,20 +203,21 @@ def test_assign_items_raises_when_pool_too_thin(monkeypatch: pytest.MonkeyPatch)
 
 
 def test_assign_items_filters_illegal_meta_items() -> None:
-    # If MunchStats / meta_service returns a non-M-A item (e.g. Life Orb),
+    # If MunchStats / meta_service returns a non-M-A item (e.g. Life Orb
+    # or a Choice item now that Choice items have been removed),
     # _assign_items must skip it and fall back to a legal default.
     member = _mk("garchomp", ["dragon", "ground"], pid=445, atk=130, spe=102)
     items = _assign_items(
         [["physical_sweeper"]],
         [member],
-        meta_items_by_member=[["Life Orb", "Weakness Policy"]],
+        meta_items_by_member=[["Life Orb", "Choice Band", "Weakness Policy"]],
     )
     # Must NOT pick a removed item — meta or otherwise.
     assert items[0] not in _REMOVED_ITEMS, (
         f"illegal meta item leaked through: {items[0]}"
     )
-    # Must pick a legal alternative — Choice Band (role default).
-    assert items[0] == "Choice Band"
+    # Must pick a legal alternative — Shell Bell (physical_sweeper role default after v5).
+    assert items[0] == "Shell Bell"
 
 
 # ---------------------------------------------------------------------------

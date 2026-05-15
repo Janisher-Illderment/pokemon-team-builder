@@ -97,21 +97,19 @@ def test_each_stat_within_cap():
 
 # ── Item-aware allocation (spec scenarios) ────────────────────────────────────
 
-def test_choice_band_offensive_invests_speed_over_attack():
-    """Spec §9.3: Choice Band attacker offensive preset has Spe > Atk."""
+def test_no_item_inflation_branches_for_choice_items():
+    """v0.10.1 (2026-05-15): Choice Band/Specs/Scarf were confirmed absent
+    from Pokémon Champions, so the sp_preset_builder dispatch tables no
+    longer special-case them. A request with one of those items should
+    fall back to the generic (item-agnostic) offensive profile — Atk/SpA
+    dominant, Speed secondary — without raising.
+    """
     member = _mk("garchomp", atk=130, spe=102)
     presets = build_presets(member, "Choice Band", "Jolly")
     off = presets["offensive"]
-    assert off.spe > off.atk
-
-
-def test_choice_specs_offensive_invests_speed_over_spa():
-    """Choice Specs attacker offensive preset has Spe > SpA."""
-    member = _mk("alakazam", atk=50, spa=135, spe=120,
-                 nature="Timid", role="special_sweeper")
-    presets = build_presets(member, "Choice Specs", "Timid")
-    off = presets["offensive"]
-    assert off.spe > off.spa
+    # Generic offensive profile: primary attack stat gets the largest share.
+    assert off.atk >= off.spe
+    assert off.atk + off.spe + off.hp == SP_TOTAL_CAP
 
 
 def test_eviolite_nfe_defensive_reduces_def_spd_investment():
@@ -126,13 +124,19 @@ def test_eviolite_nfe_defensive_reduces_def_spd_investment():
     assert eviolite_defensive_total < none_defensive_total
 
 
-def test_assault_vest_defensive_invests_def_over_spd():
-    """Spec §9.3: AV defensive preset puts Def > SpD (SpD already inflated)."""
+def test_assault_vest_defensive_falls_back_to_generic_profile():
+    """v0.10.1: Assault Vest absent from Champions M-A (data_version 3).
+    Defensive preset uses the generic HP-heavy profile, not the AV-specific
+    Def>SpD branch (which has been deleted).
+    """
     member = _mk("conkeldurr", atk=140, spa=55, spe=45, hp=105, def_=95, spd=65,
                  nature="Adamant", role="physical_sweeper")
     presets = build_presets(member, "Assault Vest", "Adamant")
     deff = presets["defensive"]
-    assert deff.def_ > deff.spd
+    # Generic profile invests heavily in HP; both defenses are similar in
+    # magnitude rather than skewed toward Def.
+    assert deff.hp > 0
+    assert deff.def_ > 0 and deff.spd > 0
 
 
 # ── Nature jump optimisation (spec §9.4) ──────────────────────────────────────

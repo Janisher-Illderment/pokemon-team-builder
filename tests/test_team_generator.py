@@ -314,15 +314,22 @@ def test_throat_spray_never_assigned() -> None:
 
 
 def test_white_herb_not_assigned_without_stat_drop_move() -> None:
-    """White Herb must not be assigned if the Pokemon has no stat-drop moves."""
+    """White Herb must not be assigned if the Pokemon has no stat-drop moves.
+
+    v0.10.3: White Herb was removed from Champions (Hierba Blanca absent
+    from Sergio's in-game store paste). The activation predicate code
+    path still exists for future items that may need it — we keep this
+    test as a structural regression by asserting White Herb is NOT in
+    the backup pool and the function never emits it.
+    """
     from pokemon_team_builder.services.team_generator import (
         _BACKUP_ITEMS,
         _assign_items,
     )
 
-    # Sanity: White Herb is in the backup pool, so we know it could
-    # theoretically be picked if activatability weren't enforced.
-    assert "White Herb" in _BACKUP_ITEMS
+    # White Herb must NOT be in the backup pool — it doesn't exist in
+    # Champions (data_version 5 / 2026-05-15).
+    assert "White Herb" not in _BACKUP_ITEMS
 
     # Build 6 same-role mons (force fallback chain), none with stat-drop moves.
     members = [
@@ -362,8 +369,8 @@ def test_special_sweeper_default_item_is_choice_specs() -> None:
         moves=["protect", "hyper-voice", "psychic", "thunderbolt"],
     )
     items = _assign_items([["special_sweeper"]], [pokemon])
-    assert items[0] == "Choice Specs", (
-        f"special_sweeper should get Choice Specs (Champions M-A legal): {items}"
+    assert items[0] == "Scope Lens", (
+        f"v0.10.3 (Sergio's complete paste): special_sweeper default is Scope Lens: {items}"
     )
 
 
@@ -808,16 +815,22 @@ def test_choice_blocked_when_redirect_is_secondary_role() -> None:
     assert items[1] not in _CHOICE_ITEMS
 
 
-def test_pure_sweeper_still_gets_choice_scarf_as_fallback() -> None:
+def test_pure_sweeper_falls_back_to_first_legal_backup() -> None:
+    """v0.10.3: fallback chain after Sergio's full in-game store paste.
+
+    Member 0 takes the role default (Shell Bell for physical_sweeper).
+    Member 1 collides on the default and walks the chain: _FALLBACK_ITEM
+    is now Cheri Berry (universal status-cure berry, no Choice items in
+    Champions).
+    """
     from pokemon_team_builder.services.team_generator import _assign_items
 
-    # Member 0 takes Scope Lens (physical_sweeper default).
-    # Member 1 has no no-choice role → Choice Scarf is the first fallback.
     items = _assign_items([
         ["physical_sweeper"],
         ["physical_sweeper"],
     ])
-    assert items[1] == "Choice Scarf"
+    assert items[0] == "Shell Bell"
+    assert items[1] == "Cheri Berry"
 
 
 # ---------------------------------------------------------------------------
@@ -829,16 +842,18 @@ def test_assign_items_prefers_meta_item() -> None:
     from pokemon_team_builder.services.team_generator import _assign_items
     from pokemon_team_builder.services.meta_service import MetaEntry
 
-    meta_entry = MetaEntry(items=["Sitrus Berry"], moves=[], teammates=[])
+    # v0.10.3: Oran Berry is the closest Champions analog to Sitrus
+    # Berry (Sitrus Berry removed from Champions per Sergio's paste).
+    meta_entry = MetaEntry(items=["Oran Berry"], moves=[], teammates=[])
     with patch(
         "pokemon_team_builder.services.team_generator._meta_service"
     ) as mock_svc:
         mock_svc.get.return_value = meta_entry
         items = _assign_items(
             [["physical_sweeper"]],
-            meta_items_by_member=[["Sitrus Berry"]],
+            meta_items_by_member=[["Oran Berry"]],
         )
-    assert items[0] == "Sitrus Berry"
+    assert items[0] == "Oran Berry"
 
 
 def test_assign_items_skips_meta_item_on_clause_conflict() -> None:
@@ -848,10 +863,10 @@ def test_assign_items_skips_meta_item_on_clause_conflict() -> None:
     # Both members get the same meta item → second should fall back.
     items = _assign_items(
         [["physical_sweeper"], ["special_sweeper"]],
-        meta_items_by_member=[["Sitrus Berry"], ["Sitrus Berry"]],
+        meta_items_by_member=[["Oran Berry"], ["Oran Berry"]],
     )
-    assert items[0] == "Sitrus Berry"
-    assert items[1] != "Sitrus Berry"
+    assert items[0] == "Oran Berry"
+    assert items[1] != "Oran Berry"
 
 
 def test_heuristic_filter_meta_teammate_bonus() -> None:

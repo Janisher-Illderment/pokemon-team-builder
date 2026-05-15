@@ -117,6 +117,11 @@ function app() {
     },
 
     hasPresets(member) {
+      // v0.10.1 (2026-05-15): prefer the full preset_kits when present.
+      // Fall back to the legacy SPs-only sp_presets for variants imported
+      // before the kit refactor.
+      const k = member && member.preset_kits;
+      if (k && (k.offensive || k.defensive)) return true;
       const p = member && member.sp_presets;
       return !!(p && (p.offensive || p.defensive));
     },
@@ -129,10 +134,29 @@ function app() {
       this.presetChoice[`${variantIdx}:${memberIdx}`] = choice;
     },
 
+    // v0.10.1: return the kit for the selected preset — item/ability/nature/
+    // moves/sp_distribution come from preset_kits, not just SPs. Falls back
+    // to a synthesised kit built from the legacy member fields when the
+    // backend didn't ship preset_kits (older variants).
+    kitForPreset(member, presetName) {
+      const kits = member && member.preset_kits;
+      if (kits && kits[presetName]) return kits[presetName];
+      // Legacy fallback: only SPs change, the rest mirrors the offensive
+      // build.
+      const legacySp = (member && member.sp_presets && member.sp_presets[presetName]) || member.sp_distribution || {};
+      return {
+        item: member.item,
+        ability: member.ability,
+        nature: member.nature,
+        moves: member.moves,
+        sp_distribution: legacySp,
+      };
+    },
+
     // Returns the SP grid for the selected preset; falls back to legacy sp_distribution if presets missing.
     spGridForPreset(member, presetName) {
-      const presets = member && member.sp_presets;
-      const sp = (presets && presets[presetName]) || member.sp_distribution || {};
+      const kit = this.kitForPreset(member, presetName);
+      const sp = kit.sp_distribution || {};
       return [
         { stat: 'HP',  key: 'hp',  val: sp.hp  || 0 },
         { stat: 'Atk', key: 'atk', val: sp.atk || 0 },

@@ -139,19 +139,36 @@ def test_mega_data_integrity() -> None:
                 assert isinstance(stats[stat_name], int) and stats[stat_name] >= 1
 
 
-def test_mega_data_contains_all_59_species() -> None:
-    """59 mega-eligible species: original Champions set + Metagross + Glimmora + Scovillain.
+def test_mega_data_matches_official_list() -> None:
+    """46 mega-eligible species / 47 forms — exactly Sergio's official paste
+    from the in-game Mega Stone store (2026-05-15). Source of truth lives
+    in ``tests/fixtures/champions_megas_official.csv``; this test fails
+    loud if the JSON drifts from that list.
 
-    Total forms = 60 (Charizard X/Y; all others have one form each).
-    Mega Raichu X/Y and Mega Tatsugiri excluded — not in game at launch (trailers only).
+    Charizard is the only species with two forms (X + Y). Mega Raichu X/Y,
+    Mega Tatsugiri, Mega Metagross, Mega Garchomp, Mega Gyarados,
+    Mega Greninja, Mega Beedrill, Mega Heracross, Mega Manectric,
+    Mega Steelix, Mega Abomasnow, Mega Aggron, Mega Chesnaught,
+    Mega Delphox, Mega Floette — all excluded (not in game per Sergio's
+    paste).
     """
     data = load_mega_evolutions()
-    assert len(data) == 59
+    assert len(data) == 46
     total_forms = sum(len(forms) for forms in data.values())
-    assert total_forms == 60
-    # Charizard is the only species with two forms
+    assert total_forms == 47
+    # Charizard is the only species with two forms.
     multi_form = {sp for sp, forms in data.items() if len(forms) > 1}
     assert multi_form == {"charizard"}
+    # Sanity-check the removed set never sneaks back in.
+    for removed in (
+        "abomasnow", "aggron", "beedrill", "chesnaught", "delphox",
+        "floette", "garchomp", "greninja", "gyarados", "heracross",
+        "manectric", "metagross", "steelix",
+    ):
+        assert removed not in data, (
+            f"{removed} re-added to mega_evolutions.json — not in Sergio's "
+            "official list (tests/fixtures/champions_megas_official.csv)"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -176,31 +193,25 @@ def test_pokemon_data_megas_field_accepts_list() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_mega_loader_warns_unverified(
-    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+def test_mega_loader_no_unverified_after_official_paste(
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """Loading the data file must print a stderr warning listing every
-    entry whose verified flag is False."""
-    # The lru_cache holds a reference to a previously-warmed dict — clear
-    # it so this test exercises the warning path on a fresh load.
+    """v0.10.2: Sergio pasted the official store listing 2026-05-15 so
+    every remaining entry is now verified=true. The loader must emit
+    NO warning at all — if a regression re-flips a flag to false, this
+    test fails loud.
+    """
     load_mega_evolutions.cache_clear()
-    load_mega_evolutions()
+    data = load_mega_evolutions()
     captured = capsys.readouterr()
-    assert "warning" in captured.err.lower()
-    assert "unverified" in captured.err.lower()
-    # At least the canonical unverified set per ADR (sableye, scizor,
-    # sharpedo, slowbro, steelix, tyranitar, manectric, houndoom).
-    for form in (
-        "sableye-mega",
-        "scizor-mega",
-        "sharpedo-mega",
-        "slowbro-mega",
-        "steelix-mega",
-        "tyranitar-mega",
-        "manectric-mega",
-        "houndoom-mega",
-    ):
-        assert form in captured.err, f"{form} not in stderr warning"
+    assert "warning" not in captured.err.lower(), (
+        f"unexpected unverified-mega warning: {captured.err}"
+    )
+    # Belt-and-suspenders: confirm every form is verified=True on the
+    # data structure itself.
+    for species, forms in data.items():
+        for form in forms:
+            assert form.verified, f"{form.form_id} should be verified after official paste"
 
 
 # ---------------------------------------------------------------------------
@@ -358,9 +369,10 @@ def test_assign_items_mega_slot_other_slots_normal() -> None:
     )
     assert items[0] == "Charizardite Y"
     # Slot 1 (and onwards) gets the role default first, then fallbacks.
-    # v0.3: physical_sweeper default is Choice Band (Champions M-A confirmed,
-    # Weakness Policy removed per Inte v2 cross-check).
-    assert items[1] == "Choice Band"
+    # v0.10.3 (2026-05-15): physical_sweeper default is Shell Bell after
+    # Sergio's full in-game store paste — Sitrus Berry is NOT in
+    # Champions either.
+    assert items[1] == "Shell Bell"
 
 
 # ---------------------------------------------------------------------------

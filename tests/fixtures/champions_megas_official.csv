@@ -1,0 +1,64 @@
+mega_stone_es,mega_stone_en,species,price_pv,notes
+# Champions M-A official Mega Stones list. Source of truth = pasted by
+# Sergio 2026-05-15 directly from the in-game store. Price column is the
+# in-game PV cost (2000 PV for every stone — kept for completeness).
+# Total: 47 stones across 46 Pokémon (Charizard has X + Y).
+#
+# Update procedure: when Champions adds / removes a stone, edit this CSV
+# first, then regenerate `pokemon_team_builder/data/mega_evolutions.json`
+# (currently a manual sync — the stats / abilities live there because
+# they don't come from the in-game store listing).
+#
+# Items NOT in this CSV are NOT legal Mega Stones in Champions M-A.
+# v0.10.2 (2026-05-15) removed 13 species from mega_evolutions.json
+# that were present in the previous data but absent here:
+#   abomasnow, aggron, beedrill, chesnaught, delphox, floette,
+#   garchomp, greninja, gyarados, heracross, manectric, metagross,
+#   steelix.
+Venusaurita,Venusaurite,venusaur,2000,
+Charizardita X,Charizardite X,charizard,2000,form charizard-mega-x
+Charizardita Y,Charizardite Y,charizard,2000,form charizard-mega-y
+Blastoisita,Blastoisinite,blastoise,2000,
+Pidgeotita,Pidgeotite,pidgeot,2000,
+Clefablita,Clefablite,clefable,2000,
+Alakazamita,Alakazite,alakazam,2000,
+Victreebelita,Victreebelite,victreebel,2000,
+Slowbronita,Slowbronite,slowbro,2000,Slowbro original — Galar variant NOT included
+Gengarita,Gengarite,gengar,2000,
+Kangaskhanita,Kangaskhanite,kangaskhan,2000,
+Starmita,Starminite,starmie,2000,
+Pinsirita,Pinsirite,pinsir,2000,
+Aerodactylita,Aerodactylite,aerodactyl,2000,
+Meganiumita,Meganiumite,meganium,2000,
+Feraligatrita,Feraligatrite,feraligatr,2000,
+Ampharosita,Ampharosite,ampharos,2000,
+Scizorita,Scizorite,scizor,2000,
+Skarmorita,Skarmorite,skarmory,2000,
+Houndoomita,Houndoominite,houndoom,2000,
+Tyranitarita,Tyranitarite,tyranitar,2000,
+Gardevoirita,Gardevoirite,gardevoir,2000,
+Sableynita,Sablenite,sableye,2000,
+Medichamita,Medichamite,medicham,2000,
+Sharpedonita,Sharpedonite,sharpedo,2000,
+Cameruptita,Cameruptite,camerupt,2000,
+Altarianita,Altarianite,altaria,2000,
+Banettita,Banettite,banette,2000,
+Chimechita,Chimechite,chimecho,2000,
+Absolita,Absolite,absol,2000,
+Glalita,Glalitite,glalie,2000,
+Lopunnita,Lopunnite,lopunny,2000,
+Lucarita,Lucarionite,lucario,2000,
+Galladita,Galladite,gallade,2000,
+Froslassita,Froslassite,froslass,2000,
+Emboarita,Emboarite,emboar,2000,
+Excadrillita,Excadrite,excadrill,2000,
+Audinita,Audinite,audino,2000,
+Chandelurita,Chandelurite,chandelure,2000,
+Golurkita,Golurkite,golurk,2000,
+Meowsticita,Meowsticite,meowstic,2000,
+Hawluchanita,Hawluchanite,hawlucha,2000,
+Crabominablita,Crabominite,crabominable,2000,
+Drampanita,Drampanite,drampa,2000,
+Scovillainita,Scovillainite,scovillain,2000,
+Glimmoranita,Glimmoranite,glimmora,2000,
+Dragonitita,Dragoninite,dragonite,2000,

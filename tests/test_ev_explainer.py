@@ -3,7 +3,7 @@ from pokemon_team_builder.data.speed_tiers import load as load_speed_db
 from pokemon_team_builder.domain.models import (
     BaseStats, PokemonData, SPDistribution, TeamMember,
 )
-from pokemon_team_builder.services.ev_explainer import explain
+from pokemon_team_builder.services.ev_explainer import explain  # noqa: F401
 
 
 def _make_member(
@@ -217,6 +217,103 @@ def test_legal_items_pool_contains_type_resist_berries():
     }
     missing = expected_berries - legal
     assert not missing, f"missing type-resist berries in pool: {sorted(missing)}"
+
+
+def test_ev_note_includes_item_insight():
+    """v0.10.3: ev_note must surface what the item does for this build.
+    A Snorlax with Shell Bell should mention the 1/8 lifesteal mechanic
+    (Leftovers no longer exists in Champions — Shell Bell is the closest
+    passive-recovery analog in the legal pool).
+    """
+    member = _make_member(
+        "snorlax", ["normal"],
+        160, 110, 65, 65, 110, 30,
+        {"fighting": 2.0},
+        sp_hp=32, sp_def=16, nature="careful",
+    )
+    member = TeamMember(
+        pokemon=member.pokemon, role=["special_wall"],
+        sp_distribution=member.sp_distribution,
+        item="Shell Bell", ability="thick-fat", nature="careful",
+        moves=member.moves,
+    )
+    result = explain(member, _speed_db)
+    assert "Shell Bell" in result
+    assert "1/8" in result
+
+
+def test_ev_note_includes_archetype_when_not_balance():
+    """v0.10.2: ev_note appends an archetype hint when archetype != balance."""
+    member = _make_member(
+        "garchomp", ["dragon", "ground"],
+        108, 130, 95, 80, 85, 102,
+        {"ice": 4.0, "fairy": 2.0},
+        sp_spe=32, nature="jolly",
+    )
+    result = explain(member, _speed_db, archetype="hyper_offense")
+    assert "Hyper Offense" in result
+
+
+def test_ev_note_skips_archetype_when_balance():
+    """Balance archetype adds no signal beyond defaults — note must omit it."""
+    member = _make_member(
+        "garchomp", ["dragon", "ground"],
+        108, 130, 95, 80, 85, 102,
+        {"ice": 4.0, "fairy": 2.0},
+        sp_spe=32, nature="jolly",
+    )
+    result = explain(member, _speed_db, archetype="balance")
+    assert "Balance" not in result
+    assert "arquetipo" not in result
+
+
+def test_ev_note_includes_role_hint():
+    """The role hint anchors the explanation in the build's strategy."""
+    member = _make_member(
+        "garchomp", ["dragon", "ground"],
+        108, 130, 95, 80, 85, 102,
+        {"ice": 4.0, "fairy": 2.0},
+        sp_spe=32, sp_atk=32, nature="jolly",
+    )
+    member = TeamMember(
+        pokemon=member.pokemon, role=["physical_sweeper"],
+        sp_distribution=member.sp_distribution,
+        item="Sitrus Berry", ability="rough-skin", nature="jolly",
+        moves=member.moves,
+    )
+    result = explain(member, _speed_db)
+    assert "rol físico" in result
+
+
+def test_speed_benchmark_only_uses_top_meta_pokemon():
+    """User feedback 2026-05-15: speed comparisons must reference only
+    competitively relevant Pokémon. A note saying 'Spe 154 supera a
+    Dedenne (153)' is useless because Dedenne is rank 153 in usage —
+    Sergio never faces it. Only entries with usage_rank ≤ 30 may appear.
+    """
+    from pokemon_team_builder.services.ev_explainer import (
+        _TOP_USAGE_BENCHMARK_THRESHOLD,
+    )
+
+    out_of_meta_names = {
+        e.name.replace("-", " ").title()
+        for e in _speed_db.entries()
+        if e.usage_rank > _TOP_USAGE_BENCHMARK_THRESHOLD
+    }
+    # Any reasonably fast mon will outspeed half the chart — perfect probe
+    # for surfacing forbidden names if the filter is gone.
+    member = _make_member(
+        "fastmon", ["normal"],
+        80, 100, 80, 100, 80, 200,  # absurdly high base spe to outspeed everyone
+        {"fighting": 2.0},
+        sp_spe=32, nature="jolly",
+    )
+    result = explain(member, _speed_db)
+    leaked = [n for n in out_of_meta_names if n in result]
+    assert not leaked, (
+        f"non-meta pokemon (usage_rank > {_TOP_USAGE_BENCHMARK_THRESHOLD}) "
+        f"leaked into speed note: {leaked}. Full note: {result!r}"
+    )
 
 
 def test_assault_vest_not_in_legal_pool():

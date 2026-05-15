@@ -56,6 +56,21 @@ class SpReadOut(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class PresetKitOut(BaseModel):
+    """v0.10.1 (2026-05-15) — full kit per preset (offensive | defensive).
+
+    Replaces the previous SPs-only ``sp_presets`` view. The defensive
+    kit carries its own item / ability / nature / moves so toggling
+    preset in the UI swaps the whole card, not just the SP grid.
+    """
+
+    item: str
+    ability: str
+    nature: str
+    moves: list[str] = []
+    sp_distribution: dict[str, int] = {}
+
+
 class MemberOut(BaseModel):
     name: str
     item: str
@@ -71,6 +86,10 @@ class MemberOut(BaseModel):
     # Empty dict for imported/edited variants that pre-date Phase 3 — UI
     # falls back to the legacy ``sp_distribution`` field in that case.
     sp_presets: dict[str, SpReadOut] = {}
+    # v0.10.1: full per-preset kit (item + ability + nature + moves + SPs)
+    # so the UI Ofensivo/Defensivo toggle swaps the entire member card.
+    # Empty dict for imported / edited variants that pre-date this field.
+    preset_kits: dict[str, PresetKitOut] = {}
 
 
 class VariantOut(BaseModel):

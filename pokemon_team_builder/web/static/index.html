@@ -267,10 +267,10 @@
                   <img :src="memberSprite(m.name)" :alt="m.name" class="member-sprite"
                     @error="$event.target.style.display='none'" />
                   <strong x-text="capitalize(m.name)"></strong>
-                  <span class="detail" x-text="'@ ' + capitalize(m.item)"></span>
-                  <span class="detail" x-text="m.ability + ' · ' + m.nature"></span>
+                  <span class="detail" x-text="'@ ' + capitalize(kitForPreset(m, presetFor(i, mi)).item)"></span>
+                  <span class="detail" x-text="capitalize(kitForPreset(m, presetFor(i, mi)).ability) + ' · ' + kitForPreset(m, presetFor(i, mi)).nature"></span>
                   <ul class="moves">
-                    <template x-for="mv in m.moves" :key="mv">
+                    <template x-for="mv in kitForPreset(m, presetFor(i, mi)).moves" :key="mv">
                       <li x-text="capitalize(mv)"></li>
                     </template>
                   </ul>

@@ -236,6 +236,19 @@ _SETUP_MOVES: frozenset[str] = frozenset({
     "quiver-dance", "shell-smash", "coil", "hone-claws", "work-up",
 })
 
+# Setup moves bucketed by which offensive stat they boost. A setup move that
+# boosts ONLY Atk (or Atk+side stats but no SpA) lives in the physical set —
+# emitting it on a Pokemon whose generated moveset is 100% special is dead
+# weight (Venusaur + Swords Dance + 2 special STABs bug). Same logic mirrored
+# for the special set. Mixed boosters (Shell Smash, Work Up, Clangorous Soul)
+# stay in neither so they are always allowed.
+_PHYSICAL_ONLY_SETUP_MOVES: frozenset[str] = frozenset({
+    "swords-dance", "hone-claws", "coil", "dragon-dance", "bulk-up",
+})
+_SPECIAL_ONLY_SETUP_MOVES: frozenset[str] = frozenset({
+    "nasty-plot", "tail-glow", "calm-mind", "quiver-dance",
+})
+
 
 # Support roles that should be checked first in slot-4 selection. When a
 # Pokémon has both sweeper and support roles, the support move wins slot 4
@@ -508,6 +521,21 @@ def select_moves_for_role(
         slot3 = _fallback_move(move_pool, used)
     used.add(slot3)
 
+    # Build category-of-moveset signature from the already-picked attack
+    # slots (2 and 3). A setup move that boosts ONLY the absent category is
+    # dead weight (Venusaur with two special STABs + Swords Dance bug).
+    slot_cats = {
+        _MOVE_CATEGORY.get(slot2, ""),
+        _MOVE_CATEGORY.get(slot3, ""),
+    }
+    has_physical_attack = "physical" in slot_cats
+    has_special_attack = "special" in slot_cats
+    forbidden_setup: set[str] = set()
+    if not has_physical_attack:
+        forbidden_setup |= _PHYSICAL_ONLY_SETUP_MOVES
+    if not has_special_attack:
+        forbidden_setup |= _SPECIAL_ONLY_SETUP_MOVES
+
     # Slot 4: role move — walk all assigned roles, support roles first so that
     # a Pokemon with both sweeper and support roles emits the support move
     # (Rage Powder > Calm Mind, Trick Room > Nasty Plot). Order within each
@@ -540,6 +568,10 @@ def select_moves_for_role(
                     continue
                 if item in _CHOICE_ITEMS and candidate in _SETUP_MOVES:
                     continue  # locked-in setup is useless with a Choice item
+                if candidate in forbidden_setup:
+                    # Setup move would boost an absent attack category
+                    # (e.g. Swords Dance on an all-special moveset).
+                    continue
                 if format_mode == "bo3" and candidate in _BO3_CHEESE_MOVES:
                     continue  # open sheet: cheese moves are dead weight in Bo3
                 if archetype_blocks_cheese and candidate in _ARCHETYPE_CHEESE_MOVES:
@@ -554,8 +586,11 @@ def select_moves_for_role(
                 break
     if slot4 is None:
         # Build the exclusion set: Bo3 always vetoes cheese; archetype
-        # gate optionally adds the archetype cheese set on top.
-        exclude_set: set[str] = set()
+        # gate optionally adds the archetype cheese set on top. The
+        # category-mismatched setup moves are always vetoed regardless of
+        # format / archetype so the fallback can never resurrect a Swords
+        # Dance on an all-special attacker.
+        exclude_set: set[str] = set(forbidden_setup)
         if format_mode == "bo3":
             exclude_set |= _BO3_CHEESE_MOVES
         if archetype_blocks_cheese:

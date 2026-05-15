@@ -14,16 +14,111 @@ _META_ATTACKER_STAT = calc_stat(_META_ATTACKER_BASE, 0, 1.0)
 
 _MAX_COMPARISONS = 3   # max names shown in speed note
 _MAX_THREATS = 1       # max names shown as threats we can't outspeed
+# Speed benchmarks must come from the actual meta — comparing "Spe 154
+# supera a Dedenne (rank 153)" is dead information because Sergio will
+# never face Dedenne competitively. The threshold caps speed_tiers entries
+# at the top-30 by usage_rank so every name in the ev_note is one the
+# user might actually fight.
+_TOP_USAGE_BENCHMARK_THRESHOLD = 30
 
 
-def explain(member: TeamMember, speed_db: SpeedTierDB, meta=None) -> str:  # noqa: ANN001
-    """Return a Spanish ev_note string for this member. Empty string if no SPs invested."""
+# v0.10.2 (2026-05-15): ev_note context expansion. Each item-aware note
+# captures the mechanic Sergio cares about when picking the kit — "what
+# does this item *do* for this member?" — so the explanation is specific
+# to the build, not generic.
+# v0.10.3 item note table: covers ONLY the 48 items in
+# champions_legal_items.json v5. Items not in the legal pool get no note
+# even if the kit somehow references them (defensive against drift).
+_ITEM_NOTES: dict[str, str] = {
+    "Mental Herb": "Mental Herb cancela Mofa/Encore/Cura anulada una vez — blinda el setup",
+    "Shell Bell": "Shell Bell drena 1/8 del daño infligido — recovery pasivo ofensivo",
+    "Scope Lens": "Scope Lens +1 nivel de probabilidad de golpes críticos",
+    "Light Ball": "Light Ball (sólo Pikachu) duplica Atk y SpA",
+    "Oran Berry": "Oran Berry restaura 10 PS al bajar a la mitad — una vez por combate",
+    "Persim Berry": "Persim Berry cura confusión — una vez por combate",
+    "Cheri Berry": "Cheri Berry cura parálisis — una vez por combate",
+    "Chesto Berry": "Chesto Berry cura sueño — una vez por combate",
+    "Pecha Berry": "Pecha Berry cura envenenamiento — una vez por combate",
+    "Rawst Berry": "Rawst Berry cura quemaduras — una vez por combate",
+    "Aspear Berry": "Aspear Berry cura congelación — una vez por combate",
+    "Leppa Berry": "Leppa Berry restaura 10 PP a un movimiento sin PP — una vez por combate",
+}
+
+# Type-resist berries get a generic note since the trigger is uniform.
+_TYPE_RESIST_BERRIES: frozenset[str] = frozenset({
+    "Chilan Berry", "Occa Berry", "Passho Berry", "Wacan Berry", "Rindo Berry",
+    "Yache Berry", "Chople Berry", "Kebia Berry", "Shuca Berry", "Coba Berry",
+    "Payapa Berry", "Tanga Berry", "Charti Berry", "Kasib Berry", "Haban Berry",
+    "Colbur Berry", "Babiri Berry", "Roseli Berry",
+})
+
+# Type-boost items (Charcoal, Mystic Water, etc.) — pattern is uniform so
+# a single generic note covers them.
+_TYPE_BOOST_ITEM_PATTERNS: frozenset[str] = frozenset({
+    "Mystic Water", "Charcoal", "Magnet", "Black Belt", "Soft Sand",
+    "Sharp Beak", "Silver Powder", "Dragon Fang", "Spell Tag",
+    "Miracle Seed", "Never-Melt Ice", "Poison Barb", "Metal Coat",
+    "Black Glasses", "Twisted Spoon", "Hard Stone", "Silk Scarf",
+    "Fairy Feather",
+})
+
+
+_ARCHETYPE_NOTES: dict[str, str] = {
+    "hyper_offense": "arquetipo Hyper Offense: turnos limitados, ofensiva sobre bulk",
+    "hard_trick_room": "arquetipo Hard TR: Spe invertida, ataque bajo Trick Room",
+    "bulky_offense": "arquetipo Bulky Offense: HP/Def para aguantar 2HKO mientras pega",
+    "weather_based": "arquetipo Weather: la build asume clima activo (Drought/Drizzle/Sand/Snow)",
+    "stall": "arquetipo Stall: ciclos de status + recovery, no KO directo",
+    "perish_trap": "arquetipo Perish Trap: ganar via Perish Song + pivots/Shadow Tag",
+    # "balance" intentionally omitted — adds no info beyond defaults.
+}
+
+
+_ROLE_HINTS: dict[str, str] = {
+    "physical_sweeper": "rol físico: Atk + Spe son prioridad — nature +Atk o +Spe",
+    "special_sweeper": "rol especial: SpA + Spe son prioridad — nature +SpA o +Spe",
+    "physical_wall": "muro físico: máximo HP + Def, nature +Def",
+    "special_wall": "muro especial: máximo HP + SpD, nature +SpD",
+    "lead_support": "lead support: utility turno 1 (Tailwind, Fake Out, Follow Me)",
+    "trick_room_setter": "TR setter: Spe baja + bulk para sobrevivir Taunt y setup",
+    "redirect": "redirección: Rage Powder / Follow Me — proteger al sweeper",
+}
+
+
+def explain(  # noqa: ANN001
+    member: TeamMember,
+    speed_db: SpeedTierDB,
+    meta=None,
+    *,
+    archetype: str | None = None,
+) -> str:
+    """Return a Spanish ev_note string for this member.
+
+    Returns "" if the member has 0 SP invested AND no item/role context
+    worth surfacing. With v0.10.2 expansion, the note can carry:
+
+    - Speed benchmark (when sp.spe > 0): "Spe 222 (32 SP+) supera a X, Y, Z"
+    - Defensive verdict (when bulk SPs > 0): "32 HP + 16 Def aguanta Terremoto (45-60%)"
+    - Item insight (always, when item is recognised): "Sitrus Berry cura ~25%..."
+    - Role + archetype hint (always, when archetype != balance): "lead support: ..."
+
+    The combined string stays compact — each component is 1 short Spanish
+    clause separated by ". ".
+
+    Args:
+        member: The team member to explain.
+        speed_db: Speed-tier database for benchmark comparisons.
+        meta: Optional MetaService (reserved for future use, currently
+            unused — kept for backward compatibility with the router call
+            sites that already pass it).
+        archetype: The TeamVariant.archetype the member was generated
+            under. When provided, an archetype hint is appended to the
+            note so the user understands why the kit looks the way it
+            does. ``None`` or "balance" suppresses the hint.
+    """
     sp = member.sp_distribution
     has_speed = sp.spe > 0
     has_bulk = sp.hp > 0 or sp.def_ > 0 or sp.spd > 0
-
-    if not has_speed and not has_bulk:
-        return ""
 
     parts: list[str] = []
 
@@ -37,7 +132,47 @@ def explain(member: TeamMember, speed_db: SpeedTierDB, meta=None) -> str:  # noq
         if note:
             parts.append(note)
 
+    context = _context_note(member, archetype)
+    if context:
+        parts.append(context)
+
     return ". ".join(parts)
+
+
+def _context_note(member: TeamMember, archetype: str | None) -> str:
+    """Return one short Spanish clause covering role + item + archetype.
+
+    Order: role hint → item insight → archetype note. Each component is
+    optional and omitted when the input is unknown. The final string is
+    the joined non-empty components separated by " · " so the speed and
+    defensive notes (which use ". ") stay visually distinct.
+    """
+    bits: list[str] = []
+    primary_role = member.role[0] if member.role else ""
+    role_hint = _ROLE_HINTS.get(primary_role)
+    if role_hint:
+        bits.append(role_hint)
+    item_note = _item_note(member.item)
+    if item_note:
+        bits.append(item_note)
+    if archetype and archetype != "balance":
+        arch_note = _ARCHETYPE_NOTES.get(archetype)
+        if arch_note:
+            bits.append(arch_note)
+    return " · ".join(bits)
+
+
+def _item_note(item: str) -> str:
+    """Return the item-specific Spanish clause, or "" when the item is unknown."""
+    if not item:
+        return ""
+    if item in _ITEM_NOTES:
+        return _ITEM_NOTES[item]
+    if item in _TYPE_RESIST_BERRIES:
+        return f"{item} reduce x0.5 el primer hit super-efectivo de su tipo (consumible)"
+    if item in _TYPE_BOOST_ITEM_PATTERNS:
+        return f"{item} +20% poder a moves de su tipo (sólo STAB efectivo)"
+    return ""
 
 
 def _speed_note(member: TeamMember, speed_db: SpeedTierDB) -> str:
@@ -55,24 +190,33 @@ def _speed_note(member: TeamMember, speed_db: SpeedTierDB) -> str:
     # strategy the user can't infer from typing alone; max-SP-neutral is
     # the closest neutral-strategy approximation. A future enhancement
     # can override per-entry via speed_tiers.json (e.g. Trick Room mons).
+    # Restrict the benchmark pool to the top of the usage chart — anything
+    # past _TOP_USAGE_BENCHMARK_THRESHOLD is competitively irrelevant
+    # (Dedenne at rank 153 etc.) and only adds noise to the ev_note.
+    top_meta_entries = [
+        e for e in speed_db.entries()
+        if e.usage_rank <= _TOP_USAGE_BENCHMARK_THRESHOLD
+    ]
     entries_with_speed = [
         (e.name, speed_db.compute_speed(e.base_spe, 32, "hardy"), e.usage_rank)
-        for e in speed_db.entries()
+        for e in top_meta_entries
     ]
 
-    # What we outspeed: their max-SP neutral speed < our speed
+    # What we outspeed (from the top-meta pool): their max-SP neutral speed
+    # < our speed. Sort by usage_rank so the most-used names come first.
     we_beat = [(name, spd) for name, spd, _ in entries_with_speed if spd < my_speed]
-    # Sort by usage_rank (competitive relevance = lower rank first)
     we_beat_ranked = sorted(
-        [(name, spd) for name, spd, rank in entries_with_speed if spd < my_speed],
-        key=lambda x: next(e.usage_rank for e in speed_db.entries() if e.name == x[0]),
+        [(name, spd, rank) for name, spd, rank in entries_with_speed if spd < my_speed],
+        key=lambda x: x[2],
     )[:_MAX_COMPARISONS]
+    we_beat_ranked = [(name, spd) for name, spd, _ in we_beat_ranked]
 
-    # What outspeeds us: their max-SP neutral speed > our speed
+    # What outspeeds us (from the top-meta pool).
     threats_ranked = sorted(
-        [(name, spd) for name, spd, rank in entries_with_speed if spd > my_speed],
-        key=lambda x: next(e.usage_rank for e in speed_db.entries() if e.name == x[0]),
+        [(name, spd, rank) for name, spd, rank in entries_with_speed if spd > my_speed],
+        key=lambda x: x[2],
     )[:_MAX_THREATS]
+    threats_ranked = [(name, spd) for name, spd, _ in threats_ranked]
 
     if not we_beat_ranked and not threats_ranked:
         return ""

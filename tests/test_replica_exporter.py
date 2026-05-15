@@ -607,6 +607,45 @@ def test_pure_sweeper_keeps_setup_move() -> None:
     assert moves[3] == "swords-dance"
 
 
+def test_all_special_moveset_rejects_physical_setup() -> None:
+    """Venusaur regression: special-only slots 2/3 must not get Swords Dance.
+
+    When both attacking slots are special (Energy Ball, Sludge Bomb) the
+    fallback for slot 4 must not pick Swords Dance even though it sits in
+    the move pool — emitting Swords Dance with two special STABs is dead
+    weight (it boosts a stat the moveset never uses).
+    """
+    p = PokemonData(
+        id=3,
+        name="venusaur",
+        types=["grass", "poison"],
+        base_stats=BaseStats(hp=80, atk=82, **{"def": 83}, spa=100, spd=100, spe=80),
+        move_names=["protect", "energy-ball", "sludge-bomb", "swords-dance", "leech-seed"],
+        abilities=["overgrow"],
+        weaknesses=pokemon_lookup.calculate_weaknesses(["grass", "poison"]),
+    )
+    moves = select_moves_for_role(p, ["special_sweeper"])
+    assert "swords-dance" not in moves
+    # The remaining viable slot 4 candidate is leech-seed (the only non-Setup,
+    # non-special-attack move in the pool besides Protect).
+    assert moves[3] in {"leech-seed"}
+
+
+def test_all_physical_moveset_rejects_special_setup() -> None:
+    """Mirror invariant: physical-only attacks must not get Nasty Plot."""
+    p = PokemonData(
+        id=445,
+        name="garchomp",
+        types=["dragon", "ground"],
+        base_stats=BaseStats(hp=108, atk=130, **{"def": 95}, spa=80, spd=85, spe=102),
+        move_names=["protect", "earthquake", "dragon-claw", "nasty-plot", "rock-slide"],
+        abilities=["rough-skin"],
+        weaknesses=pokemon_lookup.calculate_weaknesses(["dragon", "ground"]),
+    )
+    moves = select_moves_for_role(p, ["physical_sweeper"])
+    assert "nasty-plot" not in moves
+
+
 # ---------------------------------------------------------------------------
 # Meta-moves integration tests
 # ---------------------------------------------------------------------------

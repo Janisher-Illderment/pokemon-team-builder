@@ -44,45 +44,42 @@ from pokemon_team_builder.services.synergy_engine import (
 _meta_service = MetaService()
 
 
-# Default item by role. Champions Reg M-A legal items only — Weakness Policy,
-# Throat Spray, Rocky Helmet, and Life Orb are NOT in the M-A pool (Inte v2
-# cross-checked: Game8, Serebii, TheGamer, NintendoEverything, Smogon, VGC).
-# Source: champions_legal_items.json (data_version 1).
-# Provisional replacements per spec: physical_sweeper → Choice Band,
-# special_sweeper → Choice Specs, physical_wall → Leftovers.
+# Default item by role. Source of truth = champions_legal_items.json v5
+# (generated from tests/fixtures/champions_items_official.csv — see the
+# CSV header for provenance). v5 (2026-05-15) tracks Sergio's COMPLETE
+# in-game store paste: Champions has only 48 held items (no Leftovers,
+# no Focus Sash, no Choice items, no Sitrus / Lum Berry — much smaller
+# inventory than mainline VGC).
+# Replacements per role (every entry MUST be in the JSON above):
+#   physical_sweeper → Shell Bell (Cascabel Concha — recovery 1/8 daño)
+#   special_sweeper  → Scope Lens (Periscopio — crit-rate +1)
+#   physical_wall    → Oran Berry  (Baya Aranja — 10 HP at <50%)
+#   special_wall     → Leppa Berry (Baya Zanama — 10 PP recovery; supports stall PP-walls)
+#   lead_support     → Mental Herb (Hierba mental — blocks Taunt turn 1)
+#   trick_room_setter → Chesto Berry (Baya Atania — cures sleep, common TR setter weakness; Mental Herb taken by lead)
+#   redirect         → Persim Berry (Baya Caquic — cures confusion vs Swagger/Confuse Ray)
 _DEFAULT_ITEM_BY_ROLE_FALLBACK: dict[str, str] = {
-    "physical_sweeper": "Choice Band",
-    "special_sweeper": "Choice Specs",
-    "physical_wall": "Leftovers",
-    "special_wall": "Leftovers",
-    "lead_support": "Focus Sash",
-    "trick_room_setter": "Mental Herb",
-    "redirect": "Clear Amulet",
+    "physical_sweeper": "Shell Bell",
+    "special_sweeper": "Scope Lens",
+    "physical_wall": "Oran Berry",
+    "special_wall": "Leppa Berry",
+    "lead_support": "Mental Herb",
+    "trick_room_setter": "Chesto Berry",
+    "redirect": "Persim Berry",
 }
-_FALLBACK_ITEM = "Choice Scarf"
+# Last-resort fallback when role default collides AND the backup pool is
+# walked. Cheri Berry (Baya Zreza) cures paralysis once — universally
+# safe filler in a small item pool. Type-boost items would be better
+# matches but require species-type lookup which the fallback path lacks.
+_FALLBACK_ITEM = "Cheri Berry"
 # Champions-legal backup pool (utility first, type-boosters last) — kept as a
 # fallback when champions_legal_items.json is missing or unparsable. The JSON
 # is the authoritative source; this constant just prevents a cold-start crash.
 _BACKUP_ITEMS_FALLBACK: tuple[str, ...] = (
-    "Sitrus Berry",
-    "Lum Berry",
-    "Scope Lens",
-    "Power Herb",
-    "Persim Berry",
-    "White Herb",
-    "Shell Bell",
-    "Oran Berry",
-    "Focus Band",
-    "King's Rock",
-    "Bright Powder",
-    "Quick Claw",
-    "Eviolite",
-    "Safety Goggles",
-    "Light Clay",
-    "Covert Cloak",
-    "Booster Energy",
-    "Mirror Herb",
-    "Loaded Dice",
+    "Pecha Berry",
+    "Rawst Berry",
+    "Aspear Berry",
+    "Light Ball",
     "Mystic Water",
     "Charcoal",
     "Magnet",

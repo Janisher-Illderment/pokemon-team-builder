@@ -15,6 +15,7 @@ from pokemon_team_builder.api.schemas import (
     MemberIn,
     MemberOut,
     MetaTeamsResponse,
+    PresetKitOut,
     SpReadOut,
     TournamentOut,
     TournamentsResponse,
@@ -26,7 +27,7 @@ from pokemon_team_builder.data.legal_pool_loader import is_legal
 from pokemon_team_builder.data.speed_tiers import load as load_speed_db
 from pokemon_team_builder.domain.exceptions import TeamBuildError
 from pokemon_team_builder.domain.models import SPDistribution
-from pokemon_team_builder.services import sp_preset_builder
+from pokemon_team_builder.services import preset_kit_builder, sp_preset_builder
 from pokemon_team_builder.services import meta_versions as _meta_versions_mod
 from pokemon_team_builder.services import pokemon_lookup
 from pokemon_team_builder.services import ev_explainer
@@ -78,6 +79,48 @@ def _build_sp_presets(member: TeamMember) -> dict[str, SpReadOut]:
     }
 
 
+def _build_preset_kits(
+    member: TeamMember,
+    *,
+    defensive_used_items: set[str] | None = None,
+) -> dict[str, PresetKitOut]:
+    """Build full Ofensivo/Defensivo kits for the API response.
+
+    Each kit carries its own item, ability, nature, moves, and SPs so the
+    UI toggle can swap the whole member card without falling back to the
+    offensive build for the missing fields.
+
+    Returns ``{}`` on any failure — the UI gracefully falls back to the
+    legacy ``sp_presets`` SPs-only view when this dict is absent.
+    """
+    try:
+        # The visible item on a Mega-evolved anchor is the mega stone, not
+        # member.item — use the same precedence as MemberOut.item below so
+        # the Ofensivo kit echoes what the user actually sees.
+        visible_item = member.mega_form.mega_stone if member.mega_form else member.item
+        kits = preset_kit_builder.build_kits(
+            member.pokemon,
+            item=visible_item,
+            ability=member.ability,
+            nature=member.nature,
+            moves=member.moves,
+            sp_distribution=member.sp_distribution,
+            defensive_used_items=defensive_used_items,
+        )
+    except Exception:
+        return {}
+    return {
+        name: PresetKitOut(
+            item=kit.item,
+            ability=kit.ability,
+            nature=kit.nature,
+            moves=list(kit.moves),
+            sp_distribution=_build_sp_dict(kit.sp_distribution),
+        )
+        for name, kit in kits.items()
+    }
+
+
 @router.get("/health")
 def health() -> dict[str, object]:
     """Health endpoint — Phase 3 §13 exposes loaded data versions."""
@@ -125,8 +168,13 @@ def generate(req: GenerateRequest) -> GenerateResponse:
     variant_outs = []
     versions = _meta_versions_mod.collect()
     for v in variants:
-        members = [
-            MemberOut(
+        defensive_used: set[str] = set()
+        members = []
+        for m in v.members:
+            kits = _build_preset_kits(m, defensive_used_items=defensive_used)
+            if "defensive" in kits:
+                defensive_used.add(kits["defensive"].item)
+            members.append(MemberOut(
                 name=m.pokemon.name,
                 item=m.mega_form.mega_stone if m.mega_form else m.item,
                 ability=m.ability,
@@ -134,12 +182,13 @@ def generate(req: GenerateRequest) -> GenerateResponse:
                 moves=m.moves,
                 roles=m.role,
                 sp_distribution=_build_sp_dict(m.sp_distribution),
-                ev_note=ev_explainer.explain(m, _speed_db, _meta_svc),
+                ev_note=ev_explainer.explain(
+                    m, _speed_db, _meta_svc, archetype=v.archetype,
+                ),
                 move_names=m.pokemon.move_names,
                 sp_presets=_build_sp_presets(m),
-            )
-            for m in v.members
-        ]
+                preset_kits=kits,
+            ))
         variant_outs.append(
             VariantOut(
                 score=round(v.score, 2),
@@ -214,8 +263,13 @@ def _hydrate_variant(v_in: VariantIn) -> TeamVariant:
 
 
 def _variant_to_out(v: TeamVariant, *, format_mode: str = "bo1") -> VariantOut:
-    members = [
-        MemberOut(
+    defensive_used: set[str] = set()
+    members = []
+    for m in v.members:
+        kits = _build_preset_kits(m, defensive_used_items=defensive_used)
+        if "defensive" in kits:
+            defensive_used.add(kits["defensive"].item)
+        members.append(MemberOut(
             name=m.pokemon.name,
             item=m.mega_form.mega_stone if m.mega_form else m.item,
             ability=m.ability,
@@ -223,13 +277,14 @@ def _variant_to_out(v: TeamVariant, *, format_mode: str = "bo1") -> VariantOut:
             moves=m.moves,
             roles=m.role,
             sp_distribution=_build_sp_dict(m.sp_distribution),
-            ev_note=ev_explainer.explain(m, _speed_db, _meta_svc),
+            ev_note=ev_explainer.explain(
+                m, _speed_db, _meta_svc, archetype=v.archetype,
+            ),
             move_names=m.pokemon.move_names,
             mega_form_id=m.mega_form.form_id if m.mega_form else None,
             sp_presets=_build_sp_presets(m),
-        )
-        for m in v.members
-    ]
+            preset_kits=kits,
+        ))
     return VariantOut(
         score=round(v.score, 2),
         recommended=v.is_recommended,

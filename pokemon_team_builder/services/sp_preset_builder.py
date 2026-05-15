@@ -70,12 +70,10 @@ _STAT_KEYS: tuple[str, ...] = ("hp", "atk", "def_", "spa", "spd", "spe")
 
 # Items that pre-inflate a single stat by 1.5×. Optimiser invests LESS
 # in the inflated stat, MORE elsewhere — the 1.5× already covers the gap.
-_ITEM_INFLATED_STAT: dict[str, str] = {
-    "Choice Band":   "atk",
-    "Choice Specs":  "spa",
-    "Choice Scarf":  "spe",
-    "Assault Vest":  "spd",
-}
+# Choice items and Assault Vest were removed from Pokémon Champions M-A
+# (data_version 3) so the map is empty for now; kept as a hook for any
+# future inflating item Champions might add.
+_ITEM_INFLATED_STAT: dict[str, str] = {}
 
 # Eviolite inflates BOTH defensive stats (NFE-only). Caller is responsible
 # for ensuring the holder is an NFE pokemon — we trust the input here.
@@ -272,27 +270,10 @@ def _offensive_weights(
     weights["spe"] = 9.0
     weights["hp"] = 2.0
 
-    # Item adjustments — bake in the 1.5× inflation per spec scenarios.
-    if item == "Choice Band" and is_physical:
-        # Band already inflates Atk 1.5×; shift to Speed (spec: "spe > atk").
-        weights["atk"] = 4.0
-        weights["spe"] = 11.0
-        weights["hp"] = 4.0
-    elif item == "Choice Specs" and not is_physical:
-        weights["spa"] = 4.0
-        weights["spe"] = 11.0
-        weights["hp"] = 4.0
-    elif item == "Choice Scarf":
-        # Scarf inflates Speed 1.5× — invest more in raw attack instead.
-        weights[primary_atk] = 12.0
-        weights["spe"] = 4.0
-        weights["hp"] = 3.0
-    elif item == "Assault Vest":
-        # AV inflates SpD; offensive preset still leans attack but adds bulk.
-        weights[primary_atk] = 9.0
-        weights["spe"] = 7.0
-        weights["hp"] = 4.0
-        weights["spd"] = 1.0
+    # Item adjustments: Choice Band/Specs/Scarf and Assault Vest are absent
+    # from Pokémon Champions M-A (champions_legal_items.json v3) so their
+    # inflation branches are gone. Keep the dispatch shape so future items
+    # that pre-inflate a stat slot in cleanly above.
 
     # Hindered nature → zero out that stat.
     boosted, hindered = _normalise_nature(nature)
@@ -336,25 +317,9 @@ def _defensive_weights(
         weights["spd"] = 3.0
         weights[primary_atk] = 8.0
         weights["spe"] = 4.0
-    elif item == "Assault Vest":
-        # SpD already inflated 1.5× → invest more in Def (spec scenario).
-        weights["hp"] = 10.0
-        weights["def_"] = 11.0
-        weights["spd"] = 2.0
-        weights[primary_atk] = 5.0
-        weights["spe"] = 2.0
-    elif item == "Choice Band" and is_physical:
-        weights["hp"] = 8.0
-        weights["def_"] = 6.0
-        weights["spd"] = 6.0
-        weights["atk"] = 3.0
-        weights["spe"] = 4.0
-    elif item == "Choice Specs" and not is_physical:
-        weights["hp"] = 8.0
-        weights["def_"] = 6.0
-        weights["spd"] = 6.0
-        weights["spa"] = 3.0
-        weights["spe"] = 4.0
+    # Assault Vest / Choice Band / Choice Specs branches removed — items
+    # absent from Champions M-A (data_version 3). Defensive preset for
+    # any other item uses the role-based defaults above.
 
     boosted, hindered = _normalise_nature(nature)
     if hindered is not None and hindered in weights:

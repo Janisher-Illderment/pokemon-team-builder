@@ -1,0 +1,69 @@
+name_es,name_en,category,price_pv,effect_es,source
+# Champions M-A official held items list. SOLE source of truth: Sergio
+# pasted the COMPLETE in-game store contents 2026-05-15. Do not augment
+# this list from third-party sites (NextN / Pokéxperto / MetaVGC etc.);
+# Sergio's paste is canonical and supersedes everything else.
+# (Mega Stones live in champions_megas_official.csv.)
+#
+# Update procedure: edit this CSV first, then regenerate
+# `pokemon_team_builder/data/champions_legal_items.json`. The JSON is
+# generated FROM this file, not the other way around.
+#
+# Items NOT in this CSV are NOT legal in Champions M-A. Period.
+#
+# Champions has a deliberately MINIMAL item system: 18 type-boost +
+# 18 type-resist berries + 8 status-cure berries + 4 misc (Mental Herb,
+# Shell Bell, Scope Lens, Light Ball) = 48 items.
+#
+# Type-boost items (+20% damage of matching type)
+Pañuelo de Seda,Silk Scarf,type_boost,700,+20% potencia movimientos Normal,Sergio-official
+Semilla Milagro,Miracle Seed,type_boost,700,+20% potencia movimientos Planta,Sergio-official
+Carbón,Charcoal,type_boost,700,+20% potencia movimientos Fuego,Sergio-official
+Agua Mística,Mystic Water,type_boost,700,+20% potencia movimientos Agua,Sergio-official
+Imán,Magnet,type_boost,700,+20% potencia movimientos Eléctrico,Sergio-official
+Polvo Plata,Silver Powder,type_boost,700,+20% potencia movimientos Bicho,Sergio-official
+Pico Afilado,Sharp Beak,type_boost,700,+20% potencia movimientos Volador,Sergio-official
+Piedra Dura,Hard Stone,type_boost,700,+20% potencia movimientos Roca,Sergio-official
+Flecha Venenosa,Poison Barb,type_boost,700,+20% potencia movimientos Veneno,Sergio-official
+Arena Fina,Soft Sand,type_boost,700,+20% potencia movimientos Tierra,Sergio-official
+Hielo Perpetuo,Never-Melt Ice,type_boost,700,+20% potencia movimientos Hielo,Sergio-official
+Cinturón Negro,Black Belt,type_boost,700,+20% potencia movimientos Lucha,Sergio-official
+Cuchara Torcida,Twisted Spoon,type_boost,700,+20% potencia movimientos Psíquico,Sergio-official
+Hechizo,Spell Tag,type_boost,700,+20% potencia movimientos Fantasma,Sergio-official
+Colmillo de dragón,Dragon Fang,type_boost,700,+20% potencia movimientos Dragón,Sergio-official
+Gafas de Sol,Black Glasses,type_boost,700,+20% potencia movimientos Siniestro,Sergio-official
+Revest. Metálico,Metal Coat,type_boost,700,+20% potencia movimientos Acero,Sergio-official
+Pluma Feérica,Fairy Feather,type_boost,700,+20% potencia movimientos Hada,Sergio-official
+# Misc competitive / utility
+Hierba mental,Mental Herb,utility,1000,elimina Enamorado/Mofa/Repetición anulada/Movimiento anulado/Cura anulada/Otra vez una vez por combate,Sergio-official
+Cascabel Concha,Shell Bell,competitive,700,recupera 1/8 del daño infligido,Sergio-official
+Periscopio,Scope Lens,competitive,1000,+1 nivel probabilidad golpes críticos,Sergio-official
+Bola Luminosa,Light Ball,pokemon_specific,1000,duplica Atk y SpA de Pikachu,Sergio-official
+# Status-cure berries (one-shot per battle)
+Baya Zreza,Cheri Berry,consumable,400,cura parálisis (una vez),Sergio-official
+Baya Atania,Chesto Berry,consumable,400,cura sueño (una vez),Sergio-official
+Baya Meloc,Pecha Berry,consumable,400,cura envenenamiento (una vez),Sergio-official
+Baya Safre,Rawst Berry,consumable,400,cura quemaduras (una vez),Sergio-official
+Baya Perasi,Aspear Berry,consumable,400,cura congelación (una vez),Sergio-official
+Baya Caquic,Persim Berry,consumable,400,cura confusión (una vez),Sergio-official
+Baya Zanama,Leppa Berry,consumable,400,restaura 10 PP a un movimiento sin PP (una vez),Sergio-official
+Baya Aranja,Oran Berry,consumable,400,restaura 10 PS cuando baja a la mitad (una vez),Sergio-official
+# Type-resist berries (halve a super-effective hit of matching type, one-shot)
+Baya Chilan,Chilan Berry,type_resist,400,x0.5 daño de un ataque tipo Normal (una vez),Sergio-official
+Baya Tamar,Rindo Berry,type_resist,400,x0.5 daño de un ataque super-efectivo Planta (una vez),Sergio-official
+Baya Caoca,Occa Berry,type_resist,400,x0.5 daño de un ataque super-efectivo Fuego (una vez),Sergio-official
+Baya Pasio,Passho Berry,type_resist,400,x0.5 daño de un ataque super-efectivo Agua (una vez),Sergio-official
+Baya Gualot,Wacan Berry,type_resist,400,x0.5 daño de un ataque super-efectivo Eléctrico (una vez),Sergio-official
+Baya Yecana,Tanga Berry,type_resist,400,x0.5 daño de un ataque super-efectivo Bicho (una vez),Sergio-official
+Baya Kouba,Coba Berry,type_resist,400,x0.5 daño de un ataque super-efectivo Volador (una vez),Sergio-official
+Baya Alcho,Charti Berry,type_resist,400,x0.5 daño de un ataque super-efectivo Roca (una vez),Sergio-official
+Baya Kebia,Kebia Berry,type_resist,400,x0.5 daño de un ataque super-efectivo Veneno (una vez),Sergio-official
+Baya Acardo,Shuca Berry,type_resist,400,x0.5 daño de un ataque super-efectivo Tierra (una vez),Sergio-official
+Baya Rimoya,Yache Berry,type_resist,400,x0.5 daño de un ataque super-efectivo Hielo (una vez),Sergio-official
+Baya Pomarco,Chople Berry,type_resist,400,x0.5 daño de un ataque super-efectivo Lucha (una vez),Sergio-official
+Baya Payapa,Payapa Berry,type_resist,400,x0.5 daño de un ataque super-efectivo Psíquico (una vez),Sergio-official
+Baya Drasi,Kasib Berry,type_resist,400,x0.5 daño de un ataque super-efectivo Fantasma (una vez),Sergio-official
+Baya Anjiro,Haban Berry,type_resist,400,x0.5 daño de un ataque super-efectivo Dragón (una vez),Sergio-official
+Baya Dillo,Colbur Berry,type_resist,400,x0.5 daño de un ataque super-efectivo Siniestro (una vez),Sergio-official
+Baya Baribá,Babiri Berry,type_resist,400,x0.5 daño de un ataque super-efectivo Acero (una vez),Sergio-official
+Baya Hibis,Roseli Berry,type_resist,400,x0.5 daño de un ataque super-efectivo Hada (una vez),Sergio-official

@@ -1,5 +1,38 @@
 [
   {
+    "version": "0.10.3",
+    "date": "2026-05-15",
+    "highlights": "Items v5 — lista COMPLETA pegada por Sergio del store in-game (48 items totales, no 58)",
+    "changes": [
+      { "type": "fix", "text": "champions_legal_items.json v5 reconstruido desde tests/fixtures/champions_items_official.csv tras paste completo de Sergio del store del juego. Total: 48 items (18 type-boost + 18 type-resist berries + 8 status-cure berries + 4 misc — Mental Herb, Shell Bell, Scope Lens, Light Ball). Champions tiene un sistema de items DELIBERADAMENTE MÍNIMO. Removidos v5: Leftovers (Restos), Focus Sash (Banda Aguante), Focus Band (Cinta Aguante), Choice Scarf (Pañuelo Elección), Bright Powder (Polvo Brillo), Quick Claw (Garra Rápida), King's Rock (Roca del Rey), White Herb (Hierba Blanca), Sitrus Berry (Baya Zidra), Lum Berry (Baya Ziuela). Fix typo en CSV: Pomaro → Pomarco (Baya Pomarco = Chople Berry)." },
+      { "type": "fix", "text": "Defaults rebuild v5: physical_sweeper → Shell Bell (recovery 1/8), special_sweeper → Scope Lens (+1 nivel crit), physical_wall → Oran Berry, special_wall → Leppa Berry (PP recovery), lead_support → Mental Herb (anti-Taunt), trick_room_setter → Chesto Berry (anti-Spore), redirect → Persim Berry (anti-confusión). Fallback global → Cheri Berry. Backup pool reducido de 33 a 22 items." },
+      { "type": "fix", "text": "preset_kit_builder defensive items rebuild: pool ahora Mental Herb → Oran Berry → Leppa Berry → Persim Berry → Chesto Berry → Cheri Berry → Pecha Berry → Rawst Berry → Aspear Berry → Shell Bell. Sin Leftovers / Sitrus Berry / Eviolite (no existen en Champions)." },
+      { "type": "fix", "text": "ev_explainer item notes table rebuilt: cubre los 12 items con efecto único (Mental Herb, Shell Bell, Scope Lens, Light Ball, 8 status berries). Type-boost (18) y type-resist (18) usan notas genéricas. Removidas notas de items inexistentes (Leftovers, Sitrus, etc.)." }
+    ]
+  },
+  {
+    "version": "0.10.2",
+    "date": "2026-05-15",
+    "highlights": "Items + Megas reconstruidos desde listas oficiales (single source of truth) + ev_note context-aware",
+    "changes": [
+      { "type": "fix", "text": "mega_evolutions.json v2 reconstruido desde tests/fixtures/champions_megas_official.csv — fuente única de verdad pegada por Sergio del store in-game (2026-05-15). 46 species / 47 piedras (Charizard X+Y). Removidas 13 megas que estaban en data anterior pero NO en lista oficial: Abomasnow, Aggron, Beedrill, Chesnaught, Delphox, Floette, Garchomp, Greninja, Gyarados, Heracross, Manectric, Metagross, Steelix. Las 46 restantes marcadas verified=true tras confirmación oficial." },
+      { "type": "fix", "text": "[Superseded by v0.10.3] champions_legal_items.json v4 — primera pasada del rebuild. v5 reemplaza esta entrada con la lista completa pegada por Sergio (sole source). Procedimiento: editar el CSV → regenerar JSON, nunca al revés." },
+      { "type": "feat", "text": "ev_note context-aware: cada nota ahora incluye 'rol + item insight + archetype hint' tras los benchmarks de speed y defensa. Ejemplo: 'Spe 222 (32 SP+) supera a Garchomp (169) · rol físico: Atk + Spe prioridad · Sitrus Berry cura ~25% HP al bajar de 50% · arquetipo Hyper Offense: turnos limitados, ofensiva sobre bulk'. Tabla de notas cubre 22 items, 18 type-resist berries, 16 type-boost items, 6 arquetipos, 7 roles. Balance archetype suprime el hint para no añadir ruido." },
+      { "type": "fix", "text": "Role defaults ajustados tras el rebuild: special_sweeper → Shell Bell (drena 1/8 del daño), redirect → Bright Powder (-10% precisión rival), trick_room_setter → Mental Herb (sigue legal). Fallback global → Choice Scarf de vuelta como filler universal." }
+    ]
+  },
+  {
+    "version": "0.10.1",
+    "date": "2026-05-15",
+    "highlights": "Bugfix Sergio 2026-05-15: sinergia físico/especial + items inexistentes + benchmarks speed + kit defensivo completo",
+    "changes": [
+      { "type": "fix", "text": "Slot 4 ya no asigna Swords Dance / Bulk Up / Dragon Dance a Pokémon con moveset 100% especial (regresión Venusaur con Energy Ball + Sludge Bomb + Swords Dance). Symmetric: Nasty Plot / Calm Mind / Quiver Dance fuera de movesets 100% físicos. Filtro aplicado en role-priority loop y en fallback de _fallback_move (services/replica_exporter.py)." },
+      { "type": "fix", "text": "Choice Band / Choice Specs / Choice Scarf removidos del pool legal (champions_legal_items.json v3). Centro LEAKS + Light + GameFragger + verificación manual Sergio: ninguno existe en Pokémon Champions. Role defaults nuevos: physical_sweeper → Sitrus Berry, special_sweeper → Mirror Herb. Fallback global → Lum Berry. sp_preset_builder dispatch limpiado." },
+      { "type": "fix", "text": "Comparativas de velocidad en ev_note ahora solo muestran Pokémon con usage_rank ≤ 30 (top meta). Dedenne (rank 153) y similares ya no aparecen como benchmarks — Sergio nunca los enfrentará." },
+      { "type": "feat", "text": "Toggle Ofensivo/Defensivo ahora cambia el kit completo: item + habilidad + nature + moves[3] + EVs, no solo EVs. Defensiva sustituye habilidad por Regenerator/Magic Guard/Intimidate (si la especie la aprende), nature por Impish/Calm, slot 4 de setup → Recover/Roost/Slack Off/etc., item por Leftovers/Sitrus/Covert Cloak. Item Clause se respeta entre kits defensivos del mismo equipo. Nuevo servicio: services/preset_kit_builder.py." }
+    ]
+  },
+  {
     "version": "0.9.1-phase4a",
     "date": "2026-05-13",
     "highlights": "Refine build logic v2 — Phase 4a: UI integration (archetype selector, speed-control warning, SP preset toggle)",
