@@ -1059,6 +1059,14 @@ def _derive_nature(primary: str, roles: list[str], moves: list[str]) -> str:
     WHY: a Pelipper lead with Hurricane (special) was getting Jolly under
     the role-only mapping, wasting its 95 SpA. Reading the actual STAB
     category is more accurate than role alone.
+
+    ADR weather-setter-coherence §3.2: for offensive roles and lead_support we
+    now consult the DOMINANT category of the whole moveset first (more robust
+    than the isolated slot-2). This fixes mixed sets where a special coverage
+    move (Ice Beam) is orphaned by a physical slot-2. The dominant category, if
+    decisive, overrides slot-2; on a tie / status-only set it returns None and
+    we fall back to the slot-2 behaviour (unchanged for the pinned Pelipper /
+    physical-lead cases, which are mono-category → dominant == slot-2).
     """
     if primary == "trick_room_setter":
         return "Sassy"
@@ -1069,12 +1077,16 @@ def _derive_nature(primary: str, roles: list[str], moves: list[str]) -> str:
         if len(moves) > 1
         else ""
     )
+    # Whole-moveset dominant category takes precedence over the isolated
+    # slot-2 for attacking roles (ADR §3.2). None on tie/no-damage → slot-2.
+    dominant_cat = _dominant_attack_category(moves)
+    effective_cat = dominant_cat if dominant_cat is not None else slot2_cat
     if primary in ("physical_sweeper", "lead_support"):
-        if slot2_cat == "special":
+        if effective_cat == "special":
             return "Timid"
         return "Jolly"  # default for physical or unknown
     if primary == "special_sweeper":
-        if slot2_cat == "physical":
+        if effective_cat == "physical":
             return "Jolly"
         return "Timid"  # default for special or unknown
     if primary == "physical_wall":

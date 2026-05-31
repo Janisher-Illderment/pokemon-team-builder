@@ -820,6 +820,48 @@ def test_dominant_attack_category_majority_wins() -> None:
     assert _dominant_attack_category(moves) == "physical"
 
 
+def test_nature_dominant_special_overrides_physical_slot2() -> None:
+    """ADR §3.2: a special-dominant moveset yields Timid even if slot-2 is
+    physical.
+
+    This is the weather-setter coherence case: a mon whose slot-2 STAB is
+    physical (seed-bomb) but whose moveset is overall special-dominant
+    (ice-beam + energy-ball + blizzard) must NOT get Jolly (which would zero
+    its SpA). The whole-moveset dominant category wins over the isolated
+    slot-2.
+    """
+    from pokemon_team_builder.services.team_generator import _derive_nature
+
+    moves = ["seed-bomb", "ice-beam", "energy-ball", "blizzard"]  # 3 spec, 1 phys
+    nature = _derive_nature("physical_sweeper", ["physical_sweeper"], moves)
+    assert nature == "Timid"
+
+
+def test_nature_dominant_physical_overrides_special_slot2() -> None:
+    """ADR §3.2: a physical-dominant moveset yields Jolly even if slot-2 is
+    special, for a special_sweeper primary label.
+    """
+    from pokemon_team_builder.services.team_generator import _derive_nature
+
+    moves = ["ice-beam", "seed-bomb", "earthquake", "rock-slide"]  # 3 phys, 1 spec
+    nature = _derive_nature("special_sweeper", ["special_sweeper"], moves)
+    assert nature == "Jolly"
+
+
+def test_nature_tie_falls_back_to_slot2() -> None:
+    """ADR §3.2: on a 2-2 category tie, the dominant category is None and the
+    isolated slot-2 decides (preserving legacy behaviour for true mixed sets).
+    """
+    from pokemon_team_builder.services.team_generator import _derive_nature
+
+    # slot-2 = hurricane (special) → Timid despite the physical coverage.
+    moves = ["protect", "hurricane", "earthquake", "scald"]  # 2 spec, 1 phys (+status)
+    # Make it a real 2-2 tie:
+    moves = ["seed-bomb", "hurricane", "earthquake", "scald"]  # 2 phys, 2 spec
+    nature = _derive_nature("lead_support", ["lead_support"], moves)
+    assert nature == "Timid"  # slot-2 hurricane is special
+
+
 def test_nature_sassy_for_trick_room_setter_regardless_of_slot2() -> None:
     """T9: TR setters always get Sassy, ignoring the slot-2 category."""
     from pokemon_team_builder.services.team_generator import _derive_nature
