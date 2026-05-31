@@ -5,7 +5,8 @@
     "highlights": "Correcciones de diseño basadas en la serie VGC de Pokémon Champions (docs/vgc-principles.md)",
     "changes": [
       { "type": "fix", "text": "Cobertura ofensiva: un move de daño cubre su tipo aunque NO sea STAB (antes solo contaba STAB). En VGC los ataques de cobertura son cómo amenazas lo que tus STAB no pueden (video V4: 'es importante que alguno tenga ataques de cobertura para dañar al acero'). Ej.: un mono-Agua con Rayo Hielo ahora cubre Hielo. services/synergy_engine.py:analyze_coverage; test invertido en tests/test_coverage_stab.py." },
-      { "type": "fix", "text": "Stall ya NO está exento de la penalización de control de velocidad (-15). El stall es inviable en dobles VGC precisamente porque depende de aguantar sin controlar el orden de turno (video V3); eximirlo premiaba justo la debilidad que lo hace perder. services/viability_rater.py:_speed_control_penalty; tests actualizados." }
+      { "type": "fix", "text": "Stall ya NO está exento de la penalización de control de velocidad (-15). El stall es inviable en dobles VGC precisamente porque depende de aguantar sin controlar el orden de turno (video V3); eximirlo premiaba justo la debilidad que lo hace perder. services/viability_rater.py:_speed_control_penalty; tests actualizados." },
+      { "type": "fix", "text": "Pool de items corregido a 58 (era 48). El paste anterior era solo del STORE (objetos comprables con VP); faltaban 10 items 'Beginning' (los tienes desde el inicio, no se venden): Pañuelo Elección (Choice Scarf), Banda Aguante (Focus Sash), Cinta Aguante (Focus Band), Restos (Leftovers), Polvo Brillo (Bright Powder), Roca del Rey (King's Rock), Garra Rápida (Quick Claw), Hierba Blanca (White Herb), Baya Ziuela (Lum), Baya Zidra (Sitrus). Rebuild desde tests/fixtures/champions_items_official.csv (fuente única) → champions_legal_items.json v6. _REMOVED_ITEMS y test de White Herb actualizados." }
     ]
   },
   {

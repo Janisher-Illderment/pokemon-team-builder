@@ -11,9 +11,14 @@ name_es,name_en,category,price_pv,effect_es,source
 #
 # Items NOT in this CSV are NOT legal in Champions M-A. Period.
 #
-# Champions has a deliberately MINIMAL item system: 18 type-boost +
-# 18 type-resist berries + 8 status-cure berries + 4 misc (Mental Herb,
-# Shell Bell, Scope Lens, Light Ball) = 48 items.
+# 2026-05-31 RECONCILIATION: Sergio's 2026-05-15 paste was the VP SHOP
+# only. The complete in-game item list (Sergio, 2026-05-31) adds the
+# "Beginning" items — owned from the start, never sold in the shop, so
+# absent from the earlier store paste. These 10 (Choice Scarf, Focus
+# Sash, Focus Band, Leftovers, Bright Powder, King's Rock, Quick Claw,
+# White Herb, Lum Berry, Sitrus Berry) ARE legal. Real pool = 58 items:
+#   58 = 18 type-boost + 18 type-resist berries + 10 status/HP berries
+#        + 12 misc/competitive hold items.
 #
 # Type-boost items (+20% damage of matching type)
 Pañuelo de Seda,Silk Scarf,type_boost,700,+20% potencia movimientos Normal,Sergio-official
@@ -67,3 +72,14 @@ Baya Anjiro,Haban Berry,type_resist,400,x0.5 daño de un ataque super-efectivo D
 Baya Dillo,Colbur Berry,type_resist,400,x0.5 daño de un ataque super-efectivo Siniestro (una vez),Sergio-official
 Baya Baribá,Babiri Berry,type_resist,400,x0.5 daño de un ataque super-efectivo Acero (una vez),Sergio-official
 Baya Hibis,Roseli Berry,type_resist,400,x0.5 daño de un ataque super-efectivo Hada (una vez),Sergio-official
+# Beginning items (owned from start, NOT sold in VP shop — added 2026-05-31)
+Baya Ziuela,Lum Berry,consumable,0,cura cualquier alteración de estado (una vez),Sergio-official-beginning
+Baya Zidra,Sitrus Berry,consumable,0,restaura ~25% PS cuando baja de la mitad (una vez),Sergio-official-beginning
+Restos,Leftovers,competitive,0,restaura 1/16 PS al final de cada turno,Sergio-official-beginning
+Banda Aguante,Focus Sash,competitive,0,sobrevive con 1 PS un golpe que debilitaría a PS completos (una vez),Sergio-official-beginning
+Cinta Aguante,Focus Band,competitive,0,probabilidad de sobrevivir con 1 PS un golpe letal,Sergio-official-beginning
+Pañuelo Elección,Choice Scarf,competitive,0,+50% Velocidad pero bloquea en el primer movimiento usado,Sergio-official-beginning
+Polvo Brillo,Bright Powder,competitive,0,-10% precisión de los movimientos del rival,Sergio-official-beginning
+Roca del Rey,King's Rock,competitive,0,probabilidad de hacer retroceder al golpear,Sergio-official-beginning
+Garra Rápida,Quick Claw,competitive,0,probabilidad de actuar primero ignorando la velocidad,Sergio-official-beginning
+Hierba Blanca,White Herb,utility,0,restaura estadísticas reducidas (una vez),Sergio-official-beginning

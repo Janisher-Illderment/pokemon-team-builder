@@ -26,6 +26,15 @@ from pokemon_team_builder.services.team_generator import (
 )
 
 
+# Items genuinely absent from Champions M-A — NOT in Sergio's complete
+# in-game item list (2026-05-31). These never appear as a default, in the
+# backup pool, or in the legal JSON.
+#
+# v6 (2026-05-31): the v0.10.3 "removed" cohort (Choice Scarf, Focus Sash,
+# Focus Band, Leftovers, Bright Powder, Quick Claw, King's Rock, White Herb,
+# Sitrus Berry, Lum Berry) was a FALSE NEGATIVE — those are "Beginning"
+# items (owned from start, not sold in the VP shop), so they were missing
+# from the earlier shop-only paste. They are legal and now in the pool.
 _REMOVED_ITEMS = frozenset({
     "Weakness Policy",
     "Throat Spray",
@@ -34,7 +43,6 @@ _REMOVED_ITEMS = frozenset({
     "Assault Vest",
     "Choice Band",
     "Choice Specs",
-    "Choice Scarf",
     "Eviolite",
     "Booster Energy",
     "Mirror Herb",
@@ -44,18 +52,6 @@ _REMOVED_ITEMS = frozenset({
     "Clear Amulet",
     "Light Clay",
     "Power Herb",
-    # v0.10.3 (2026-05-15): Sergio's COMPLETE in-game store paste removed
-    # the last cohort of "obvious VGC items" that Champions does NOT ship
-    # with. Champions has a deliberately minimal 48-item economy.
-    "Leftovers",
-    "Focus Sash",
-    "Focus Band",
-    "Bright Powder",
-    "Quick Claw",
-    "King's Rock",
-    "White Herb",
-    "Sitrus Berry",
-    "Lum Berry",
 })
 
 
