@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.12.0",
+    "date": "2026-06-01",
+    "highlights": "Nueva función: Valorar equipo — pega tu PokePaste y obtén nota global, arquetipo detectado y notas + sugerencias por Pokémon",
+    "changes": [
+      { "type": "feat", "text": "Pestaña 'Valorar equipo': pega un PokePaste de 6 miembros y el endpoint POST /rate-team devuelve la valoración completa — nota global del equipo (0-100), arquetipo detectado automáticamente (con aviso de 'estrategia ambigua' si la confianza es baja), y puntos fuertes/débiles del conjunto. La plantilla del equipo es SAGRADA: nunca proponemos cambiar de especie, solo afinar naturaleza / EVs / item / moves." },
+      { "type": "feat", "text": "Nota por Pokémon (1-100) con desglose visible: sinergia/adecuación de rol (fit), coherencia del set concreto que pegaste (naturaleza↔EVs↔moves) y valor intrínseco de la especie. Cada nota se tiñe por rango (verde/ámbar/rojo) y lista los puntos fuertes y débiles del mon." },
+      { "type": "feat", "text": "Sugerencias concretas por miembro ordenadas por prioridad: cada una muestra el cambio exacto 'valor actual → valor recomendado' (move, naturaleza, EVs o item) con su razón en español. Reusa los componentes de tarjeta de miembro y los sprites existentes. La valoración visual real se verifica en el deploy (el entorno local de desarrollo no tiene jinja2 para levantar la SPA completa)." }
+    ]
+  },
+  {
     "version": "0.11.0",
     "date": "2026-05-31",
     "highlights": "Correcciones de diseño basadas en la serie VGC de Pokémon Champions (docs/vgc-principles.md)",

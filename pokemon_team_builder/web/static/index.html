@@ -43,7 +43,7 @@
   </script>
 
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-  <link rel="stylesheet" href="style.css?v=20260514-6" />
+  <link rel="stylesheet" href="style.css?v=20260601-1" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -461,6 +461,142 @@ Jolly Nature
             </div>
           </div>
         </template>
+      </section>
+
+      <!-- B7 — Valorar equipo (Team Rater). Pegas un PokePaste y POST
+           /rate-team devuelve un TeamRatingOut: nota global + arquetipo
+           detectado + por mon nota 1-100, fuertes/débiles y sugerencias
+           concretas. Reusa member-sprite, badge-archetype y spriteUrl. -->
+      <section id="rate-section" class="import-section rate-section">
+        <h2 class="import-title">Valorar equipo</h2>
+        <textarea
+          x-model="ratePaste"
+          rows="8"
+          class="import-textarea"
+          placeholder="Pega aquí tu PokePaste de 6 miembros para que lo valoremos...
+Detectamos la estrategia, puntuamos el equipo y cada Pokémon, y proponemos
+ajustes concretos (naturaleza, EVs, item, moves) — nunca cambiamos de especie."
+          :disabled="rateLoading"
+        ></textarea>
+        <button class="import-btn" @click="rateTeam()" :disabled="rateLoading || !ratePaste.trim()">
+          <span x-show="!rateLoading">Valorar</span>
+          <span x-show="rateLoading">Valorando…</span>
+        </button>
+        <p x-show="rateError" class="error-msg" x-text="rateError"></p>
+      </section>
+
+      <!-- B7 — Resultado de la valoración -->
+      <section x-show="teamRating" class="results rate-results">
+        <div class="variant-card rate-card">
+          <!-- Cabecera del equipo: nota global + arquetipo detectado -->
+          <div class="variant-header rate-header">
+            <span class="variant-title">Valoración del equipo</span>
+            <span class="badge badge-archetype"
+              x-show="teamRating"
+              x-text="archetypeLabel(teamRating && teamRating.detected_archetype)"
+              :title="'Arquetipo detectado: ' + (teamRating && teamRating.detected_archetype)"></span>
+            <span class="badge badge-low-confidence"
+              x-show="teamRating && teamRating.archetype_confidence < 0.4"
+              title="La estrategia no se detecta con claridad — interpreta la nota con cautela">
+              ⚠️ Estrategia ambigua (confianza baja)
+            </span>
+            <span class="rate-team-score"
+              x-show="teamRating"
+              :class="'rate-team-score--' + scoreTier(teamRating ? teamRating.score : 0)"
+              x-text="(teamRating ? Math.round(teamRating.score) : 0) + ' / 100'"></span>
+          </div>
+
+          <!-- Avisos de import (passthrough del parser) -->
+          <template x-if="teamRating && teamRating.import_warnings && teamRating.import_warnings.length > 0">
+            <ul class="import-warnings">
+              <template x-for="(w, wi) in teamRating.import_warnings" :key="wi">
+                <li x-text="w"></li>
+              </template>
+            </ul>
+          </template>
+
+          <!-- Fuertes / débiles del equipo -->
+          <div class="rate-team-lists">
+            <template x-if="teamRating && teamRating.strengths && teamRating.strengths.length > 0">
+              <div class="rate-list rate-list--strength">
+                <h3>Puntos fuertes</h3>
+                <ul>
+                  <template x-for="(s, si) in teamRating.strengths" :key="si">
+                    <li x-text="s"></li>
+                  </template>
+                </ul>
+              </div>
+            </template>
+            <template x-if="teamRating && teamRating.weaknesses && teamRating.weaknesses.length > 0">
+              <div class="rate-list rate-list--weakness">
+                <h3>Puntos débiles</h3>
+                <ul>
+                  <template x-for="(w, wi) in teamRating.weaknesses" :key="wi">
+                    <li x-text="w"></li>
+                  </template>
+                </ul>
+              </div>
+            </template>
+          </div>
+
+          <!-- Notas por Pokémon -->
+          <div class="members rate-members">
+            <template x-for="(m, mi) in (teamRating ? teamRating.members : [])" :key="mi">
+              <div class="member rate-member">
+                <img :src="memberSprite(m.name)" :alt="m.name" class="member-sprite"
+                  @error="$event.target.style.display='none'" />
+                <div class="rate-member-head">
+                  <strong x-text="capitalize(m.name)"></strong>
+                  <span class="rate-mon-score"
+                    :class="'rate-mon-score--' + scoreTier(m.score)"
+                    x-text="m.score"
+                    :title="'Nota: ' + m.score + '/100'"></span>
+                </div>
+
+                <!-- Desglose de la nota (fit / coherencia / intrínseco) -->
+                <div class="rate-breakdown" :title="'Sinergia/rol · coherencia del set · valor de especie'">
+                  <span x-text="'Sinergia ' + Math.round(m.fit * 100) + '%'"></span>
+                  <span x-text="'Coherencia ' + Math.round(m.coherence * 100) + '%'"></span>
+                  <span x-text="'Especie ' + Math.round(m.intrinsic * 100) + '%'"></span>
+                </div>
+
+                <!-- Fuertes / débiles del mon -->
+                <template x-if="m.strengths && m.strengths.length > 0">
+                  <ul class="rate-mon-list rate-mon-list--strength">
+                    <template x-for="(s, si) in m.strengths" :key="si">
+                      <li x-text="s"></li>
+                    </template>
+                  </ul>
+                </template>
+                <template x-if="m.weaknesses && m.weaknesses.length > 0">
+                  <ul class="rate-mon-list rate-mon-list--weakness">
+                    <template x-for="(w, wi) in m.weaknesses" :key="wi">
+                      <li x-text="w"></li>
+                    </template>
+                  </ul>
+                </template>
+
+                <!-- Sugerencias concretas (ordenadas por priority asc) -->
+                <template x-if="m.suggestions && m.suggestions.length > 0">
+                  <div class="rate-suggestions">
+                    <template x-for="(sg, sgi) in [...m.suggestions].sort((a, b) => a.priority - b.priority)" :key="sgi">
+                      <div class="rate-suggestion">
+                        <span class="adj-type-badge" :class="'adj-type--' + sg.kind.replace('_','-')"
+                          x-text="sg.kind.replace(/_/g,' ')"></span>
+                        <span class="rate-suggestion-diff">
+                          <span class="rate-from" x-text="capitalize(sg.from_value)"></span>
+                          <span class="rate-arrow">→</span>
+                          <span class="rate-to" x-text="capitalize(sg.to_value)"></span>
+                        </span>
+                        <span class="adj-reason" x-text="sg.reason"></span>
+                      </div>
+                    </template>
+                  </div>
+                </template>
+              </div>
+            </template>
+          </div>
+        </div>
       </section>
 
       <!-- Matchup analyzer -->
