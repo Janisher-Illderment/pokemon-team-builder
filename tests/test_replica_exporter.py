@@ -14,6 +14,7 @@ from pokemon_team_builder.domain.models import (
 from pokemon_team_builder.services import pokemon_lookup
 from pokemon_team_builder.services.replica_exporter import (
     IMPORT_INSTRUCTIONS,
+    _offensive_category,
     save_to_file,
     select_moves_for_role,
     to_pokepaste,
@@ -691,3 +692,25 @@ def test_meta_move_not_in_pool_falls_back() -> None:
     )
     assert len(moves) == 4
     assert moves[0] == "protect"
+
+
+# ── _offensive_category (ADR move-category-coherence §5.3.4, B0) ──────────
+
+
+def test_offensive_category_physical_when_atk_higher() -> None:
+    """atk > spa → physical."""
+    stats = BaseStats(hp=70, atk=120, **{"def": 70}, spa=80, spd=70, spe=70)
+    assert _offensive_category(stats) == "physical"
+
+
+def test_offensive_category_special_when_spa_higher() -> None:
+    """spa > atk → special."""
+    stats = BaseStats(hp=70, atk=80, **{"def": 70}, spa=120, spd=70, spe=70)
+    assert _offensive_category(stats) == "special"
+
+
+def test_offensive_category_physical_on_tie() -> None:
+    """atk == spa → physical (documented tie-break; preserves the exact
+    behaviour of the old inlined ``primary_cat`` for Abomasnow 92/92)."""
+    stats = BaseStats(hp=90, atk=92, **{"def": 75}, spa=92, spd=85, spe=60)
+    assert _offensive_category(stats) == "physical"

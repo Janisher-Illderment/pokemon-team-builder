@@ -5,6 +5,7 @@ from pathlib import Path
 from pokemon_team_builder.data.archetype_weights_loader import get_weights
 from pokemon_team_builder.domain.exceptions import TeamBuildError
 from pokemon_team_builder.domain.models import (
+    BaseStats,
     PokemonData,
     SPDistribution,
     TeamMember,
@@ -203,6 +204,19 @@ _MOVE_CATEGORY: dict[str, str] = {
     "play-rough": "physical",
     "fleur-cannon": "special",
 }
+
+def _offensive_category(stats: BaseStats) -> str:
+    """Single source of truth for a Pokemon's offensive category.
+
+    Returns ``"physical"`` if Atk >= SpA, else ``"special"`` (physical
+    tie-break). This is the exact formula previously inlined at the
+    ``primary_cat`` site in ``select_moves_for_role`` — extracted here so the
+    STAB selection, the second-STAB invariant and the coverage slot all agree
+    on ONE category derivation (ADR move-category-coherence §3.1). Pure: no
+    side effects, depends only on base stats.
+    """
+    return "physical" if stats.atk >= stats.spa else "special"
+
 
 # Move → damage type table. Phase 4b cleanup (Tecle Brief #9): the
 # canonical map lives in ``pokemon_team_builder.data.move_types`` so
