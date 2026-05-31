@@ -1061,3 +1061,105 @@ def test_heuristic_filter_no_meta_unchanged() -> None:
         # should not raise, returns candidates ordered by synergy only
         result = _heuristic_filter(anchor, [cand1, cand2], role_map)
     assert len(result) == 2
+
+
+# ── B4: end-to-end coherence of the weather-setter bug case ───────────────────
+# ADR docs/adr-weather-setter-coherence.md §B4 / §5.3.1.
+#
+# We use a SYNTHETIC Abomasnow (atk 92 / spa 92, Snow Warning, Grass/Ice) and
+# drive the real derivation chain — assign_role -> _derive_nature ->
+# build_presets — with explicit movesets. The real movepool is [UNCERTAIN]
+# (fetched from PokeAPI at runtime), so per project policy we do NOT hardcode an
+# invented Abomasnow set into generate_team; instead we test the COHERENCE
+# PRINCIPLE the ADR mandates, deterministically and offline.
+
+def _abomasnow(moves: list[str]):
+    return _mk(
+        "abomasnow",
+        ["grass", "ice"],
+        hp=90, atk=92, def_=75, spa=92, spd=85, spe=60,
+        abilities=["snow-warning"],
+        moves=moves,
+    )
+
+
+def _coherence_chain(pokemon, moves):
+    """Run role -> nature -> offensive SP preset for a given moveset.
+
+    Returns (roles, tags, nature, offensive_preset).
+    """
+    from pokemon_team_builder.services import synergy_engine, sp_preset_builder
+    from pokemon_team_builder.services.team_generator import _derive_nature
+    from pokemon_team_builder.domain.models import SPDistribution, TeamMember
+
+    roles = synergy_engine.assign_role(pokemon)
+    tags = synergy_engine.derive_doubles_tags(pokemon)
+    primary = roles[0] if roles else "physical_sweeper"
+    nature = _derive_nature(primary, roles, moves)
+    member = TeamMember(
+        pokemon=pokemon,
+        role=roles,
+        sp_distribution=SPDistribution(),
+        item="Leftovers",
+        ability="snow-warning",
+        nature=nature,
+        moves=moves,
+    )
+    presets = sp_preset_builder.build_presets(member, "Leftovers", nature)
+    return roles, tags, nature, presets["offensive"]
+
+
+def test_e2e_abomasnow_special_set_is_coherent() -> None:
+    """Special-dominant Abomasnow: role is a sweeper (not lead_support), carries
+    the weather_setter tag, gets a SPECIAL nature, and the offensive spread
+    invests SpA with Atk == 0. The original bug (special move + 0 SpA) cannot
+    recur.
+    """
+    moves = ["protect", "blizzard", "energy-ball", "ice-beam"]  # 3 special
+    pokemon = _abomasnow(moves)
+    roles, tags, nature, off = _coherence_chain(pokemon, moves)
+
+    assert roles[0] in ("physical_sweeper", "special_sweeper")
+    assert "lead_support" not in roles
+    assert "weather_setter" in tags
+    assert nature == "Timid"
+    # nature <-> SP coherence: special nature invests SpA, zeroes Atk.
+    assert off.spa > 0 and off.atk == 0
+    # Anti-bug invariant: NOT (special damage move AND spa_SP == 0).
+    assert not (off.spa == 0)
+
+
+def test_e2e_abomasnow_physical_set_is_coherent() -> None:
+    """Physical-dominant Abomasnow: sweeper role, weather_setter tag, PHYSICAL
+    nature, offensive spread invests Atk with SpA == 0. The mirror invariant
+    holds (no physical-heavy set shipped with 0 Atk).
+    """
+    moves = ["protect", "seed-bomb", "ice-punch", "earthquake"]  # 3 physical
+    pokemon = _abomasnow(moves)
+    roles, tags, nature, off = _coherence_chain(pokemon, moves)
+
+    assert roles[0] in ("physical_sweeper", "special_sweeper")
+    assert "lead_support" not in roles
+    assert "weather_setter" in tags
+    assert nature == "Jolly"
+    assert off.atk > 0 and off.spa == 0
+
+
+def test_e2e_physical_vs_special_setter_discriminate_by_moveset() -> None:
+    """ADR §5.3.3: the same weather-setter shell built with a physical vs a
+    special moveset must diverge in nature and SP — proving the build keys off
+    the MOVESET category, not the (tied) base stats or the role label.
+    """
+    phys_moves = ["protect", "seed-bomb", "ice-punch", "earthquake"]
+    spec_moves = ["protect", "blizzard", "energy-ball", "ice-beam"]
+
+    _, _, phys_nature, phys_off = _coherence_chain(
+        _abomasnow(phys_moves), phys_moves
+    )
+    _, _, spec_nature, spec_off = _coherence_chain(
+        _abomasnow(spec_moves), spec_moves
+    )
+
+    assert phys_nature == "Jolly" and spec_nature == "Timid"
+    assert phys_off.atk > 0 and phys_off.spa == 0
+    assert spec_off.spa > 0 and spec_off.atk == 0
