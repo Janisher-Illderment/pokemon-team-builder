@@ -1,6 +1,6 @@
 # pokemon-team-builder
 
-> **Champions VGC Doubles team builder · Regulation M-A · v0.10.0**
+> **Champions VGC Doubles team builder · Regulation M-A · v0.11.0**
 
 Generador de equipos competitivos para **Pokémon Champions** (formato Doubles, Regulation M-A). Web app + CLI. Construye equipos alrededor de tu Pokémon favorito con archetype selector, weather synergy, EV presets y análisis de matchups.
 

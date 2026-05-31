@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from itertools import combinations
+from typing import TYPE_CHECKING
 
 from pokemon_team_builder.data.ability_implicit_roles_loader import (
     AbilityRoleEntry,
@@ -9,6 +10,9 @@ from pokemon_team_builder.data.ability_implicit_roles_loader import (
     load_ability_implicit_roles,
 )
 from pokemon_team_builder.domain.models import MegaForm, PokemonData
+
+if TYPE_CHECKING:
+    from pokemon_team_builder.domain.models import TeamVariant
 
 
 # WHY: 18 canonical Pokemon types. Used to enumerate offensive/defensive
@@ -54,6 +58,74 @@ _SWEEPER_ROLES: frozenset[str] = frozenset({"physical_sweeper", "special_sweeper
 _SUPPORT_ROLES: frozenset[str] = frozenset({"lead_support", "redirect"})
 
 
+# ── Disruption move/ability sets (ADR §2.1 / R3) ────────────────────────────
+# These frozensets live HERE in the low layer (synergy_engine) and are
+# re-exported by viability_rater. synergy_engine must never import
+# viability_rater (would be a circular import), so the single source of
+# truth for disruption markers is this module. assess_presence and
+# derive_doubles_tags consume them directly; the team scorer imports them
+# from here via viability_rater's re-export. Moved verbatim from
+# viability_rater — no value changes.
+
+# Speed control mechanisms (full credit 1.0 per member with one of these).
+_SPEED_CONTROL_MOVES: frozenset[str] = frozenset({
+    "trick-room",
+    "tailwind",
+    "icy-wind",
+    "electroweb",
+    "thunder-wave",
+    "glare",
+    "nuzzle",
+    "stun-spore",
+    "sticky-web",
+    "fake-out",
+    "quick-guard",
+})
+# Abilities that contribute partial speed-control credit (0.5 each) —
+# paralysis-on-contact.
+_SPEED_CONTROL_PARTIAL_ABILITIES: frozenset[str] = frozenset({
+    "static",
+    "cute-charm",
+})
+# Core-viable means the member can fill a Bo3 lead/core slot (speed control
+# or redirect). Previously _LEAD_VIABLE_MOVES.
+_CORE_VIABLE_MOVES: frozenset[str] = frozenset({
+    "tailwind", "trick-room", "fake-out", "extreme-speed", "quick-attack",
+    "helping-hand", "thunder-wave", "icy-wind", "follow-me", "rage-powder",
+})
+
+# Redirection moves (señuelo / polvo ira). Pulls the opponent's attacks
+# onto the user, protecting the ally — a real disruption (ADR §2.1).
+_REDIRECT_MOVES: frozenset[str] = frozenset({"follow-me", "rage-powder"})
+
+# Ally-boost moves: directly buff the partner's output (ADR §2.1, slugs
+# fixed by Sergio). Distinct from self-setup moves.
+_ALLY_BOOST_MOVES: frozenset[str] = frozenset({
+    "helping-hand", "decorate", "coaching",
+})
+
+# Pure status moves that pressure the opponent without an offensive stat.
+# Slugs fixed by Sergio (ADR §2.1 + R4). Superset of the status-flavoured
+# speed-control moves (thunder-wave/glare/nuzzle/stun-spore appear in both
+# _SPEED_CONTROL_MOVES and here on purpose — a status move is disruption
+# whether or not it also slows).
+_STATUS_MOVES: frozenset[str] = frozenset({
+    "thunder-wave", "will-o-wisp", "spore", "sleep-powder", "glare",
+    "nuzzle", "stun-spore", "yawn", "toxic",
+})
+
+# Setup moves — self-buffs that turn a mon into a win condition (C3 §3.2
+# offensive_threat). hyphen-lower PokeAPI slugs.
+_SETUP_MOVES: frozenset[str] = frozenset({
+    "swords-dance", "dragon-dance", "calm-mind", "nasty-plot",
+})
+
+# Screen moves — dual screens / Aurora Veil (C3 §3.2 support_enabler).
+_SCREEN_MOVES: frozenset[str] = frozenset({
+    "light-screen", "reflect", "aurora-veil",
+})
+
+
 # Threshold center for each stat-based role. The gradient band is ±15 around
 # this center: weight = 0.0 at (threshold − 15), 0.5 at threshold, 1.0 at
 # (threshold + 15). Linear in between.
@@ -79,6 +151,17 @@ _WEATHER_SETTER_ABILITIES: frozenset[str] = frozenset({
 })
 _WEATHER_SETTER_LEAD_WEIGHT: float = 0.8
 
+# Maps each weather-setter ability to the weather it produces. Used by
+# derive_team_tags to connect a team's setters to weather-dependent abusers
+# (C3 §3.2 weather_abuser). The weather strings match the keys used by
+# weather_dependent_abilities.json (sun / rain / snow / sand).
+_SETTER_ABILITY_TO_WEATHER: dict[str, str] = {
+    "drought": "sun",
+    "drizzle": "rain",
+    "snow-warning": "snow",
+    "sand-stream": "sand",
+}
+
 
 @dataclass(frozen=True)
 class CoverageReport:
@@ -103,6 +186,35 @@ class RoleAssignment:
     role_weights: dict[str, float]
     roles: list[str]
     coverage_flags: dict[str, bool]
+
+
+# Offensive-presence threshold: a sweeper gradient weight of 0.5 maps
+# exactly to a base stat of 100 (the gradient midpoint), matching the
+# "atk o spa >= 100" rule in the spec.
+PRESENCE_OFFENSIVE_CUTOFF: float = ROLE_PRESENCE_CUTOFF
+
+
+@dataclass(frozen=True)
+class PresenceReport:
+    """C2 — does this Pokémon represent a threat in VGC Doubles? (ADR §2.1)
+
+    A Pokémon with neither an offensive stat nor real disruption is a
+    *passive liability*: the opponent ignores it and doubles its attacks
+    onto the ally (docs/vgc-principles.md §2, video V3 — Garganacl/Blissey).
+
+    - ``has_offensive_stat``: atk or spa gradient weight ≥ 0.5 (≈ stat ≥ 100).
+    - ``has_disruption``: provides intimidate / fake-out / redirect /
+      speed-control / pure status / ally-boost.
+    - ``disruption_sources``: human-readable ES labels for the explanation.
+    - ``is_passive_liability``: NOT offensive AND NOT disruption.
+    - ``presence_weight``: 0.0..1.0 gradient = clamp(max(off, disr)).
+    """
+
+    has_offensive_stat: bool
+    has_disruption: bool
+    disruption_sources: list[str]
+    is_passive_liability: bool
+    presence_weight: float
 
 
 def _move_contains_any(move_names: list[str], markers: tuple[str, ...]) -> bool:
@@ -341,6 +453,237 @@ def assign_role_weights(pokemon: PokemonData) -> RoleAssignment:
     )
 
 
+def assess_presence(
+    pokemon: PokemonData,
+    moves: list[str] | None = None,
+    ability: str | None = None,
+) -> PresenceReport:
+    """Assess a Pokémon's offensive presence / disruption (C2, ADR §2.1).
+
+    ``moves`` / ``ability`` are optional overrides. When ``None`` they fall
+    back to ``pokemon.move_names`` / ``pokemon.abilities[0]`` — the same
+    degrading pattern as :func:`analyze_coverage` when ``movesets is None``.
+    This lets callers pass an *assigned* moveset (the 4 chosen moves) while
+    species lookups can rely on the full learnset.
+
+    Formula (ADR §2.1):
+      off  = max(physical_sweeper weight, special_sweeper weight)  # gradient
+      disr = 1.0 if has_disruption else 0.0
+      presence_weight   = clamp(max(off, disr), 0.0, 1.0)
+      has_offensive_stat = off >= 0.5            # ≈ atk or spa >= 100
+      is_passive_liability = (off < 0.5) AND (not has_disruption)
+    """
+    move_list = moves if moves is not None else list(pokemon.move_names)
+    move_set = {m.strip().lower() for m in move_list}
+
+    if ability is not None:
+        ability_slug = ability.strip().lower().replace(" ", "-")
+    elif pokemon.abilities:
+        ability_slug = pokemon.abilities[0].strip().lower().replace(" ", "-")
+    else:
+        ability_slug = ""
+
+    weights = assign_role_weights(pokemon).role_weights
+    off = max(
+        weights.get("physical_sweeper", 0.0),
+        weights.get("special_sweeper", 0.0),
+    )
+    has_offensive_stat = off >= PRESENCE_OFFENSIVE_CUTOFF
+
+    # ── Disruption detection (ADR §2.1 table) ────────────────────────────
+    disruption_sources: list[str] = []
+    if ability_slug == "intimidate":
+        disruption_sources.append("intimidación")
+    if "fake-out" in move_set:
+        disruption_sources.append("sorpresa (fake-out)")
+    if move_set & _REDIRECT_MOVES:
+        disruption_sources.append("redirección")
+    if move_set & _SPEED_CONTROL_MOVES:
+        disruption_sources.append("control de velocidad")
+    if move_set & _STATUS_MOVES:
+        disruption_sources.append("estado")
+    if move_set & _ALLY_BOOST_MOVES:
+        disruption_sources.append("boost a aliado")
+
+    has_disruption = bool(disruption_sources)
+    disr = 1.0 if has_disruption else 0.0
+
+    presence_weight = max(off, disr)
+    if presence_weight < 0.0:
+        presence_weight = 0.0
+    elif presence_weight > 1.0:
+        presence_weight = 1.0
+
+    is_passive_liability = (off < PRESENCE_OFFENSIVE_CUTOFF) and (not has_disruption)
+
+    return PresenceReport(
+        has_offensive_stat=has_offensive_stat,
+        has_disruption=has_disruption,
+        disruption_sources=disruption_sources,
+        is_passive_liability=is_passive_liability,
+        presence_weight=presence_weight,
+    )
+
+
+def derive_doubles_tags(
+    pokemon: PokemonData,
+    moves: list[str] | None = None,
+    ability: str | None = None,
+) -> list[str]:
+    """Derive the Doubles taxonomy tags for a single Pokémon (C3, ADR §3.2).
+
+    Per-mon tags only — the two context-dependent tags (``weather_abuser``,
+    ``trick_room_abuser``) need the whole team and are produced by
+    :func:`derive_team_tags`. Tags are DERIVED on demand from the existing
+    role weights + presence + moves; nothing is persisted (ADR §3.4).
+
+    ``moves`` / ``ability`` follow the same fallback rule as
+    :func:`assess_presence`. Returned in a stable, deduplicated order.
+
+    Tag rules (ADR §3.2):
+      - ``offensive_threat``: sweeper weight ≥ 0.5 OR a setup move.
+      - ``support_enabler``: redirect role OR intimidate OR fake-out OR
+        helping-hand OR a screen move.
+      - ``speed_control``: a full speed-control move (≥ 1.0 credit).
+      - ``defensive_pivot``: wall weight ≥ 0.5 AND has_disruption (a bulky
+        mon with NO disruption is a liability, not a pivot — §2.3).
+      - ``weather_setter``: weather-setter ability OR competitive weather
+        species.
+      - ``trick_room_setter``: trick_room_setter weight ≥ 0.5.
+    """
+    move_list = moves if moves is not None else list(pokemon.move_names)
+    move_set = {m.strip().lower() for m in move_list}
+
+    if ability is not None:
+        ability_slug = ability.strip().lower().replace(" ", "-")
+    elif pokemon.abilities:
+        ability_slug = pokemon.abilities[0].strip().lower().replace(" ", "-")
+    else:
+        ability_slug = ""
+
+    assignment = assign_role_weights(pokemon)
+    weights = assignment.role_weights
+    roles = assignment.roles
+    presence = assess_presence(pokemon, moves=move_list, ability=ability_slug)
+
+    tags: list[str] = []
+
+    # offensive_threat
+    sweeper_weight = max(
+        weights.get("physical_sweeper", 0.0),
+        weights.get("special_sweeper", 0.0),
+    )
+    if sweeper_weight >= ROLE_PRESENCE_CUTOFF or (move_set & _SETUP_MOVES):
+        tags.append("offensive_threat")
+
+    # support_enabler
+    if (
+        "redirect" in roles
+        or ability_slug == "intimidate"
+        or "fake-out" in move_set
+        or "helping-hand" in move_set
+        or (move_set & _SCREEN_MOVES)
+    ):
+        tags.append("support_enabler")
+
+    # speed_control — a full speed-control MOVE (partial abilities alone,
+    # worth 0.5, do not reach the 1.0 per-member threshold of §3.2).
+    if move_set & _SPEED_CONTROL_MOVES:
+        tags.append("speed_control")
+
+    # defensive_pivot — bulky AND non-passive (disruption present).
+    wall_weight = max(
+        weights.get("physical_wall", 0.0),
+        weights.get("special_wall", 0.0),
+    )
+    if wall_weight >= ROLE_PRESENCE_CUTOFF and presence.has_disruption:
+        tags.append("defensive_pivot")
+
+    # weather_setter
+    if (
+        ability_slug in _WEATHER_SETTER_ABILITIES
+        or pokemon.name.strip().lower() in _COMPETITIVE_WEATHER_SPECIES
+    ):
+        tags.append("weather_setter")
+
+    # trick_room_setter
+    if weights.get("trick_room_setter", 0.0) >= ROLE_PRESENCE_CUTOFF:
+        tags.append("trick_room_setter")
+
+    # Dedup while preserving first-seen order.
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for tag in tags:
+        if tag not in seen:
+            seen.add(tag)
+            ordered.append(tag)
+    return ordered
+
+
+def derive_team_tags(variant: "TeamVariant") -> list[list[str]]:
+    """Derive per-member Doubles tags including team-context tags (C3, §3.2).
+
+    Returns one tag list per member, index-aligned with ``variant.members``.
+    Each member's list starts from :func:`derive_doubles_tags` (assessed
+    with the member's *assigned* moves + ability) and then adds the two
+    context-dependent tags:
+
+      - ``weather_abuser``: the member's ability is weather-dependent
+        (``weather_dependent_abilities.json``) AND some teammate sets the
+        matching weather (a ``weather_setter``).
+      - ``trick_room_abuser``: spe ≤ 60 AND the member is an
+        ``offensive_threat`` AND the team has a ``trick_room_setter``.
+
+    Import of the weather loader is local to keep the module-level import
+    graph minimal; the loader is memoised so the cost is one-time.
+    """
+    from pokemon_team_builder.data.weather_data_loader import (
+        load_weather_dependent_abilities,
+    )
+
+    members = variant.members
+
+    # First pass: per-mon tags + collect team-level setter facts.
+    per_member_tags: list[list[str]] = []
+    team_has_tr_setter = False
+    weathers_set_on_team: set[str] = set()
+    dep_abilities, _ = load_weather_dependent_abilities()
+
+    for member in members:
+        tags = derive_doubles_tags(
+            member.pokemon, moves=list(member.moves), ability=member.ability
+        )
+        per_member_tags.append(tags)
+        if "trick_room_setter" in tags:
+            team_has_tr_setter = True
+        if "weather_setter" in tags:
+            # Map the setter's ability to the weather it produces, if known.
+            ability_slug = member.ability.strip().lower().replace(" ", "-")
+            weather = _SETTER_ABILITY_TO_WEATHER.get(ability_slug)
+            if weather is not None:
+                weathers_set_on_team.add(weather)
+
+    # Second pass: add context-dependent tags.
+    for idx, member in enumerate(members):
+        tags = per_member_tags[idx]
+        ability_slug = member.ability.strip().lower().replace(" ", "-")
+
+        required_weather = dep_abilities.get(ability_slug)
+        if required_weather is not None and required_weather in weathers_set_on_team:
+            if "weather_abuser" not in tags:
+                tags.append("weather_abuser")
+
+        if (
+            member.pokemon.base_stats.spe <= 60
+            and "offensive_threat" in tags
+            and team_has_tr_setter
+        ):
+            if "trick_room_abuser" not in tags:
+                tags.append("trick_room_abuser")
+
+    return per_member_tags
+
+
 def assign_role(pokemon: PokemonData) -> list[str]:
     """Return one or more role labels based on stats, moves, and abilities.
 
@@ -396,16 +739,20 @@ def analyze_coverage(
 ) -> CoverageReport:
     """Inspect a team for offensive coverage gaps and defensive weaknesses.
 
-    Coverage rule (Phase 2a, STAB-based — see spec coverage-analysis
-    Requirement "Coverage scoring is STAB-based"):
-      A type X is "covered" iff at least one team member has a move of
-      type X in their **assigned moveset** AND that move's type is one
-      of the member's own types (STAB). Non-STAB coverage moves (e.g. a
-      Water-mon carrying Ice Beam) do NOT count toward Ice coverage.
+    Coverage rule (VGC-corrected, move-based — supersedes the earlier
+    "STAB-based" rule; see docs/vgc-principles.md §4, video V4):
+      A type X is "covered" iff at least one team member has a damaging
+      move of type X in their **assigned moveset**, whether or not that
+      move is STAB. Non-STAB coverage moves DO count — e.g. a Water-mon
+      carrying Ice Beam covers Ice, because in VGC coverage moves are how
+      you threaten what your STABs can't (V4: "es importante que alguno
+      tenga ataques de cobertura para dañar al acero"). Only damaging
+      moves appear in ``MOVE_TYPE`` (status moves like Tailwind are
+      absent), so this naturally excludes non-offensive moves.
       If ``movesets`` is omitted the function falls back to the v1
       typing-based heuristic (every member assumed to cover its own
-      types) — this preserves pre-Phase-2a call sites that only have a
-      partial team, no items assigned yet, and no moves selected.
+      types) — this preserves call sites that only have a partial team,
+      no items assigned yet, and no moves selected.
 
     Defensive weakness rule: a type is recorded as a shared defensive
     weakness when 3+ members take >= 2.0x damage from it. Levitate
@@ -421,18 +768,17 @@ def analyze_coverage(
     offensive_gaps: list[str] = []
 
     if movesets is not None:
-        # STAB filter: only count a move toward type-X coverage when the
-        # move's type matches one of the carrying member's types. The
-        # MOVE_TYPE table lives in data/move_types.py (Phase 4b cleanup,
-        # Tecle Brief #9: was previously a lazy cross-service import).
+        # VGC-corrected: a damaging move covers its type regardless of STAB
+        # (docs/vgc-principles.md §4). The MOVE_TYPE table (data/move_types.py)
+        # lists only damaging moves, so iterating it excludes status moves
+        # without an explicit category check.
         from pokemon_team_builder.data.move_types import MOVE_TYPE
 
         move_types: set[str] = set()
         for member, moves in zip(team, movesets):
-            member_types = {t.lower() for t in member.types}
             for move in moves:
                 mtype = MOVE_TYPE.get(move)
-                if mtype and mtype.lower() in member_types:
+                if mtype:
                     move_types.add(mtype.lower())
         for type_name in ALL_TYPES:
             if type_name not in move_types:

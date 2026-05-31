@@ -77,11 +77,24 @@ def test_trick_room_member_passes():
     assert _speed_control_penalty(variant, "balance") == pytest.approx(0.0)
 
 
-def test_stall_archetype_exempt():
+def test_stall_archetype_not_exempt_in_doubles():
+    """C4 (V3): stall is non-viable in VGC Doubles and is NO LONGER exempt
+    from the speed-control penalty. A stall team with no speed control takes
+    the -15 like any other archetype."""
     members = _fill([_mk("mon1"), _mk("mon2")])
     variant = TeamVariant(members=members)
+    assert _speed_control_penalty(variant, "stall") == pytest.approx(-15.0)
+    assert variant_requires_speed_control(variant, "stall") is True
+
+
+def test_stall_with_speed_control_still_passes():
+    """A stall team that DOES carry speed control is not penalised — the
+    rule is about the mechanism, not the archetype label."""
+    members = _fill([
+        _mk("dusclops", moves=["protect", "shadow-ball", "trick-room", "will-o-wisp"]),
+    ])
+    variant = TeamVariant(members=members)
     assert _speed_control_penalty(variant, "stall") == pytest.approx(0.0)
-    assert variant_requires_speed_control(variant, "stall") is False
 
 
 def test_two_static_members_count_as_one_mechanism():
@@ -122,17 +135,27 @@ def test_fake_out_passes():
 # ── score_team integration ────────────────────────────────────────────────────
 
 def test_score_team_penalty_propagates_in_bo1():
-    """Balance team with no speed control loses 15 points vs same with Tailwind."""
-    no_sc = _fill([_mk("alakazam"), _mk("dragonite")])
-    with_sc = _fill([
-        _mk("talonflame", moves=["protect", "brave-bird", "tailwind", "u-turn"]),
-        _mk("alakazam"),
-    ])
+    """Balance team with no speed control loses 15 points vs same with Tailwind.
+
+    C2 (ADR §2.2) note: the default ``_mk`` body (atk 90 / spa 85, no
+    disruption move) is now a *passive liability*, so a team of plain
+    fillers takes the presence penalty too and both teams floor at 0.0,
+    masking the speed-control axis under test. To keep this test about the
+    speed-control penalty ONLY, every member carries Will-O-Wisp — a pure
+    status move that grants offensive presence (disruption) WITHOUT being a
+    speed-control mechanism (it is not in _SPEED_CONTROL_MOVES). The single
+    differentiator between the teams is then Tailwind on ``with_sc``.
+    """
+    present = ["protect", "will-o-wisp", "scratch", "ember"]  # disruption, no SC
+    no_sc = [_mk(f"present{i}", moves=present) for i in range(6)]
+    with_sc = [_mk(f"present{i}", moves=present) for i in range(6)]
+    with_sc[0] = _mk("talonflame", moves=["protect", "brave-bird", "tailwind", "u-turn"])
     v_no = TeamVariant(members=no_sc)
     v_with = TeamVariant(members=with_sc)
     score_no, _ = score_team(v_no, "bo1", archetype="balance")
     score_with, _ = score_team(v_with, "bo1", archetype="balance")
-    # Difference dominated by the -15 penalty on v_no.
+    # Both teams have full offensive presence (no liability penalty); the
+    # difference is dominated by the -15 speed-control penalty on v_no.
     assert score_with > score_no
 
 

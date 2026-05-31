@@ -10,9 +10,23 @@ from pokemon_team_builder.data.weather_data_loader import (
     load_weather_setters,
 )
 from pokemon_team_builder.domain.models import TeamMember, TeamVariant
+from pokemon_team_builder.services.pokemon_evaluator import (
+    evaluate_pokemon_quality,
+)
 from pokemon_team_builder.services.synergy_engine import (
     analyze_coverage,
+    assess_presence,
     score_flexibility,
+)
+# ADR §2.1 / R3: disruption move/ability sets now live in synergy_engine
+# (the low layer) as the single source of truth. Re-exported here so existing
+# call sites and tests that reference these names via viability_rater keep
+# working. synergy_engine must NOT import viability_rater (circular import),
+# hence the one-directional dependency.
+from pokemon_team_builder.services.synergy_engine import (
+    _CORE_VIABLE_MOVES,
+    _SPEED_CONTROL_MOVES,
+    _SPEED_CONTROL_PARTIAL_ABILITIES,
 )
 
 
@@ -35,39 +49,40 @@ _WEATHER_PASSIVE_BONUS = 2.0
 # and archetype != "stall".
 _SPEED_CONTROL_PENALTY = -15.0
 
+# C2 (ADR §2.2) — flat penalty per passive-liability member. A liability is
+# a Pokémon with neither an offensive stat nor disruption (assess_presence).
+# 8.0 ≤ the speed-control penalty (15): one liability hurts, two is nearly
+# disqualifying without invalidating the whole team. Applied flat (NOT scaled
+# by weights.roles) because a passive mon is bad in every archetype — same
+# treatment as the speed penalty (V3: stall non-viable). stall/perish_trap are
+# explicitly NOT exempted (coherent with C4).
+_PASSIVE_LIABILITY_PENALTY = 8.0
+
+# C6 (ADR §4.3) — intrinsic-quality scaling weight. quality_adjustment =
+# (mean quality multiplier − 1.0) * _QUALITY_WEIGHT. The multiplier is ≤ 1.0
+# (evaluate_pokemon_quality only subtracts), so this term is ≤ 0: a team of
+# mediocre mons loses up to ~5 pts (worst case mean 0.5 → −5.0). It is a
+# signal, not a disqualification (V7: "peores de lo que piensas", not
+# "ilegales"). Applied flat (NOT scaled by archetype) outside the clamped
+# components, same insertion point as speed_penalty / presence_penalty.
+# A team where every mon has quality == 1.0 yields adjustment 0.0, preserving
+# the additive-layer invariant (§5.3).
+_QUALITY_WEIGHT = 10.0
+
 _SWEEPER_ROLES = frozenset({"physical_sweeper", "special_sweeper"})
 _SUPPORT_ROLES = frozenset({"lead_support", "redirect"})
 
 # Phase 3 §11 — renamed from _LEAD_VIABLE_MOVES. Core-viable means the
 # member can fill a Bo3 lead/core slot (speed control or redirect).
-_CORE_VIABLE_MOVES = frozenset({
-    "tailwind", "trick-room", "fake-out", "extreme-speed", "quick-attack",
-    "helping-hand", "thunder-wave", "icy-wind", "follow-me", "rage-powder",
-})
+# Definition moved to synergy_engine (ADR §2.1 / R3); re-exported above.
 
 _BO3_SWEEPER_ROLES = frozenset({"physical_sweeper", "special_sweeper"})
 _BO3_SUPPORT_ROLES = frozenset({"lead_support", "redirect", "trick_room_setter"})
 
 
-# Phase 3 §10 — speed control mechanisms.
-_SPEED_CONTROL_MOVES = frozenset({
-    "trick-room",
-    "tailwind",
-    "icy-wind",
-    "electroweb",
-    "thunder-wave",
-    "glare",
-    "nuzzle",
-    "stun-spore",
-    "sticky-web",
-    "fake-out",
-    "quick-guard",
-})
-# Abilities that contribute partial credit (0.5 each) — paralysis-on-contact.
-_SPEED_CONTROL_PARTIAL_ABILITIES = frozenset({
-    "static",
-    "cute-charm",
-})
+# Phase 3 §10 — speed control mechanisms. _SPEED_CONTROL_MOVES and
+# _SPEED_CONTROL_PARTIAL_ABILITIES are defined in synergy_engine (ADR §2.1 /
+# R3) and re-exported above.
 
 
 # Phase 3 §8 — passive weather benefits per (weather, move) pair.
@@ -274,34 +289,51 @@ def _weather_synergy_points(members: list[TeamMember]) -> float:
 
 # ─── Phase 3 §10 — speed control penalty ────────────────────────────────────
 
+def _member_speed_control(member: TeamMember) -> float:
+    """Return a single member's speed-control credit.
+
+    Full credit (1.0) for a member with a speed-control move.
+    Partial credit (0.5) for a member with a partial-credit ability
+    (Static / Cute Charm), only if it has no speed-control move.
+    0.0 otherwise.
+
+    ADR §3.3: extracted as a per-member helper so ``derive_doubles_tags``
+    can query speed control one member at a time. ``_count_speed_control``
+    is now the sum over members — behaviour is identical to the previous
+    inline loop (a member with both a move and the ability still scores
+    1.0, not 1.5, because the move branch short-circuits the ability).
+    """
+    moves = {m.lower() for m in member.moves}
+    if moves & _SPEED_CONTROL_MOVES:
+        return 1.0
+    ability_slug = member.ability.strip().lower().replace(" ", "-")
+    if ability_slug in _SPEED_CONTROL_PARTIAL_ABILITIES:
+        return 0.5
+    return 0.0
+
+
 def _count_speed_control(members: list[TeamMember]) -> float:
     """Return the team's combined speed-control mechanism count.
 
-    Full credit (1.0) for each member with a speed-control move.
-    Partial credit (0.5) for each member with a partial-credit ability
-    (Static / Cute Charm). The sum is what the penalty function tests.
+    The sum of :func:`_member_speed_control` over every member. The penalty
+    function tests this against the 1.0 minimum threshold.
     """
-    count = 0.0
-    for member in members:
-        moves = {m.lower() for m in member.moves}
-        if moves & _SPEED_CONTROL_MOVES:
-            count += 1.0
-            continue
-        ability_slug = member.ability.strip().lower().replace(" ", "-")
-        if ability_slug in _SPEED_CONTROL_PARTIAL_ABILITIES:
-            count += 0.5
-    return count
+    return sum(_member_speed_control(member) for member in members)
 
 
 def _speed_control_penalty(variant: TeamVariant, archetype: str) -> float:
     """Return the speed-control penalty (≤ 0) for the variant.
 
-    Per spec §10: ``stall`` is exempt; every other archetype must have
-    at least 1.0 combined speed-control credit, otherwise a flat
-    -15 point penalty is applied.
+    Every archetype must have at least 1.0 combined speed-control credit,
+    otherwise a flat -15 point penalty is applied.
+
+    VGC-corrected (C4, docs/vgc-principles.md §2, video V3): ``stall`` is
+    NO LONGER exempt. Stall is non-viable in VGC Doubles precisely because
+    it relies on outlasting the opponent without controlling the turn order
+    — exempting it was rewarding the very weakness that makes it lose. A
+    stall team structurally lacks speed control, so it now incurs the
+    penalty like any other archetype.
     """
-    if archetype == "stall":
-        return 0.0
     if _count_speed_control(variant.members) >= 1.0:
         return 0.0
     return _SPEED_CONTROL_PENALTY
@@ -310,6 +342,54 @@ def _speed_control_penalty(variant: TeamVariant, archetype: str) -> float:
 def variant_requires_speed_control(variant: TeamVariant, archetype: str) -> bool:
     """Return True iff this variant should surface a speed-control warning."""
     return _speed_control_penalty(variant, archetype) < 0.0
+
+
+# ─── C2 §2.2 — passive-presence penalty ──────────────────────────────────────
+
+def _count_passive_liabilities(members: list[TeamMember]) -> int:
+    """Number of members that are passive liabilities (assess_presence).
+
+    Each member is assessed with its *assigned* moveset and ability so the
+    penalty reflects the actual build, not the species learnset.
+    """
+    return sum(
+        1
+        for m in members
+        if assess_presence(m.pokemon, moves=list(m.moves), ability=m.ability).is_passive_liability
+    )
+
+
+def _presence_penalty(variant: TeamVariant) -> float:
+    """Return the passive-presence penalty (≤ 0) for the variant (ADR §2.2).
+
+    ``-_PASSIVE_LIABILITY_PENALTY`` per passive-liability member. Flat: not
+    scaled by archetype weights, applied to the total outside the clamped
+    components — mirroring the speed-control penalty insertion point. Zero
+    when the team has no liabilities, which keeps the additive-layer
+    invariant (§5.3): a healthy balanced team scores identically before and
+    after C2.
+    """
+    return -_PASSIVE_LIABILITY_PENALTY * _count_passive_liabilities(variant.members)
+
+
+def _quality_adjustment(variant: TeamVariant) -> float:
+    """Return the C6 intrinsic-quality adjustment (≤ 0) for the variant (§4.3).
+
+    ``(mean(evaluate_pokemon_quality(m.pokemon).score) − 1.0) * _QUALITY_WEIGHT``.
+
+    Each per-mon quality multiplier is in [0.5, 1.0], so the mean is ≤ 1.0 and
+    the adjustment is ≤ 0 — it never inflates a score, only signals mediocrity.
+    Flat (archetype-agnostic) and applied outside the clamped components, like
+    ``presence_penalty``. Returns 0.0 when every member has quality 1.0, which
+    keeps the additive-layer invariant (§5.3): a healthy team of high-quality
+    mons scores identically before and after C6.
+    """
+    members = variant.members
+    if not members:
+        return 0.0
+    total = sum(evaluate_pokemon_quality(m.pokemon).score for m in members)
+    mean_quality = total / len(members)
+    return (mean_quality - 1.0) * _QUALITY_WEIGHT
 
 
 def score_team(
@@ -346,6 +426,14 @@ def score_team(
     weather_raw = _weather_synergy_points(variant.members)
     weather_pts = weather_raw * weights.weather_synergy
     speed_penalty = _speed_control_penalty(variant, archetype)
+    # C2 §2.2 — flat, archetype-agnostic, applied outside the clamped
+    # components just like speed_penalty. Zero for a team with no passive
+    # liabilities → additive-layer invariant §5.3 holds.
+    presence_penalty = _presence_penalty(variant)
+    # C6 §4.3 — flat, archetype-agnostic intrinsic-quality term (≤ 0),
+    # applied outside the clamped components alongside presence_penalty.
+    # Zero for a team of all-quality-1.0 mons → additive-layer invariant §5.3.
+    quality_adjustment = _quality_adjustment(variant)
 
     if format_mode == "bo3":
         # Phase 2a: STAB-based coverage using the variant's assigned movesets.
@@ -367,6 +455,8 @@ def score_team(
             + items * weights.items
             + weather_pts
             + speed_penalty
+            + presence_penalty
+            + quality_adjustment
         )
         return max(0.0, min(100.0, total)), flex_ratio
     else:
@@ -379,6 +469,8 @@ def score_team(
             + items * weights.items
             + weather_pts
             + speed_penalty
+            + presence_penalty
+            + quality_adjustment
         )
         return max(0.0, min(100.0, total)), 0.0
 

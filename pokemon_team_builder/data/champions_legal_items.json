@@ -1,7 +1,7 @@
 {
   "regulation": "M-A",
-  "data_version": 5,
-  "note": "Champions Regulation M-A legal items. v5 (2026-05-15): rebuilt from `tests/fixtures/champions_items_official.csv` — Sergio pasted the COMPLETE list from the in-game store. ONLY source. Champions has a deliberately MINIMAL item system: 48 total items = 18 type-boost + 18 type-resist berries + 8 status-cure berries + 4 misc (Mental Herb, Shell Bell, Scope Lens, Light Ball). Items absent from Sergio's paste are absent from the game, period. Mega Stones (47) live in `mega_evolutions.json`.",
+  "data_version": 6,
+  "note": "Champions Regulation M-A legal items. v6 (2026-05-31): the v5 paste was the VP SHOP only; v6 adds the 10 'Beginning' items (owned from start, never sold, so absent from the shop paste): Choice Scarf, Focus Sash, Focus Band, Leftovers, Bright Powder, King's Rock, Quick Claw, White Herb, Lum Berry, Sitrus Berry. Real pool = 58 items = 18 type-boost + 18 type-resist berries + 10 status/HP berries + 12 misc/competitive. Rebuilt from `tests/fixtures/champions_items_official.csv` (SOLE source). Mega Stones live in `mega_evolutions.json`.",
   "_locale_map_es_en": {
     "comment": "Source: Sergio's official paste 2026-05-15. PokePaste serializer expects English names — this map keeps the CSV diff-friendly for users editing in Spanish.",
     "Hierba mental": "Mental Herb",
@@ -60,6 +60,16 @@
     {"name": "Dragon Fang", "category": "type_boost", "confidence": "high"},
     {"name": "Black Glasses", "category": "type_boost", "confidence": "high"},
     {"name": "Metal Coat", "category": "type_boost", "confidence": "high"},
-    {"name": "Fairy Feather", "category": "type_boost", "confidence": "high"}
+    {"name": "Fairy Feather", "category": "type_boost", "confidence": "high"},
+    {"name": "Lum Berry", "category": "consumable", "confidence": "high"},
+    {"name": "Sitrus Berry", "category": "consumable", "confidence": "high"},
+    {"name": "Leftovers", "category": "competitive", "confidence": "high"},
+    {"name": "Focus Sash", "category": "competitive", "confidence": "high"},
+    {"name": "Focus Band", "category": "competitive", "confidence": "high"},
+    {"name": "Choice Scarf", "category": "competitive", "confidence": "high"},
+    {"name": "Bright Powder", "category": "competitive", "confidence": "high"},
+    {"name": "King's Rock", "category": "competitive", "confidence": "high"},
+    {"name": "Quick Claw", "category": "competitive", "confidence": "high"},
+    {"name": "White Herb", "category": "utility", "confidence": "high"}
   ]
 }
