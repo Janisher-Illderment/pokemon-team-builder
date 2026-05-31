@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from itertools import combinations
+from typing import TYPE_CHECKING
 
 from pokemon_team_builder.data.ability_implicit_roles_loader import (
     AbilityRoleEntry,
@@ -9,6 +10,9 @@ from pokemon_team_builder.data.ability_implicit_roles_loader import (
     load_ability_implicit_roles,
 )
 from pokemon_team_builder.domain.models import MegaForm, PokemonData
+
+if TYPE_CHECKING:
+    from pokemon_team_builder.domain.models import TeamVariant
 
 
 # WHY: 18 canonical Pokemon types. Used to enumerate offensive/defensive
@@ -110,6 +114,17 @@ _STATUS_MOVES: frozenset[str] = frozenset({
     "nuzzle", "stun-spore", "yawn", "toxic",
 })
 
+# Setup moves — self-buffs that turn a mon into a win condition (C3 §3.2
+# offensive_threat). hyphen-lower PokeAPI slugs.
+_SETUP_MOVES: frozenset[str] = frozenset({
+    "swords-dance", "dragon-dance", "calm-mind", "nasty-plot",
+})
+
+# Screen moves — dual screens / Aurora Veil (C3 §3.2 support_enabler).
+_SCREEN_MOVES: frozenset[str] = frozenset({
+    "light-screen", "reflect", "aurora-veil",
+})
+
 
 # Threshold center for each stat-based role. The gradient band is ±15 around
 # this center: weight = 0.0 at (threshold − 15), 0.5 at threshold, 1.0 at
@@ -135,6 +150,17 @@ _WEATHER_SETTER_ABILITIES: frozenset[str] = frozenset({
     "drought", "drizzle", "snow-warning", "sand-stream",
 })
 _WEATHER_SETTER_LEAD_WEIGHT: float = 0.8
+
+# Maps each weather-setter ability to the weather it produces. Used by
+# derive_team_tags to connect a team's setters to weather-dependent abusers
+# (C3 §3.2 weather_abuser). The weather strings match the keys used by
+# weather_dependent_abilities.json (sun / rain / snow / sand).
+_SETTER_ABILITY_TO_WEATHER: dict[str, str] = {
+    "drought": "sun",
+    "drizzle": "rain",
+    "snow-warning": "snow",
+    "sand-stream": "sand",
+}
 
 
 @dataclass(frozen=True)
@@ -497,6 +523,165 @@ def assess_presence(
         is_passive_liability=is_passive_liability,
         presence_weight=presence_weight,
     )
+
+
+def derive_doubles_tags(
+    pokemon: PokemonData,
+    moves: list[str] | None = None,
+    ability: str | None = None,
+) -> list[str]:
+    """Derive the Doubles taxonomy tags for a single Pokémon (C3, ADR §3.2).
+
+    Per-mon tags only — the two context-dependent tags (``weather_abuser``,
+    ``trick_room_abuser``) need the whole team and are produced by
+    :func:`derive_team_tags`. Tags are DERIVED on demand from the existing
+    role weights + presence + moves; nothing is persisted (ADR §3.4).
+
+    ``moves`` / ``ability`` follow the same fallback rule as
+    :func:`assess_presence`. Returned in a stable, deduplicated order.
+
+    Tag rules (ADR §3.2):
+      - ``offensive_threat``: sweeper weight ≥ 0.5 OR a setup move.
+      - ``support_enabler``: redirect role OR intimidate OR fake-out OR
+        helping-hand OR a screen move.
+      - ``speed_control``: a full speed-control move (≥ 1.0 credit).
+      - ``defensive_pivot``: wall weight ≥ 0.5 AND has_disruption (a bulky
+        mon with NO disruption is a liability, not a pivot — §2.3).
+      - ``weather_setter``: weather-setter ability OR competitive weather
+        species.
+      - ``trick_room_setter``: trick_room_setter weight ≥ 0.5.
+    """
+    move_list = moves if moves is not None else list(pokemon.move_names)
+    move_set = {m.strip().lower() for m in move_list}
+
+    if ability is not None:
+        ability_slug = ability.strip().lower().replace(" ", "-")
+    elif pokemon.abilities:
+        ability_slug = pokemon.abilities[0].strip().lower().replace(" ", "-")
+    else:
+        ability_slug = ""
+
+    assignment = assign_role_weights(pokemon)
+    weights = assignment.role_weights
+    roles = assignment.roles
+    presence = assess_presence(pokemon, moves=move_list, ability=ability_slug)
+
+    tags: list[str] = []
+
+    # offensive_threat
+    sweeper_weight = max(
+        weights.get("physical_sweeper", 0.0),
+        weights.get("special_sweeper", 0.0),
+    )
+    if sweeper_weight >= ROLE_PRESENCE_CUTOFF or (move_set & _SETUP_MOVES):
+        tags.append("offensive_threat")
+
+    # support_enabler
+    if (
+        "redirect" in roles
+        or ability_slug == "intimidate"
+        or "fake-out" in move_set
+        or "helping-hand" in move_set
+        or (move_set & _SCREEN_MOVES)
+    ):
+        tags.append("support_enabler")
+
+    # speed_control — a full speed-control MOVE (partial abilities alone,
+    # worth 0.5, do not reach the 1.0 per-member threshold of §3.2).
+    if move_set & _SPEED_CONTROL_MOVES:
+        tags.append("speed_control")
+
+    # defensive_pivot — bulky AND non-passive (disruption present).
+    wall_weight = max(
+        weights.get("physical_wall", 0.0),
+        weights.get("special_wall", 0.0),
+    )
+    if wall_weight >= ROLE_PRESENCE_CUTOFF and presence.has_disruption:
+        tags.append("defensive_pivot")
+
+    # weather_setter
+    if (
+        ability_slug in _WEATHER_SETTER_ABILITIES
+        or pokemon.name.strip().lower() in _COMPETITIVE_WEATHER_SPECIES
+    ):
+        tags.append("weather_setter")
+
+    # trick_room_setter
+    if weights.get("trick_room_setter", 0.0) >= ROLE_PRESENCE_CUTOFF:
+        tags.append("trick_room_setter")
+
+    # Dedup while preserving first-seen order.
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for tag in tags:
+        if tag not in seen:
+            seen.add(tag)
+            ordered.append(tag)
+    return ordered
+
+
+def derive_team_tags(variant: "TeamVariant") -> list[list[str]]:
+    """Derive per-member Doubles tags including team-context tags (C3, §3.2).
+
+    Returns one tag list per member, index-aligned with ``variant.members``.
+    Each member's list starts from :func:`derive_doubles_tags` (assessed
+    with the member's *assigned* moves + ability) and then adds the two
+    context-dependent tags:
+
+      - ``weather_abuser``: the member's ability is weather-dependent
+        (``weather_dependent_abilities.json``) AND some teammate sets the
+        matching weather (a ``weather_setter``).
+      - ``trick_room_abuser``: spe ≤ 60 AND the member is an
+        ``offensive_threat`` AND the team has a ``trick_room_setter``.
+
+    Import of the weather loader is local to keep the module-level import
+    graph minimal; the loader is memoised so the cost is one-time.
+    """
+    from pokemon_team_builder.data.weather_data_loader import (
+        load_weather_dependent_abilities,
+    )
+
+    members = variant.members
+
+    # First pass: per-mon tags + collect team-level setter facts.
+    per_member_tags: list[list[str]] = []
+    team_has_tr_setter = False
+    weathers_set_on_team: set[str] = set()
+    dep_abilities, _ = load_weather_dependent_abilities()
+
+    for member in members:
+        tags = derive_doubles_tags(
+            member.pokemon, moves=list(member.moves), ability=member.ability
+        )
+        per_member_tags.append(tags)
+        if "trick_room_setter" in tags:
+            team_has_tr_setter = True
+        if "weather_setter" in tags:
+            # Map the setter's ability to the weather it produces, if known.
+            ability_slug = member.ability.strip().lower().replace(" ", "-")
+            weather = _SETTER_ABILITY_TO_WEATHER.get(ability_slug)
+            if weather is not None:
+                weathers_set_on_team.add(weather)
+
+    # Second pass: add context-dependent tags.
+    for idx, member in enumerate(members):
+        tags = per_member_tags[idx]
+        ability_slug = member.ability.strip().lower().replace(" ", "-")
+
+        required_weather = dep_abilities.get(ability_slug)
+        if required_weather is not None and required_weather in weathers_set_on_team:
+            if "weather_abuser" not in tags:
+                tags.append("weather_abuser")
+
+        if (
+            member.pokemon.base_stats.spe <= 60
+            and "offensive_threat" in tags
+            and team_has_tr_setter
+        ):
+            if "trick_room_abuser" not in tags:
+                tags.append("trick_room_abuser")
+
+    return per_member_tags
 
 
 def assign_role(pokemon: PokemonData) -> list[str]:
