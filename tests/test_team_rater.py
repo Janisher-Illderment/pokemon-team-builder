@@ -386,3 +386,79 @@ def test_set_coherence_defensive_nature_does_not_flag_coverage_dead():
     variant = _variant([forre, *rest])
     _, reasons = _set_coherence(variant.members[0], variant)
     assert not any("muerto" in r.lower() for r in reasons), reasons
+
+
+# ── Tests B3: rate_member (fórmula + bounds) ─────────────────────────────────
+
+def test_rate_member_score_bounds():
+    from pokemon_team_builder.services.team_rater import detect_archetype, rate_member
+
+    for builder in (
+        _team_hyper_offense,
+        _team_hard_trick_room,
+        _team_weather_based,
+        _team_perish_trap,
+        _team_balance,
+    ):
+        variant = builder()
+        arch, _ = detect_archetype(variant)
+        for i in range(6):
+            mr = rate_member(variant, i, arch)
+            assert 1 <= mr.score <= 100
+            assert 0.0 <= mr.fit <= 1.0
+            assert 0.5 <= mr.intrinsic <= 1.0
+            assert 0.0 <= mr.coherence <= 1.0
+
+
+def test_rate_member_formula_matches_weighted_blend():
+    """La nota es round(100 * (0.5*fit + 0.3*coh + 0.2*intr)), piso 1."""
+    from pokemon_team_builder.services import team_rater as tr
+    from pokemon_team_builder.services.team_rater import detect_archetype, rate_member
+
+    variant = _team_hyper_offense()
+    arch, _ = detect_archetype(variant)
+    for i in range(6):
+        mr = rate_member(variant, i, arch)
+        blended = (
+            tr.W_FIT * mr.fit
+            + tr.W_COHERENCE * mr.coherence
+            + tr.W_INTRINSIC * mr.intrinsic
+        )
+        expected = max(1, min(100, round(100 * max(0.0, min(1.0, blended)))))
+        assert mr.score == expected, (mr.name, mr.score, expected)
+
+
+def test_rate_member_weights_sum_to_one():
+    from pokemon_team_builder.services import team_rater as tr
+
+    assert abs(tr.W_FIT + tr.W_COHERENCE + tr.W_INTRINSIC - 1.0) < 1e-9
+    assert tr.W_FIT == 0.50
+    assert tr.W_COHERENCE == 0.30
+    assert tr.W_INTRINSIC == 0.20
+
+
+def test_rate_member_incoherent_set_scores_lower_than_clean():
+    """Un set incoherente (Abomasnow Ice Beam muerto) puntúa por debajo del
+    mismo arquetipo con sets limpios — la coherencia mueve la nota."""
+    from pokemon_team_builder.services.team_rater import detect_archetype, rate_member
+
+    variant, idx = _abomasnow_incoherent_variant()
+    arch, _ = detect_archetype(variant)
+    mr = rate_member(variant, idx, arch)
+    # Coherencia penalizada → componente coherencia < 1.0 reflejada en la nota.
+    assert mr.coherence < 1.0
+    assert 1 <= mr.score <= 100
+
+
+def test_rate_member_key_piece_scores_high():
+    """El único proveedor de control de velocidad en HO (Gengar Icy Wind) es
+    pieza clave → fit alto."""
+    from pokemon_team_builder.services.team_rater import detect_archetype, rate_member
+
+    variant = _team_hyper_offense()
+    arch, _ = detect_archetype(variant)
+    gengar_idx = next(
+        i for i, m in enumerate(variant.members) if m.pokemon.name == "gengar"
+    )
+    mr = rate_member(variant, gengar_idx, arch)
+    assert mr.fit >= 0.7, mr.fit

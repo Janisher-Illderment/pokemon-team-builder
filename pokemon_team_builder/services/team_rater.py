@@ -20,11 +20,17 @@ datos de meta inventados (memoria: nunca fabricar datos competitivos).
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from pokemon_team_builder.config import MAX_SP_TOTAL
 from pokemon_team_builder.domain.models import TeamMember, TeamVariant
 from pokemon_team_builder.services import replica_exporter
-from pokemon_team_builder.services.replica_exporter import _offensive_category
-from pokemon_team_builder.services.synergy_engine import derive_team_tags
+from pokemon_team_builder.services.pokemon_evaluator import evaluate_pokemon_quality
+from pokemon_team_builder.services.synergy_engine import (
+    analyze_coverage,
+    assess_presence,
+    derive_team_tags,
+)
 from pokemon_team_builder.services.team_generator import _derive_nature
 from pokemon_team_builder.services.viability_rater import _count_speed_control
 from pokemon_team_builder.data.move_types import MOVE_TYPE as _MOVE_TYPE
@@ -338,3 +344,170 @@ def _set_coherence(member: TeamMember, variant: TeamVariant) -> tuple[float, lis
 
     coherence = max(0.0, min(1.0, 1.0 - penalty))
     return coherence, reasons
+
+
+# ── B3: nota por Pokémon (1–100) (ADR §4) ────────────────────────────────────
+
+# Pesos de la nota por Pokémon (decisión de producto, §4.2): fit domina.
+W_FIT: float = 0.50
+W_COHERENCE: float = 0.30
+W_INTRINSIC: float = 0.20
+
+# Pesos internos de la componente fit (§4.1). [UNCERTAIN] calibrate.
+_FIT_W_PRESENCE: float = 0.4
+_FIT_W_TAG_NEED: float = 0.4
+_FIT_W_MARGINAL: float = 0.2
+
+# Needed-tags por arquetipo (§4.1): DERIVADO de las señales §3 (no es dato
+# competitivo nuevo — es la misma taxonomía de derive_doubles_tags). Un mon que
+# aporta un tag que el equipo necesita puntúa alto en fit; uno redundante, medio;
+# uno fuera de estrategia, bajo. 'balance' no exige tags concretos (neutral).
+_NEEDED_TAGS_BY_ARCHETYPE: dict[str, frozenset[str]] = {
+    "hyper_offense":   frozenset({"offensive_threat", "speed_control"}),
+    "hard_trick_room": frozenset({"trick_room_setter", "trick_room_abuser"}),
+    "weather_based":   frozenset({"weather_setter", "weather_abuser"}),
+    "stall":           frozenset({"defensive_pivot", "support_enabler"}),
+    "bulky_offense":   frozenset({"offensive_threat", "defensive_pivot"}),
+    "perish_trap":     frozenset({"speed_control", "support_enabler"}),
+    "balance":         frozenset(),  # sin tags exigidos → fit neutral en tags
+}
+
+
+@dataclass(frozen=True)
+class Suggestion:
+    """Sugerencia concreta de ajuste (item/moveset/naturaleza/EVs) — §6."""
+
+    kind: str               # "move_swap" | "nature" | "evs" | "item"
+    target_field: str       # "slot_2" | "nature" | "sp_distribution" | "item"
+    from_value: str
+    to_value: str
+    reason_es: str
+    priority: int           # 0 = más alta
+
+
+@dataclass(frozen=True)
+class MemberRating:
+    """Valoración de un miembro (§6). Índice-alineado con el variant parseado."""
+
+    name: str
+    score: int              # 1..100
+    fit: float              # [0,1]
+    intrinsic: float        # [0.5,1.0] (C6)
+    coherence: float        # [0,1]
+    strengths: list[str]
+    weaknesses: list[str]
+    suggestions: list[Suggestion]
+
+
+def _tag_need_match(
+    member_tags: list[str], archetype: str, team_tag_counts: dict[str, int]
+) -> float:
+    """¿Aporta el miembro un tag que el equipo necesita para el arquetipo?
+
+    Devuelve [0,1]:
+      - 1.0 si aporta ≥1 needed-tag del que el equipo va escaso (sólo este
+        miembro u otro más lo tienen) → pieza clave.
+      - 0.6 si aporta un needed-tag pero el equipo va sobrado (redundante).
+      - 0.3 si no aporta ningún needed-tag pero sí algún tag útil (offensive_
+        threat / support_enabler) → contribuye genéricamente.
+      - 0.0 si no aporta ningún tag (mon pasivo / fuera de estrategia).
+
+    'balance' no exige tags → devuelve un 0.6 neutral para cualquier mon con
+    presencia (no premia ni castiga por encaje de arquetipo).
+    """
+    needed = _NEEDED_TAGS_BY_ARCHETYPE.get(archetype, frozenset())
+    member_set = set(member_tags)
+
+    if not needed:  # balance
+        return 0.6 if member_set else 0.3
+
+    supplied_needed = member_set & needed
+    if supplied_needed:
+        # ¿El equipo va escaso de ese tag? (≤2 miembros lo aportan).
+        scarce = any(team_tag_counts.get(t, 0) <= 2 for t in supplied_needed)
+        return 1.0 if scarce else 0.6
+
+    # No aporta needed-tags pero sí algo útil genérico.
+    if member_set & {"offensive_threat", "support_enabler", "speed_control"}:
+        return 0.3
+    return 0.0
+
+
+def _marginal_coverage_contribution(variant: TeamVariant, index: int) -> float:
+    """Contribución marginal del miembro a la cobertura ofensiva del equipo.
+
+    Reusa analyze_coverage con y sin las moves del miembro: si quitarlo ABRE
+    huecos ofensivos, su contribución es alta. Devuelve [0,1].
+    """
+    members = variant.members
+    pokemons = [m.pokemon for m in members]
+    movesets = [list(m.moves) for m in members]
+
+    full = analyze_coverage(pokemons, movesets=movesets)
+    # Sin las moves del miembro (moveset vacío → no aporta tipos de cobertura).
+    without_movesets = [
+        [] if i == index else list(members[i].moves) for i in range(len(members))
+    ]
+    without = analyze_coverage(pokemons, movesets=without_movesets)
+
+    opened = len(without.offensive_gaps) - len(full.offensive_gaps)
+    if opened <= 0:
+        return 0.0
+    # Normaliza: abrir ≥3 huecos = contribución máxima (1.0).
+    return min(1.0, opened / 3.0)
+
+
+def _compute_fit(
+    variant: TeamVariant,
+    index: int,
+    archetype: str,
+    per_member_tags: list[list[str]],
+    team_tag_counts: dict[str, int],
+) -> float:
+    """Componente fit ∈ [0,1] (§4.1): presencia + encaje-de-tag + marginal."""
+    member = variant.members[index]
+    presence = assess_presence(
+        member.pokemon, moves=list(member.moves), ability=member.ability
+    )
+    tag_match = _tag_need_match(per_member_tags[index], archetype, team_tag_counts)
+    marginal = _marginal_coverage_contribution(variant, index)
+    fit = (
+        _FIT_W_PRESENCE * presence.presence_weight
+        + _FIT_W_TAG_NEED * tag_match
+        + _FIT_W_MARGINAL * marginal
+    )
+    return max(0.0, min(1.0, fit))
+
+
+def rate_member(variant: TeamVariant, index: int, archetype: str) -> MemberRating:
+    """Valora un miembro (1–100) combinando fit/coherencia/intrínseco (§4.2).
+
+    note = round(100 * clamp(W_FIT*fit + W_COHERENCE*coh + W_INTRINSIC*intr, 0, 1))
+    con piso 1 (el usuario pidió 1–100, nunca 0).
+
+    Las strengths/weaknesses y suggestions se rellenan en bloques posteriores
+    (B4/B5); aquí van como listas vacías para mantener la firma estable.
+    """
+    member = variant.members[index]
+    per_member_tags = derive_team_tags(variant)
+    team_tag_counts = _tag_counts(per_member_tags)
+
+    fit = _compute_fit(variant, index, archetype, per_member_tags, team_tag_counts)
+    intrinsic = evaluate_pokemon_quality(member.pokemon).score
+    coherence, _reasons = _set_coherence(member, variant)
+
+    blended = W_FIT * fit + W_COHERENCE * coherence + W_INTRINSIC * intrinsic
+    blended = max(0.0, min(1.0, blended))
+    score = round(100 * blended)
+    score = max(1, min(100, score))
+
+    return MemberRating(
+        name=member.pokemon.name,
+        score=score,
+        fit=fit,
+        intrinsic=intrinsic,
+        coherence=coherence,
+        strengths=[],
+        weaknesses=[],
+        suggestions=[],
+    )
