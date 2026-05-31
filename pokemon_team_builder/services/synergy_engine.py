@@ -54,6 +54,43 @@ _SWEEPER_ROLES: frozenset[str] = frozenset({"physical_sweeper", "special_sweeper
 _SUPPORT_ROLES: frozenset[str] = frozenset({"lead_support", "redirect"})
 
 
+# ── Disruption move/ability sets (ADR §2.1 / R3) ────────────────────────────
+# These frozensets live HERE in the low layer (synergy_engine) and are
+# re-exported by viability_rater. synergy_engine must never import
+# viability_rater (would be a circular import), so the single source of
+# truth for disruption markers is this module. assess_presence and
+# derive_doubles_tags consume them directly; the team scorer imports them
+# from here via viability_rater's re-export. Moved verbatim from
+# viability_rater — no value changes.
+
+# Speed control mechanisms (full credit 1.0 per member with one of these).
+_SPEED_CONTROL_MOVES: frozenset[str] = frozenset({
+    "trick-room",
+    "tailwind",
+    "icy-wind",
+    "electroweb",
+    "thunder-wave",
+    "glare",
+    "nuzzle",
+    "stun-spore",
+    "sticky-web",
+    "fake-out",
+    "quick-guard",
+})
+# Abilities that contribute partial speed-control credit (0.5 each) —
+# paralysis-on-contact.
+_SPEED_CONTROL_PARTIAL_ABILITIES: frozenset[str] = frozenset({
+    "static",
+    "cute-charm",
+})
+# Core-viable means the member can fill a Bo3 lead/core slot (speed control
+# or redirect). Previously _LEAD_VIABLE_MOVES.
+_CORE_VIABLE_MOVES: frozenset[str] = frozenset({
+    "tailwind", "trick-room", "fake-out", "extreme-speed", "quick-attack",
+    "helping-hand", "thunder-wave", "icy-wind", "follow-me", "rage-powder",
+})
+
+
 # Threshold center for each stat-based role. The gradient band is ±15 around
 # this center: weight = 0.0 at (threshold − 15), 0.5 at threshold, 1.0 at
 # (threshold + 15). Linear in between.

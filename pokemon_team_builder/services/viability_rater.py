@@ -14,6 +14,16 @@ from pokemon_team_builder.services.synergy_engine import (
     analyze_coverage,
     score_flexibility,
 )
+# ADR §2.1 / R3: disruption move/ability sets now live in synergy_engine
+# (the low layer) as the single source of truth. Re-exported here so existing
+# call sites and tests that reference these names via viability_rater keep
+# working. synergy_engine must NOT import viability_rater (circular import),
+# hence the one-directional dependency.
+from pokemon_team_builder.services.synergy_engine import (
+    _CORE_VIABLE_MOVES,
+    _SPEED_CONTROL_MOVES,
+    _SPEED_CONTROL_PARTIAL_ABILITIES,
+)
 
 
 # Weight budgets per component. Sum to 100.
@@ -40,34 +50,15 @@ _SUPPORT_ROLES = frozenset({"lead_support", "redirect"})
 
 # Phase 3 §11 — renamed from _LEAD_VIABLE_MOVES. Core-viable means the
 # member can fill a Bo3 lead/core slot (speed control or redirect).
-_CORE_VIABLE_MOVES = frozenset({
-    "tailwind", "trick-room", "fake-out", "extreme-speed", "quick-attack",
-    "helping-hand", "thunder-wave", "icy-wind", "follow-me", "rage-powder",
-})
+# Definition moved to synergy_engine (ADR §2.1 / R3); re-exported above.
 
 _BO3_SWEEPER_ROLES = frozenset({"physical_sweeper", "special_sweeper"})
 _BO3_SUPPORT_ROLES = frozenset({"lead_support", "redirect", "trick_room_setter"})
 
 
-# Phase 3 §10 — speed control mechanisms.
-_SPEED_CONTROL_MOVES = frozenset({
-    "trick-room",
-    "tailwind",
-    "icy-wind",
-    "electroweb",
-    "thunder-wave",
-    "glare",
-    "nuzzle",
-    "stun-spore",
-    "sticky-web",
-    "fake-out",
-    "quick-guard",
-})
-# Abilities that contribute partial credit (0.5 each) — paralysis-on-contact.
-_SPEED_CONTROL_PARTIAL_ABILITIES = frozenset({
-    "static",
-    "cute-charm",
-})
+# Phase 3 §10 — speed control mechanisms. _SPEED_CONTROL_MOVES and
+# _SPEED_CONTROL_PARTIAL_ABILITIES are defined in synergy_engine (ADR §2.1 /
+# R3) and re-exported above.
 
 
 # Phase 3 §8 — passive weather benefits per (weather, move) pair.
@@ -274,23 +265,36 @@ def _weather_synergy_points(members: list[TeamMember]) -> float:
 
 # ─── Phase 3 §10 — speed control penalty ────────────────────────────────────
 
+def _member_speed_control(member: TeamMember) -> float:
+    """Return a single member's speed-control credit.
+
+    Full credit (1.0) for a member with a speed-control move.
+    Partial credit (0.5) for a member with a partial-credit ability
+    (Static / Cute Charm), only if it has no speed-control move.
+    0.0 otherwise.
+
+    ADR §3.3: extracted as a per-member helper so ``derive_doubles_tags``
+    can query speed control one member at a time. ``_count_speed_control``
+    is now the sum over members — behaviour is identical to the previous
+    inline loop (a member with both a move and the ability still scores
+    1.0, not 1.5, because the move branch short-circuits the ability).
+    """
+    moves = {m.lower() for m in member.moves}
+    if moves & _SPEED_CONTROL_MOVES:
+        return 1.0
+    ability_slug = member.ability.strip().lower().replace(" ", "-")
+    if ability_slug in _SPEED_CONTROL_PARTIAL_ABILITIES:
+        return 0.5
+    return 0.0
+
+
 def _count_speed_control(members: list[TeamMember]) -> float:
     """Return the team's combined speed-control mechanism count.
 
-    Full credit (1.0) for each member with a speed-control move.
-    Partial credit (0.5) for each member with a partial-credit ability
-    (Static / Cute Charm). The sum is what the penalty function tests.
+    The sum of :func:`_member_speed_control` over every member. The penalty
+    function tests this against the 1.0 minimum threshold.
     """
-    count = 0.0
-    for member in members:
-        moves = {m.lower() for m in member.moves}
-        if moves & _SPEED_CONTROL_MOVES:
-            count += 1.0
-            continue
-        ability_slug = member.ability.strip().lower().replace(" ", "-")
-        if ability_slug in _SPEED_CONTROL_PARTIAL_ABILITIES:
-            count += 0.5
-    return count
+    return sum(_member_speed_control(member) for member in members)
 
 
 def _speed_control_penalty(variant: TeamVariant, archetype: str) -> float:
