@@ -12,6 +12,7 @@ from pokemon_team_builder.data.weather_data_loader import (
 from pokemon_team_builder.domain.models import TeamMember, TeamVariant
 from pokemon_team_builder.services.synergy_engine import (
     analyze_coverage,
+    assess_presence,
     score_flexibility,
 )
 # ADR §2.1 / R3: disruption move/ability sets now live in synergy_engine
@@ -44,6 +45,15 @@ _WEATHER_PASSIVE_BONUS = 2.0
 # Phase 3 §10 — speed control penalty applied when no mechanism exists
 # and archetype != "stall".
 _SPEED_CONTROL_PENALTY = -15.0
+
+# C2 (ADR §2.2) — flat penalty per passive-liability member. A liability is
+# a Pokémon with neither an offensive stat nor disruption (assess_presence).
+# 8.0 ≤ the speed-control penalty (15): one liability hurts, two is nearly
+# disqualifying without invalidating the whole team. Applied flat (NOT scaled
+# by weights.roles) because a passive mon is bad in every archetype — same
+# treatment as the speed penalty (V3: stall non-viable). stall/perish_trap are
+# explicitly NOT exempted (coherent with C4).
+_PASSIVE_LIABILITY_PENALTY = 8.0
 
 _SWEEPER_ROLES = frozenset({"physical_sweeper", "special_sweeper"})
 _SUPPORT_ROLES = frozenset({"lead_support", "redirect"})
@@ -320,6 +330,34 @@ def variant_requires_speed_control(variant: TeamVariant, archetype: str) -> bool
     return _speed_control_penalty(variant, archetype) < 0.0
 
 
+# ─── C2 §2.2 — passive-presence penalty ──────────────────────────────────────
+
+def _count_passive_liabilities(members: list[TeamMember]) -> int:
+    """Number of members that are passive liabilities (assess_presence).
+
+    Each member is assessed with its *assigned* moveset and ability so the
+    penalty reflects the actual build, not the species learnset.
+    """
+    return sum(
+        1
+        for m in members
+        if assess_presence(m.pokemon, moves=list(m.moves), ability=m.ability).is_passive_liability
+    )
+
+
+def _presence_penalty(variant: TeamVariant) -> float:
+    """Return the passive-presence penalty (≤ 0) for the variant (ADR §2.2).
+
+    ``-_PASSIVE_LIABILITY_PENALTY`` per passive-liability member. Flat: not
+    scaled by archetype weights, applied to the total outside the clamped
+    components — mirroring the speed-control penalty insertion point. Zero
+    when the team has no liabilities, which keeps the additive-layer
+    invariant (§5.3): a healthy balanced team scores identically before and
+    after C2.
+    """
+    return -_PASSIVE_LIABILITY_PENALTY * _count_passive_liabilities(variant.members)
+
+
 def score_team(
     variant: TeamVariant,
     format_mode: str = "bo1",
@@ -354,6 +392,10 @@ def score_team(
     weather_raw = _weather_synergy_points(variant.members)
     weather_pts = weather_raw * weights.weather_synergy
     speed_penalty = _speed_control_penalty(variant, archetype)
+    # C2 §2.2 — flat, archetype-agnostic, applied outside the clamped
+    # components just like speed_penalty. Zero for a team with no passive
+    # liabilities → additive-layer invariant §5.3 holds.
+    presence_penalty = _presence_penalty(variant)
 
     if format_mode == "bo3":
         # Phase 2a: STAB-based coverage using the variant's assigned movesets.
@@ -375,6 +417,7 @@ def score_team(
             + items * weights.items
             + weather_pts
             + speed_penalty
+            + presence_penalty
         )
         return max(0.0, min(100.0, total)), flex_ratio
     else:
@@ -387,6 +430,7 @@ def score_team(
             + items * weights.items
             + weather_pts
             + speed_penalty
+            + presence_penalty
         )
         return max(0.0, min(100.0, total)), 0.0
 

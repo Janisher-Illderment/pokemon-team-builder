@@ -8,8 +8,9 @@ from pokemon_team_builder.domain.models import (
     TeamVariant,
 )
 from pokemon_team_builder.services import pokemon_lookup
-from pokemon_team_builder.services.synergy_engine import assign_role
+from pokemon_team_builder.services.synergy_engine import assess_presence, assign_role
 from pokemon_team_builder.services.viability_rater import (
+    _presence_penalty,
     generate_explanation,
     rank_variants,
     score_team,
@@ -141,6 +142,73 @@ def test_score_balanced_team_above_75() -> None:
     variant = _balanced_variant()
     score, _ = score_team(variant)
     assert score >= 75
+
+
+# ── C2 §5.3 — additive-layer migration invariant ─────────────────────────────
+
+def test_balanced_team_has_no_passive_liabilities() -> None:
+    """A healthy balanced team has zero passive liabilities (ADR §2.1).
+
+    Every member either has an offensive stat (Garchomp/Milotic/Rotom/
+    Metagross) or real disruption (Talonflame Tailwind, Amoonguss Rage
+    Powder), so none reads as a liability.
+    """
+    variant = _balanced_variant()
+    for member in variant.members:
+        report = assess_presence(
+            member.pokemon, moves=list(member.moves), ability=member.ability
+        )
+        assert report.is_passive_liability is False, (
+            f"{member.pokemon.name} unexpectedly flagged as passive liability"
+        )
+
+
+def test_presence_penalty_zero_for_healthy_team() -> None:
+    """C2 §5.3 invariant: the presence term is exactly 0 for a healthy team.
+
+    Because the C2 layer is additive (a flat penalty term added to the
+    total), proving the term is 0.0 for a no-liability team proves the
+    team's score is IDENTICAL before and after C2 — the layer changes
+    nothing in the nominal case.
+    """
+    variant = _balanced_variant()
+    assert _presence_penalty(variant) == 0.0
+
+
+def test_passive_liability_team_scores_below_present_team() -> None:
+    """A team of passive walls scores strictly below a present-threat team.
+
+    Directly exercises the §2.2 penalty: replace the balanced team's
+    movesets/stats with passive walls and confirm the score drops.
+    """
+    present = _balanced_variant()
+    score_present, _ = score_team(present)
+
+    # Build a 6-wall team: low offense, purely defensive moves (no
+    # disruption) → every member is a liability.
+    walls = [
+        _mk_pokemon(
+            f"wall{i}",
+            ["steel"],
+            hp=120, atk=60, def_=130, spa=50, spd=120, spe=40,
+            moves=["protect", "recover", "iron-defense", "body-press"],
+            pid=i + 1,
+        )
+        for i in range(6)
+    ]
+    wall_members = [
+        _mk_member(
+            p, item=it, moves=["protect", "recover", "iron-defense", "body-press"]
+        )
+        for p, it in zip(
+            walls,
+            ["Leftovers", "Eviolite", "Rocky Helmet", "Sitrus Berry",
+             "Assault Vest", "Mental Herb"],
+        )
+    ]
+    wall_variant = TeamVariant(members=wall_members)
+    score_walls, _ = score_team(wall_variant)
+    assert score_walls < score_present
 
 
 def test_score_weak_team_below_50() -> None:
