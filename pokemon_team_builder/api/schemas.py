@@ -207,6 +207,44 @@ class ImportResponse(VariantOut):
 
 
 # ---------------------------------------------------------------------------
+# Team Rater schemas (POST /rate-team) — ADR docs/adr-team-rater.md §7
+# ---------------------------------------------------------------------------
+
+class RateTeamRequest(BaseModel):
+    pokepaste: str = Field(min_length=1)
+
+
+class SuggestionOut(BaseModel):
+    kind: Literal["move_swap", "nature", "evs", "item"]
+    target_field: str
+    from_value: str
+    to_value: str
+    reason: str          # español
+    priority: int
+
+
+class MemberRatingOut(BaseModel):
+    name: str
+    score: int           # 1..100
+    fit: float
+    intrinsic: float
+    coherence: float
+    strengths: list[str] = []
+    weaknesses: list[str] = []
+    suggestions: list[SuggestionOut] = []
+
+
+class TeamRatingOut(BaseModel):
+    score: float
+    detected_archetype: str
+    archetype_confidence: float
+    strengths: list[str] = []
+    weaknesses: list[str] = []
+    members: list[MemberRatingOut]
+    import_warnings: list[str] = []
+
+
+# ---------------------------------------------------------------------------
 # Meta-sources schemas (GET /meta-teams, GET /tournaments)
 # ---------------------------------------------------------------------------
 

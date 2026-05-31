@@ -633,3 +633,128 @@ def test_rate_team_strengths_reuse_generate_explanation():
     )
     base = generate_explanation(variant, score)
     assert any(base in s for s in rating.strengths)
+
+
+# ── Tests B6: endpoint FastAPI POST /rate-team ───────────────────────────────
+#
+# CÓMO CORRER LOS TESTS DEL ENDPOINT (importante):
+# tests/test_api.py NO colecta por un fallo PRE-EXISTENTE ajeno: importa
+# pokemon_team_builder.main, que importa api/seo_pages → fastapi Jinja2Templates,
+# y jinja2 no está instalado en este entorno. Para evitarlo SIN tocar nada de
+# ese camino, montamos un FastAPI() nuevo que incluye SÓLO `router` (sin
+# main.py, sin seo_pages). Así estos tests corren con el resto de la suite:
+#   python -m pytest tests/test_team_rater.py
+# o dentro de la suite completa con los --ignore habituales.
+
+# PokePaste Showdown realista (mons del pool legal M-A; EVs 252/252 → 62 SP
+# tras el /8 del parser). Verificado round-trip de especies/naturaleza/item.
+_REAL_PASTE = """Garchomp @ Choice Scarf
+Ability: Rough Skin
+Level: 50
+EVs: 4 HP / 252 Atk / 252 Spe
+Jolly Nature
+- Protect
+- Earthquake
+- Dragon Claw
+- Rock Slide
+
+Snorlax @ Leftovers
+Ability: Thick Fat
+Level: 50
+EVs: 252 HP / 4 Atk / 252 SpD
+Careful Nature
+- Body Slam
+- Protect
+- Curse
+- Rest
+
+Gengar @ Black Sludge
+Ability: Levitate
+Level: 50
+EVs: 4 HP / 252 SpA / 252 Spe
+Timid Nature
+- Shadow Ball
+- Sludge Bomb
+- Protect
+- Icy Wind
+
+Metagross @ Sitrus Berry
+Ability: Clear Body
+Level: 50
+EVs: 252 HP / 252 Atk / 4 Spe
+Adamant Nature
+- Meteor Mash
+- Bullet Punch
+- Protect
+- Earthquake
+
+Milotic @ Leftovers
+Ability: Marvel Scale
+Level: 50
+EVs: 252 HP / 4 Def / 252 SpA
+Modest Nature
+- Scald
+- Ice Beam
+- Recover
+- Protect
+
+Dragonite @ Lum Berry
+Ability: Multiscale
+Level: 50
+EVs: 4 HP / 252 Atk / 252 Spe
+Adamant Nature
+- Dragon Claw
+- Earthquake
+- Extreme Speed
+- Protect
+"""
+
+
+@pytest.fixture
+def rate_client():
+    """TestClient sobre un FastAPI que monta SÓLO `router` (evita main/jinja2)."""
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from pokemon_team_builder.api.router import router
+
+    app = FastAPI()
+    app.include_router(router)
+    return TestClient(app)
+
+
+def test_rate_team_endpoint_happy_path(rate_client):
+    resp = rate_client.post("/rate-team", json={"pokepaste": _REAL_PASTE})
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data["detected_archetype"] in team_rater.ARCHETYPES
+    assert 0.0 <= data["archetype_confidence"] <= 1.0
+    assert 0.0 <= data["score"] <= 100.0
+    assert len(data["members"]) == 6
+    for m in data["members"]:
+        assert 1 <= m["score"] <= 100
+        for s in m["suggestions"]:
+            assert s["kind"] in {"move_swap", "nature", "evs", "item"}
+            assert s["from_value"] and s["to_value"] and s["reason"]
+
+
+def test_rate_team_endpoint_422_on_five_members(rate_client):
+    five = "\n\n".join(_REAL_PASTE.strip().split("\n\n")[:5])
+    resp = rate_client.post("/rate-team", json={"pokepaste": five})
+    assert resp.status_code == 422
+
+
+def test_rate_team_endpoint_422_on_empty(rate_client):
+    resp = rate_client.post("/rate-team", json={"pokepaste": ""})
+    # min_length=1 → 422 de validación Pydantic.
+    assert resp.status_code == 422
+
+
+def test_rate_team_endpoint_no_species_suggestions(rate_client):
+    """Invariante de roster vía el contrato del endpoint: ninguna sugerencia
+    serializada tiene una kind de cambio de especie."""
+    resp = rate_client.post("/rate-team", json={"pokepaste": _REAL_PASTE})
+    data = resp.json()
+    for m in data["members"]:
+        for s in m["suggestions"]:
+            assert s["kind"] in {"move_swap", "nature", "evs", "item"}
