@@ -7,6 +7,26 @@ from pokemon_team_builder.services.damage_calc import (
     calc_stat,
     get_nature_mod,
 )
+from pokemon_team_builder.services.synergy_engine import (
+    _ALLY_BOOST_MOVES,
+    _REDIRECT_MOVES,
+    _SCREEN_MOVES,
+    _SETTER_ABILITY_TO_WEATHER,
+    _SETUP_MOVES,
+)
+
+# Spanish weather names for the derived support hint (keys match
+# _SETTER_ABILITY_TO_WEATHER values).
+_WEATHER_ES: dict[str, str] = {
+    "sun": "sol", "rain": "lluvia", "snow": "nieve", "sand": "tormenta de arena",
+}
+
+# Mechanical role labels whose ev-note hint is purely stat-based and always
+# true for the build (so the canned string is safe). Support-family roles are
+# derived from the actual moveset/ability instead (see _role_hint).
+_STAT_BASED_ROLES: frozenset[str] = frozenset({
+    "physical_sweeper", "special_sweeper", "physical_wall", "special_wall",
+})
 
 # Representative meta attacker: base 120 offensive stat, neutral nature, 0 SPs
 _META_ATTACKER_BASE = 120
@@ -30,7 +50,8 @@ _TOP_USAGE_BENCHMARK_THRESHOLD = 30
 # champions_legal_items.json v5. Items not in the legal pool get no note
 # even if the kit somehow references them (defensive against drift).
 _ITEM_NOTES: dict[str, str] = {
-    "Mental Herb": "Mental Herb cancela Mofa/Encore/Cura anulada una vez — blinda el setup",
+    # NOTE: Mental Herb is handled in _item_note (context-sensitive on setup
+    # presence), not here.
     "Shell Bell": "Shell Bell drena 1/8 del daño infligido — recovery pasivo ofensivo",
     "Scope Lens": "Scope Lens +1 nivel de probabilidad de golpes críticos",
     "Light Ball": "Light Ball (sólo Pikachu) duplica Atk y SpA",
@@ -74,14 +95,14 @@ _ARCHETYPE_NOTES: dict[str, str] = {
 }
 
 
+# Stat-based role hints only. Support-family roles (lead_support / redirect /
+# trick_room_setter) are NOT here — their hint is derived from the actual
+# moveset+ability in _role_hint so it never states utility the mon lacks.
 _ROLE_HINTS: dict[str, str] = {
     "physical_sweeper": "rol físico: Atk + Spe son prioridad — nature +Atk o +Spe",
     "special_sweeper": "rol especial: SpA + Spe son prioridad — nature +SpA o +Spe",
     "physical_wall": "muro físico: máximo HP + Def, nature +Def",
     "special_wall": "muro especial: máximo HP + SpD, nature +SpD",
-    "lead_support": "lead support: utility turno 1 (Tailwind, Fake Out, Follow Me)",
-    "trick_room_setter": "TR setter: Spe baja + bulk para sobrevivir Taunt y setup",
-    "redirect": "redirección: Rage Powder / Follow Me — proteger al sweeper",
 }
 
 
@@ -148,11 +169,10 @@ def _context_note(member: TeamMember, archetype: str | None) -> str:
     defensive notes (which use ". ") stay visually distinct.
     """
     bits: list[str] = []
-    primary_role = member.role[0] if member.role else ""
-    role_hint = _ROLE_HINTS.get(primary_role)
+    role_hint = _role_hint(member)
     if role_hint:
         bits.append(role_hint)
-    item_note = _item_note(member.item)
+    item_note = _item_note(member.item, member)
     if item_note:
         bits.append(item_note)
     if archetype and archetype != "balance":
@@ -162,10 +182,64 @@ def _context_note(member: TeamMember, archetype: str | None) -> str:
     return " · ".join(bits)
 
 
-def _item_note(item: str) -> str:
-    """Return the item-specific Spanish clause, or "" when the item is unknown."""
+def _role_hint(member: TeamMember) -> str:
+    """Return a role hint DERIVED from the build, never a canned per-label lie.
+
+    Stat-based roles (sweeper/wall) keep their always-true stat hint. For
+    support-family roles the hint is built from what the member ACTUALLY
+    brings — its weather-setter ability and its real support moves — so we
+    never claim "Tailwind / Fake Out / Follow Me" for a mon that has none of
+    them (the Abomasnow-as-lead_support bug). If a support-role mon brings no
+    recognisable utility, we say nothing rather than something false.
+    """
+    primary_role = member.role[0] if member.role else ""
+    if primary_role in _STAT_BASED_ROLES:
+        return _ROLE_HINTS.get(primary_role, "")
+
+    moves = {m.strip().lower() for m in member.moves}
+    ability = (member.ability or "").strip().lower().replace(" ", "-")
+    util: list[str] = []
+
+    weather = _WEATHER_ES.get(_SETTER_ABILITY_TO_WEATHER.get(ability, ""))
+    if weather:
+        util.append(f"pone {weather} turno 1 (habilidad)")
+    if ability == "intimidate":
+        util.append("intimida (−Atk rival) al entrar")
+    if "fake-out" in moves:
+        util.append("Fake Out (flinch turno 1)")
+    if moves & _REDIRECT_MOVES:
+        util.append("redirección (protege al aliado)")
+    if "tailwind" in moves:
+        util.append("Tailwind (+Spe al equipo)")
+    if "trick-room" in moves:
+        util.append("Trick Room (invierte velocidades)")
+    if moves & _ALLY_BOOST_MOVES:
+        util.append("refuerzo al aliado")
+    if moves & _SCREEN_MOVES:
+        util.append("pantallas")
+
+    if util:
+        return "soporte: " + ", ".join(util)
+    # Support-role label but no actual utility move/ability → don't fabricate.
+    return ""
+
+
+def _item_note(item: str, member: TeamMember | None = None) -> str:
+    """Return the item-specific Spanish clause, or "" when the item is unknown.
+
+    Context-sensitive where it matters: Mental Herb only claims it "blinda el
+    setup" when the build actually carries a setup move (otherwise it just
+    cancels Taunt/Encore).
+    """
     if not item:
         return ""
+    if item == "Mental Herb":
+        has_setup = bool(
+            member is not None
+            and {m.strip().lower() for m in member.moves} & _SETUP_MOVES
+        )
+        base = "Mental Herb cancela Mofa/Encore/Cura anulada una vez"
+        return base + (" — blinda el setup" if has_setup else "")
     if item in _ITEM_NOTES:
         return _ITEM_NOTES[item]
     if item in _TYPE_RESIST_BERRIES:
