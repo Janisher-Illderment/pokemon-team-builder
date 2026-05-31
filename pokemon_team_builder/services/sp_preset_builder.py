@@ -156,6 +156,30 @@ def _is_physical_attacker(member: TeamMember) -> bool:
     return True
 
 
+def _offensive_stat_from_nature(nature: str) -> str | None:
+    """Infer the intended offensive stat ("atk"/"spa") from a nature, or None.
+
+    A nature that hinders ``spa`` (Jolly, Adamant, Impish, Brave…) signals a
+    PHYSICAL attacker → "atk". A nature that hinders ``atk`` (Timid, Modest,
+    Calm, Bold…) signals a SPECIAL attacker → "spa". Neutral natures (Hardy,
+    Serious…) and any nature that touches neither offensive stat return None,
+    so the caller falls back to ``_is_physical_attacker``.
+
+    WHY (ADR §3.3 C'): the nature already encodes the moveset's dominant
+    category (it is derived from it in ``_derive_nature``), so it is the single
+    point of truth for the offensive stat — avoiding the base-atk-vs-spa
+    heuristic that mis-splits a mixed-stat mon (Abomasnow 92/92) whose moveset
+    contradicts its stats. No signature change: ``build_presets`` already
+    receives ``nature``.
+    """
+    boosted, hindered = _normalise_nature(nature)
+    if hindered == "spa":
+        return "atk"
+    if hindered == "atk":
+        return "spa"
+    return None
+
+
 def _apply_nature_jump(
     base: int,
     target_sp: int,

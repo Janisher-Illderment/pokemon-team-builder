@@ -766,6 +766,60 @@ def test_nature_timid_for_special_lead() -> None:
     assert nature == "Timid"
 
 
+def test_dominant_attack_category_all_physical() -> None:
+    """ADR weather-setter-coherence §5.3.4: all-physical set → 'physical'."""
+    from pokemon_team_builder.services.team_generator import (
+        _dominant_attack_category,
+    )
+
+    moves = ["seed-bomb", "earthquake", "rock-slide", "protect"]
+    assert _dominant_attack_category(moves) == "physical"
+
+
+def test_dominant_attack_category_all_special() -> None:
+    """ADR §5.3.4: all-special set → 'special'."""
+    from pokemon_team_builder.services.team_generator import (
+        _dominant_attack_category,
+    )
+
+    moves = ["blizzard", "energy-ball", "ice-beam", "protect"]
+    assert _dominant_attack_category(moves) == "special"
+
+
+def test_dominant_attack_category_tie_is_none() -> None:
+    """ADR §5.3.4: 2 physical + 2 special → None (ambiguous mixed set)."""
+    from pokemon_team_builder.services.team_generator import (
+        _dominant_attack_category,
+    )
+
+    moves = ["seed-bomb", "ice-beam", "earthquake", "energy-ball"]
+    assert _dominant_attack_category(moves) is None
+
+
+def test_dominant_attack_category_status_only_is_none() -> None:
+    """ADR §5.3.4: no known damage moves (status/unknown) → None.
+
+    Status moves like protect/tailwind are absent from _MOVE_CATEGORY, so they
+    do not vote. This must NOT invent a category.
+    """
+    from pokemon_team_builder.services.team_generator import (
+        _dominant_attack_category,
+    )
+
+    assert _dominant_attack_category(["protect", "tailwind", "helping-hand"]) is None
+    assert _dominant_attack_category([]) is None
+
+
+def test_dominant_attack_category_majority_wins() -> None:
+    """A single unknown/status move does not break a clear physical majority."""
+    from pokemon_team_builder.services.team_generator import (
+        _dominant_attack_category,
+    )
+
+    moves = ["seed-bomb", "earthquake", "ice-beam", "protect"]  # 2 phys, 1 spec
+    assert _dominant_attack_category(moves) == "physical"
+
+
 def test_nature_sassy_for_trick_room_setter_regardless_of_slot2() -> None:
     """T9: TR setters always get Sassy, ignoring the slot-2 category."""
     from pokemon_team_builder.services.team_generator import _derive_nature

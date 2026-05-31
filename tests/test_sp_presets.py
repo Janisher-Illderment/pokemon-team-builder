@@ -232,3 +232,41 @@ def test_generate_team_raises_on_empty_pool():
     )
     with pytest.raises(TeamBuildError, match="[Pp]ool"):
         generate_team(anchor, pool=[], num_variants=1)
+
+
+# ── _offensive_stat_from_nature (ADR weather-setter-coherence §5.3.5) ─────────
+
+@pytest.mark.parametrize(
+    "nature, expected",
+    [
+        ("Jolly", "atk"),    # +spe/-spa → physical
+        ("Adamant", "atk"),  # +atk/-spa → physical
+        ("Impish", "atk"),   # +def/-spa → physical
+        ("Brave", None),     # +atk/-spe → touches neither spa nor atk hindrance
+        ("Timid", "spa"),    # +spe/-atk → special
+        ("Modest", "spa"),   # +spa/-atk → special
+        ("Calm", "spa"),     # +spd/-atk → special
+        ("Bold", "spa"),     # +def/-atk → special
+        ("Hardy", None),     # neutral
+        ("Serious", None),   # neutral
+        ("Sassy", None),     # +spd/-spe → hinders neither offensive stat
+    ],
+)
+def test_offensive_stat_from_nature(nature, expected):
+    """A nature that hinders SpA reads physical; hinders Atk reads special;
+    anything else is ambiguous (None) so the caller keeps its stat heuristic.
+    """
+    from pokemon_team_builder.services.sp_preset_builder import (
+        _offensive_stat_from_nature,
+    )
+
+    assert _offensive_stat_from_nature(nature) == expected
+
+
+def test_offensive_stat_from_nature_is_case_insensitive():
+    from pokemon_team_builder.services.sp_preset_builder import (
+        _offensive_stat_from_nature,
+    )
+
+    assert _offensive_stat_from_nature("jolly") == "atk"
+    assert _offensive_stat_from_nature("TIMID") == "spa"

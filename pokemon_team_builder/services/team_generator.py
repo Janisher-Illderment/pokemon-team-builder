@@ -1020,6 +1020,34 @@ def _pick_ability(pokemon: PokemonData) -> str:
     return pokemon.abilities[0]
 
 
+def _dominant_attack_category(moves: list[str]) -> str | None:
+    """Return the dominant DAMAGE category of a moveset, or None on tie/no-damage.
+
+    Counts moves whose category is known (via ``replica_exporter._MOVE_CATEGORY``)
+    and returns ``"physical"`` or ``"special"`` when one strictly outnumbers the
+    other. Returns ``None`` when there is a tie, or when no move has a known
+    damage category (e.g. an all-status set like Protect/Tailwind).
+
+    WHY (ADR §3.2): nature and SP must reflect the category of the moveset that
+    is *actually assigned*, not the role label or base atk-vs-spa. Status moves
+    and moves missing from ``_MOVE_CATEGORY`` do not vote — this is safe (it can
+    only weaken the signal, never invent a false category, ADR §6 RISK-bajo).
+    """
+    physical = 0
+    special = 0
+    for move in moves:
+        cat = replica_exporter._MOVE_CATEGORY.get(move)
+        if cat == "physical":
+            physical += 1
+        elif cat == "special":
+            special += 1
+    if physical > special:
+        return "physical"
+    if special > physical:
+        return "special"
+    return None
+
+
 def _derive_nature(primary: str, roles: list[str], moves: list[str]) -> str:
     """Pick a nature from the slot-2 STAB category when possible.
 
