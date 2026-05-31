@@ -6,6 +6,7 @@ from pokemon_team_builder.services.synergy_engine import (
     CoverageReport,
     analyze_coverage,
     assign_role,
+    derive_doubles_tags,
     detect_role_gaps,
     score_flexibility,
 )
@@ -222,20 +223,36 @@ def test_score_flexibility() -> None:
 
 
 def test_weather_setter_gets_lead_support_primary() -> None:
-    # Ninetales-A: Snow Warning, SpA 81 (< 100 threshold) → lead_support only
-    # (no sweeper role since neither offensive stat reaches 100)
+    # Ninetales-A: Snow Warning, SpA 81 (< 100 threshold). Non-offensive AND
+    # carries a genuine support move (icy-wind, a speed-control move) → it is a
+    # real support, so lead_support stays PRIMARY (ADR §3.1.1 / §7.2).
+    #
+    # ADR weather-setter-coherence §7.2: the original fixture had NO moves, so
+    # under the new "must have a support kit to be promoted to lead" rule it
+    # would fall to sweeper. Adding icy-wind reflects the real competitive set
+    # (Aurora Veil / Icy Wind / Blizzard / Freeze-Dry) and preserves the test's
+    # intent: a genuine support weather-setter leads.
     ninetales_a = _mk(
         "ninetales-alola",
         ["ice", "fairy"],
         hp=73, atk=67, def_=75, spa=81, spd=100, spe=109,
         abilities=["snow-warning"],
+        moves=["icy-wind", "blizzard", "freeze-dry", "protect"],
     )
     roles = assign_role(ninetales_a)
     assert roles[0] == "lead_support"
 
 
 def test_weather_setter_tyranitar_lead_plus_physical() -> None:
-    # Tyranitar: Sand Stream, Atk 134 >= 100 → lead_support first, physical_sweeper second
+    # ADR weather-setter-coherence §5.1: this test previously asserted
+    # roles[0] == "lead_support", which CODIFIED the bug — an offensive
+    # weather-setter was forced to a support PRIMARY role with no support kit.
+    #
+    # New decision (ADR §3.1, option c): "setting the weather" is the ability's
+    # job, modelled by the C3 `weather_setter` TAG, not a mechanical support
+    # role. Tyranitar (Atk 134, no support move) is a physical_sweeper PRIMARY;
+    # it does NOT get lead_support (no support kit, and it is offensive anyway).
+    # Its weather identity is verified via the derive_doubles_tags tag.
     tyranitar = _mk(
         "tyranitar",
         ["rock", "dark"],
@@ -243,8 +260,68 @@ def test_weather_setter_tyranitar_lead_plus_physical() -> None:
         abilities=["sand-stream"],
     )
     roles = assign_role(tyranitar)
+    assert roles[0] == "physical_sweeper"
+    assert "lead_support" not in roles
+    # The weather-setter character is now a tag, not a role.
+    assert "weather_setter" in derive_doubles_tags(tyranitar)
+
+
+def test_abomasnow_offensive_setter_not_lead_support() -> None:
+    """ADR §3.1.1 / §5.3.1: Abomasnow (Snow Warning, atk 92 / spa 92) has no
+    support move and no offensive presence (both < 100 threshold). It must NOT
+    be lead_support primary — it falls to the dominant-stat sweeper, and its
+    "set the weather" identity is the C3 weather_setter TAG.
+
+    This is the reported bug: a weather-setter with a special coverage move
+    (Ice Beam) was shipped as lead_support with an incoherent physical spread.
+    """
+    abomasnow = _mk(
+        "abomasnow",
+        ["grass", "ice"],
+        hp=90, atk=92, def_=75, spa=92, spd=85, spe=60,
+        abilities=["snow-warning"],
+        moves=["protect", "blizzard", "energy-ball", "ice-beam"],
+    )
+    roles = assign_role(abomasnow)
+    assert roles[0] in ("physical_sweeper", "special_sweeper")
+    assert "lead_support" not in roles
+    assert "weather_setter" in derive_doubles_tags(abomasnow)
+
+
+def test_setter_with_support_move_keeps_lead() -> None:
+    """ADR §5.3.6: a NON-offensive weather setter WITH a real support move
+    (Pelipper + tailwind) keeps lead_support primary. The fix must not break
+    genuine support setters.
+    """
+    pelipper = _mk(
+        "pelipper",
+        ["water", "flying"],
+        hp=60, atk=50, def_=100, spa=95, spd=70, spe=65,
+        abilities=["drizzle"],
+        moves=["protect", "hurricane", "scald", "tailwind"],
+    )
+    roles = assign_role(pelipper)
     assert roles[0] == "lead_support"
-    assert "physical_sweeper" in roles
+    assert "weather_setter" in derive_doubles_tags(pelipper)
+
+
+def test_offensive_setter_with_support_is_sweeper_primary_lead_secondary() -> None:
+    """ADR §3.1: an OFFENSIVE setter (sweeper weight >= 0.5) that also carries a
+    support move keeps the sweeper as PRIMARY; lead_support may trail as a
+    secondary role.
+    """
+    # atk 130 >= 100 → physical_sweeper weight >= 0.5; tailwind + spe>=90 makes
+    # it a genuine support too.
+    mon = _mk(
+        "landorus-ish",
+        ["ground", "flying"],
+        hp=89, atk=130, def_=80, spa=80, spd=80, spe=101,
+        abilities=["sand-stream"],
+        moves=["protect", "earthquake", "rock-slide", "icy-wind"],
+    )
+    roles = assign_role(mon)
+    assert roles[0] == "physical_sweeper"
+    assert "lead_support" in roles  # secondary, via the support move
 
 
 def test_non_weather_ability_unaffected() -> None:
@@ -314,12 +391,17 @@ def test_aurorus_not_weather_setter() -> None:
 
 
 def test_ninetales_alola_whitelist_lead() -> None:
-    # Ninetales-A: snow-cloak primary, snow-warning idx 1, but species in whitelist
+    # Ninetales-A: snow-cloak primary, snow-warning idx 1, but species in
+    # whitelist → recognised as a weather setter. With a genuine support move
+    # (icy-wind) and no offensive presence it stays lead_support PRIMARY.
+    # ADR §7.2: moves added to the fixture so the support-kit gate (§3.1.1)
+    # keeps the intended lead behaviour (was move-less before).
     p = _mk(
         "ninetales-alola",
         ["ice", "fairy"],
         hp=73, atk=67, def_=75, spa=81, spd=100, spe=109,
         abilities=["snow-cloak", "snow-warning"],
+        moves=["icy-wind", "blizzard", "freeze-dry", "protect"],
     )
     roles = assign_role(p)
     assert roles[0] == "lead_support"
