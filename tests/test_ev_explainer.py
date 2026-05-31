@@ -316,6 +316,63 @@ def test_speed_benchmark_only_uses_top_meta_pokemon():
     )
 
 
+# ── Build-derived role/item hints (no canned lies) ───────────────────────
+
+
+def _support_member(ability: str, moves: list[str], item: str = "none") -> TeamMember:
+    pokemon = PokemonData(
+        id=1, name="abomasnow", types=["grass", "ice"],
+        base_stats=BaseStats(hp=90, atk=92, **{"def": 75}, spa=92, spd=85, spe=60),
+        move_names=moves, abilities=[ability], weaknesses={},
+    )
+    return TeamMember(
+        pokemon=pokemon, role=["lead_support"], sp_distribution=SPDistribution(),
+        item=item, ability=ability, nature="hardy", moves=moves,
+    )
+
+
+def test_weather_setter_hint_says_weather_not_fake_canned_utility():
+    """Abomasnow bug: a Snow Warning setter with offensive moves used to print
+    'utility turno 1 (Tailwind, Fake Out, Follow Me)'. It must now say it sets
+    snow (its real utility) and NOT mention moves it doesn't have."""
+    m = _support_member("snow-warning", ["protect", "seed-bomb", "ice-beam", "mega-punch"])
+    result = explain(m, _speed_db)
+    assert "nieve" in result
+    assert "Fake Out" not in result
+    assert "Follow Me" not in result and "Tailwind" not in result
+
+
+def test_support_with_fake_out_names_fake_out():
+    m = _support_member("intimidate", ["protect", "fake-out", "flare-blitz", "parting-shot"])
+    result = explain(m, _speed_db)
+    assert "Fake Out" in result
+    assert "intimida" in result
+
+
+def test_support_role_with_no_utility_says_nothing_false():
+    """A lead_support label with no recognisable utility move/ability → the
+    hint is omitted rather than fabricated."""
+    m = _support_member("blaze", ["protect", "seed-bomb", "ice-beam", "mega-punch"])
+    result = explain(m, _speed_db)
+    assert "soporte" not in result
+    assert "Tailwind" not in result and "Fake Out" not in result
+
+
+def test_mental_herb_note_conditional_on_setup():
+    """Mental Herb says 'blinda el setup' ONLY when a setup move is present."""
+    with_setup = _support_member(
+        "snow-warning", ["protect", "swords-dance", "ice-beam", "mega-punch"],
+        item="Mental Herb",
+    )
+    without_setup = _support_member(
+        "snow-warning", ["protect", "seed-bomb", "ice-beam", "mega-punch"],
+        item="Mental Herb",
+    )
+    assert "blinda el setup" in explain(with_setup, _speed_db)
+    r2 = explain(without_setup, _speed_db)
+    assert "Mental Herb" in r2 and "blinda el setup" not in r2
+
+
 def test_assault_vest_not_in_legal_pool():
     """User feedback 2026-05-14 (Inte v2): Assault Vest is NOT in the
     Champions M-A item pool. Must not appear in the legal items JSON

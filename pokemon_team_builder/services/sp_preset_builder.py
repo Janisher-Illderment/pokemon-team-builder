@@ -156,6 +156,30 @@ def _is_physical_attacker(member: TeamMember) -> bool:
     return True
 
 
+def _offensive_stat_from_nature(nature: str) -> str | None:
+    """Infer the intended offensive stat ("atk"/"spa") from a nature, or None.
+
+    A nature that hinders ``spa`` (Jolly, Adamant, Impish, Brave…) signals a
+    PHYSICAL attacker → "atk". A nature that hinders ``atk`` (Timid, Modest,
+    Calm, Bold…) signals a SPECIAL attacker → "spa". Neutral natures (Hardy,
+    Serious…) and any nature that touches neither offensive stat return None,
+    so the caller falls back to ``_is_physical_attacker``.
+
+    WHY (ADR §3.3 C'): the nature already encodes the moveset's dominant
+    category (it is derived from it in ``_derive_nature``), so it is the single
+    point of truth for the offensive stat — avoiding the base-atk-vs-spa
+    heuristic that mis-splits a mixed-stat mon (Abomasnow 92/92) whose moveset
+    contradicts its stats. No signature change: ``build_presets`` already
+    receives ``nature``.
+    """
+    boosted, hindered = _normalise_nature(nature)
+    if hindered == "spa":
+        return "atk"
+    if hindered == "atk":
+        return "spa"
+    return None
+
+
 def _apply_nature_jump(
     base: int,
     target_sp: int,
@@ -262,8 +286,13 @@ def _offensive_weights(
     OTHER offensive levers (speed, bulk). Choice Scarf already gives the
     speed boost → invest in raw attack instead.
     """
-    is_physical = _is_physical_attacker(member)
-    primary_atk = "atk" if is_physical else "spa"
+    # ADR weather-setter-coherence §3.3 (C'): the nature already encodes the
+    # moveset's dominant category (derived in _derive_nature), so let it govern
+    # the offensive stat. Fall back to the base-stat heuristic only when the
+    # nature is neutral/ambiguous about offense.
+    primary_atk = _offensive_stat_from_nature(nature)
+    if primary_atk is None:
+        primary_atk = "atk" if _is_physical_attacker(member) else "spa"
 
     weights: dict[str, float] = {k: 0.0 for k in _STAT_KEYS}
     weights[primary_atk] = 10.0
@@ -300,8 +329,12 @@ def _defensive_weights(
     Eviolite inflates Def + SpD → free up SPs for offense; Assault Vest
     inflates SpD → invest more in Def to balance.
     """
-    is_physical = _is_physical_attacker(member)
-    primary_atk = "atk" if is_physical else "spa"
+    # ADR §3.3 / §7.3: apply the same nature-driven offensive-stat selection to
+    # the defensive preset's attacking stake for consistency. Fall back to the
+    # base-stat heuristic when the nature is offense-neutral.
+    primary_atk = _offensive_stat_from_nature(nature)
+    if primary_atk is None:
+        primary_atk = "atk" if _is_physical_attacker(member) else "spa"
 
     weights: dict[str, float] = {k: 0.0 for k in _STAT_KEYS}
     weights["hp"] = 10.0

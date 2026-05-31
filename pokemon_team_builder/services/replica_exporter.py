@@ -5,6 +5,7 @@ from pathlib import Path
 from pokemon_team_builder.data.archetype_weights_loader import get_weights
 from pokemon_team_builder.domain.exceptions import TeamBuildError
 from pokemon_team_builder.domain.models import (
+    BaseStats,
     PokemonData,
     SPDistribution,
     TeamMember,
@@ -204,6 +205,19 @@ _MOVE_CATEGORY: dict[str, str] = {
     "fleur-cannon": "special",
 }
 
+def _offensive_category(stats: BaseStats) -> str:
+    """Single source of truth for a Pokemon's offensive category.
+
+    Returns ``"physical"`` if Atk >= SpA, else ``"special"`` (physical
+    tie-break). This is the exact formula previously inlined at the
+    ``primary_cat`` site in ``select_moves_for_role`` — extracted here so the
+    STAB selection, the second-STAB invariant and the coverage slot all agree
+    on ONE category derivation (ADR move-category-coherence §3.1). Pure: no
+    side effects, depends only on base stats.
+    """
+    return "physical" if stats.atk >= stats.spa else "special"
+
+
 # Move → damage type table. Phase 4b cleanup (Tecle Brief #9): the
 # canonical map lives in ``pokemon_team_builder.data.move_types`` so
 # both this module and ``synergy_engine.analyze_coverage`` can import
@@ -370,12 +384,10 @@ def select_moves_for_role(
         slot1 = _fallback_move(move_pool, set())
     used.add(slot1)
 
-    # Primary attack category: physical if Atk >= SpA, else special.
-    primary_cat = (
-        "physical"
-        if pokemon.base_stats.atk >= pokemon.base_stats.spa
-        else "special"
-    )
+    # Primary attack category: single source of truth (ADR §3.1). Same
+    # formula as before (physical if Atk >= SpA, else special) — now shared
+    # with the second-STAB invariant below so every damage slot agrees.
+    primary_cat = _offensive_category(pokemon.base_stats)
 
     # Slot 2: STAB — try meta moves that are STAB for this pokémon and
     # category-matching first; then fall through to the static STAB table.
@@ -454,26 +466,49 @@ def select_moves_for_role(
         if t.lower() not in covered_stab_types
     ]
 
+    # ADR move-category-coherence §3.1 / §5.3.3: the second STAB must respect
+    # the build's offensive category, exactly like slot-2 and slot-3 do. Two
+    # passes: pass 0 accepts ONLY moves whose category matches ``primary_cat``;
+    # pass 1 (fallback) accepts any category, and runs only if pass 0 found no
+    # categorically-correct STAB for the missing type. This preserves the
+    # STAB-presence invariant ("≥1 STAB of the 2nd type IF one exists in pool")
+    # — pass 1 still picks up an off-category STAB when that is all the pool
+    # offers — while preventing the dead-move bug (a physical Abomasnow no
+    # longer receives special Ice Beam from the head of _STAB_BY_TYPE["ice"];
+    # it gets icicle-crash). The filter applies to BOTH the meta-moves branch
+    # and the static STAB table, symmetric with slot-2's meta/static split.
     second_stab: str | None = None
-    for missing_type in missing_stab_types:
-        # Prefer a meta-listed STAB move (PokeAPI-aligned vocabulary).
-        if meta_moves:
-            for candidate in meta_moves:
+    for pass_num in range(2):
+        for missing_type in missing_stab_types:
+            # Prefer a meta-listed STAB move (PokeAPI-aligned vocabulary).
+            if meta_moves:
+                for candidate in meta_moves:
+                    if candidate in used or candidate not in move_pool:
+                        continue
+                    cand_type = _MOVE_TYPE.get(candidate, "")
+                    if cand_type != missing_type:
+                        continue
+                    cand_cat = _MOVE_CATEGORY.get(candidate, "")
+                    # Pass 0: category must match. Unknown category ("") is
+                    # treated as ineligible in pass 0 (mirrors slot-2/slot-3),
+                    # so a categorized STAB always wins the strict pass.
+                    if pass_num == 0 and cand_cat != primary_cat:
+                        continue
+                    second_stab = candidate
+                    break
+            if second_stab is not None:
+                break
+            # Fall back to the curated STAB-by-type table.
+            for candidate in _STAB_BY_TYPE.get(missing_type, ()):
                 if candidate in used or candidate not in move_pool:
                     continue
-                cand_type = _MOVE_TYPE.get(candidate, "")
-                if cand_type != missing_type:
+                cand_cat = _MOVE_CATEGORY.get(candidate, "")
+                if pass_num == 0 and cand_cat != primary_cat:
                     continue
                 second_stab = candidate
                 break
-        if second_stab is not None:
-            break
-        # Fall back to the curated STAB-by-type table.
-        for candidate in _STAB_BY_TYPE.get(missing_type, ()):
-            if candidate in used or candidate not in move_pool:
-                continue
-            second_stab = candidate
-            break
+            if second_stab is not None:
+                break
         if second_stab is not None:
             break
 

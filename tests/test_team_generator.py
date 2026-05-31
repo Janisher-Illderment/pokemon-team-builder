@@ -766,6 +766,102 @@ def test_nature_timid_for_special_lead() -> None:
     assert nature == "Timid"
 
 
+def test_dominant_attack_category_all_physical() -> None:
+    """ADR weather-setter-coherence §5.3.4: all-physical set → 'physical'."""
+    from pokemon_team_builder.services.team_generator import (
+        _dominant_attack_category,
+    )
+
+    moves = ["seed-bomb", "earthquake", "rock-slide", "protect"]
+    assert _dominant_attack_category(moves) == "physical"
+
+
+def test_dominant_attack_category_all_special() -> None:
+    """ADR §5.3.4: all-special set → 'special'."""
+    from pokemon_team_builder.services.team_generator import (
+        _dominant_attack_category,
+    )
+
+    moves = ["blizzard", "energy-ball", "ice-beam", "protect"]
+    assert _dominant_attack_category(moves) == "special"
+
+
+def test_dominant_attack_category_tie_is_none() -> None:
+    """ADR §5.3.4: 2 physical + 2 special → None (ambiguous mixed set)."""
+    from pokemon_team_builder.services.team_generator import (
+        _dominant_attack_category,
+    )
+
+    moves = ["seed-bomb", "ice-beam", "earthquake", "energy-ball"]
+    assert _dominant_attack_category(moves) is None
+
+
+def test_dominant_attack_category_status_only_is_none() -> None:
+    """ADR §5.3.4: no known damage moves (status/unknown) → None.
+
+    Status moves like protect/tailwind are absent from _MOVE_CATEGORY, so they
+    do not vote. This must NOT invent a category.
+    """
+    from pokemon_team_builder.services.team_generator import (
+        _dominant_attack_category,
+    )
+
+    assert _dominant_attack_category(["protect", "tailwind", "helping-hand"]) is None
+    assert _dominant_attack_category([]) is None
+
+
+def test_dominant_attack_category_majority_wins() -> None:
+    """A single unknown/status move does not break a clear physical majority."""
+    from pokemon_team_builder.services.team_generator import (
+        _dominant_attack_category,
+    )
+
+    moves = ["seed-bomb", "earthquake", "ice-beam", "protect"]  # 2 phys, 1 spec
+    assert _dominant_attack_category(moves) == "physical"
+
+
+def test_nature_dominant_special_overrides_physical_slot2() -> None:
+    """ADR §3.2: a special-dominant moveset yields Timid even if slot-2 is
+    physical.
+
+    This is the weather-setter coherence case: a mon whose slot-2 STAB is
+    physical (seed-bomb) but whose moveset is overall special-dominant
+    (ice-beam + energy-ball + blizzard) must NOT get Jolly (which would zero
+    its SpA). The whole-moveset dominant category wins over the isolated
+    slot-2.
+    """
+    from pokemon_team_builder.services.team_generator import _derive_nature
+
+    moves = ["seed-bomb", "ice-beam", "energy-ball", "blizzard"]  # 3 spec, 1 phys
+    nature = _derive_nature("physical_sweeper", ["physical_sweeper"], moves)
+    assert nature == "Timid"
+
+
+def test_nature_dominant_physical_overrides_special_slot2() -> None:
+    """ADR §3.2: a physical-dominant moveset yields Jolly even if slot-2 is
+    special, for a special_sweeper primary label.
+    """
+    from pokemon_team_builder.services.team_generator import _derive_nature
+
+    moves = ["ice-beam", "seed-bomb", "earthquake", "rock-slide"]  # 3 phys, 1 spec
+    nature = _derive_nature("special_sweeper", ["special_sweeper"], moves)
+    assert nature == "Jolly"
+
+
+def test_nature_tie_falls_back_to_slot2() -> None:
+    """ADR §3.2: on a 2-2 category tie, the dominant category is None and the
+    isolated slot-2 decides (preserving legacy behaviour for true mixed sets).
+    """
+    from pokemon_team_builder.services.team_generator import _derive_nature
+
+    # slot-2 = hurricane (special) → Timid despite the physical coverage.
+    moves = ["protect", "hurricane", "earthquake", "scald"]  # 2 spec, 1 phys (+status)
+    # Make it a real 2-2 tie:
+    moves = ["seed-bomb", "hurricane", "earthquake", "scald"]  # 2 phys, 2 spec
+    nature = _derive_nature("lead_support", ["lead_support"], moves)
+    assert nature == "Timid"  # slot-2 hurricane is special
+
+
 def test_nature_sassy_for_trick_room_setter_regardless_of_slot2() -> None:
     """T9: TR setters always get Sassy, ignoring the slot-2 category."""
     from pokemon_team_builder.services.team_generator import _derive_nature
@@ -965,3 +1061,228 @@ def test_heuristic_filter_no_meta_unchanged() -> None:
         # should not raise, returns candidates ordered by synergy only
         result = _heuristic_filter(anchor, [cand1, cand2], role_map)
     assert len(result) == 2
+
+
+# ── B4: end-to-end coherence of the weather-setter bug case ───────────────────
+# ADR docs/adr-weather-setter-coherence.md §B4 / §5.3.1.
+#
+# We use a SYNTHETIC Abomasnow (atk 92 / spa 92, Snow Warning, Grass/Ice) and
+# drive the real derivation chain — assign_role -> _derive_nature ->
+# build_presets — with explicit movesets. The real movepool is [UNCERTAIN]
+# (fetched from PokeAPI at runtime), so per project policy we do NOT hardcode an
+# invented Abomasnow set into generate_team; instead we test the COHERENCE
+# PRINCIPLE the ADR mandates, deterministically and offline.
+
+def _abomasnow(moves: list[str]):
+    return _mk(
+        "abomasnow",
+        ["grass", "ice"],
+        hp=90, atk=92, def_=75, spa=92, spd=85, spe=60,
+        abilities=["snow-warning"],
+        moves=moves,
+    )
+
+
+def _coherence_chain(pokemon, moves):
+    """Run role -> nature -> offensive SP preset for a given moveset.
+
+    Returns (roles, tags, nature, offensive_preset).
+    """
+    from pokemon_team_builder.services import synergy_engine, sp_preset_builder
+    from pokemon_team_builder.services.team_generator import _derive_nature
+    from pokemon_team_builder.domain.models import SPDistribution, TeamMember
+
+    roles = synergy_engine.assign_role(pokemon)
+    tags = synergy_engine.derive_doubles_tags(pokemon)
+    primary = roles[0] if roles else "physical_sweeper"
+    nature = _derive_nature(primary, roles, moves)
+    member = TeamMember(
+        pokemon=pokemon,
+        role=roles,
+        sp_distribution=SPDistribution(),
+        item="Leftovers",
+        ability="snow-warning",
+        nature=nature,
+        moves=moves,
+    )
+    presets = sp_preset_builder.build_presets(member, "Leftovers", nature)
+    return roles, tags, nature, presets["offensive"]
+
+
+def test_e2e_abomasnow_special_set_is_coherent() -> None:
+    """Special-dominant Abomasnow: role is a sweeper (not lead_support), carries
+    the weather_setter tag, gets a SPECIAL nature, and the offensive spread
+    invests SpA with Atk == 0. The original bug (special move + 0 SpA) cannot
+    recur.
+    """
+    moves = ["protect", "blizzard", "energy-ball", "ice-beam"]  # 3 special
+    pokemon = _abomasnow(moves)
+    roles, tags, nature, off = _coherence_chain(pokemon, moves)
+
+    assert roles[0] in ("physical_sweeper", "special_sweeper")
+    assert "lead_support" not in roles
+    assert "weather_setter" in tags
+    assert nature == "Timid"
+    # nature <-> SP coherence: special nature invests SpA, zeroes Atk.
+    assert off.spa > 0 and off.atk == 0
+    # Anti-bug invariant: NOT (special damage move AND spa_SP == 0).
+    assert not (off.spa == 0)
+
+
+def test_e2e_abomasnow_physical_set_is_coherent() -> None:
+    """Physical-dominant Abomasnow: sweeper role, weather_setter tag, PHYSICAL
+    nature, offensive spread invests Atk with SpA == 0. The mirror invariant
+    holds (no physical-heavy set shipped with 0 Atk).
+    """
+    moves = ["protect", "seed-bomb", "ice-punch", "earthquake"]  # 3 physical
+    pokemon = _abomasnow(moves)
+    roles, tags, nature, off = _coherence_chain(pokemon, moves)
+
+    assert roles[0] in ("physical_sweeper", "special_sweeper")
+    assert "lead_support" not in roles
+    assert "weather_setter" in tags
+    assert nature == "Jolly"
+    assert off.atk > 0 and off.spa == 0
+
+
+def test_e2e_physical_vs_special_setter_discriminate_by_moveset() -> None:
+    """ADR §5.3.3: the same weather-setter shell built with a physical vs a
+    special moveset must diverge in nature and SP — proving the build keys off
+    the MOVESET category, not the (tied) base stats or the role label.
+    """
+    phys_moves = ["protect", "seed-bomb", "ice-punch", "earthquake"]
+    spec_moves = ["protect", "blizzard", "energy-ball", "ice-beam"]
+
+    _, _, phys_nature, phys_off = _coherence_chain(
+        _abomasnow(phys_moves), phys_moves
+    )
+    _, _, spec_nature, spec_off = _coherence_chain(
+        _abomasnow(spec_moves), spec_moves
+    )
+
+    assert phys_nature == "Jolly" and spec_nature == "Timid"
+    assert phys_off.atk > 0 and phys_off.spa == 0
+    assert spec_off.spa > 0 and spec_off.atk == 0
+
+
+# ── B3: e2e that ACTUALLY runs select_moves_for_role ─────────────────────
+# ADR move-category-coherence §1.2 / §5.3.1-2: the previous e2e tests above use
+# _coherence_chain, which receives a HAND-MADE moveset and never calls
+# select_moves_for_role. The residue lived precisely in that gap. These tests
+# drive the REAL selection path: select_moves_for_role -> _derive_nature ->
+# build_presets, then assert the central anti-dead-move invariant.
+
+
+def _select_chain(pokemon, *, meta_moves=None):
+    """Full REAL build chain: assign_role -> SELECT moves -> nature -> SP.
+
+    Unlike _coherence_chain, the moveset is GENERATED by
+    select_moves_for_role (not passed in). Returns
+    (roles, tags, moves, nature, offensive_preset).
+    """
+    from pokemon_team_builder.services import synergy_engine, sp_preset_builder
+    from pokemon_team_builder.services.replica_exporter import select_moves_for_role
+    from pokemon_team_builder.services.team_generator import _derive_nature
+    from pokemon_team_builder.domain.models import SPDistribution, TeamMember
+
+    roles = synergy_engine.assign_role(pokemon)
+    tags = synergy_engine.derive_doubles_tags(pokemon)
+    primary = roles[0] if roles else "physical_sweeper"
+    moves = select_moves_for_role(pokemon, roles, meta_moves=meta_moves)
+    nature = _derive_nature(primary, roles, moves)
+    member = TeamMember(
+        pokemon=pokemon,
+        role=roles,
+        sp_distribution=SPDistribution(),
+        item="Leftovers",
+        ability=pokemon.abilities[0],
+        nature=nature,
+        moves=moves,
+    )
+    presets = sp_preset_builder.build_presets(member, "Leftovers", nature)
+    return roles, tags, moves, nature, presets["offensive"]
+
+
+def _assert_no_dead_move(moves, off) -> None:
+    """The central ADR invariant: no DAMAGING move whose category has 0 SP.
+
+    A move is a dead move if it deals damage of a category (physical/special)
+    that the offensive spread invests 0 SP into. We read each move's category
+    from replica_exporter._MOVE_CATEGORY (status moves have no category and are
+    exempt).
+    """
+    from pokemon_team_builder.services.replica_exporter import _MOVE_CATEGORY
+
+    for m in moves:
+        cat = _MOVE_CATEGORY.get(m)
+        if cat == "physical":
+            assert off.atk > 0, f"dead physical move {m!r} with 0 Atk SP: {moves}"
+        elif cat == "special":
+            assert off.spa > 0, f"dead special move {m!r} with 0 SpA SP: {moves}"
+
+
+def test_e2e_abomasnow_selected_has_no_dead_move() -> None:
+    """ADR §5.3.1 — the reported bug, closed end-to-end.
+
+    Abomasnow built through the REAL selection path (movepool mirrors the
+    PokeAPI-confirmed learnset: icy-wind in pool, both physical and special
+    Ice STABs available). Asserts:
+      - roles[0] != lead_support (Defect 2 closed by inclination),
+      - weather_setter tag present,
+      - moveset is monocategory-coherent: NO dead move,
+      - the physical tie-break drops ice-beam in favour of a physical Ice STAB
+        (icicle-crash), so no special move survives in a physical build.
+    """
+    # Realistic learnset (subset of the 95-move PokeAPI pool, verified):
+    # includes icy-wind (the support move that used to re-promote lead_support)
+    # and BOTH physical (icicle-crash) and special (ice-beam) Ice STABs.
+    abomasnow = _mk(
+        "abomasnow",
+        ["grass", "ice"],
+        hp=90, atk=92, def_=75, spa=92, spd=85, spe=60,
+        abilities=["snow-warning"],
+        moves=[
+            "protect", "wood-hammer", "seed-bomb", "energy-ball",
+            "ice-beam", "blizzard", "icicle-crash", "ice-punch",
+            "ice-shard", "icy-wind", "earthquake",
+        ],
+    )
+    roles, tags, moves, nature, off = _select_chain(abomasnow)
+
+    assert roles[0] != "lead_support", f"offensive-leaning setter led support: {roles}"
+    assert "weather_setter" in tags
+    # atk == spa → physical tie-break → physical nature, Atk invested.
+    assert nature == "Jolly"
+    assert off.atk > 0 and off.spa == 0
+    # The dead special STAB must not appear in a physical build.
+    assert "ice-beam" not in moves, f"special STAB survived in physical build: {moves}"
+    # The central invariant: zero dead moves.
+    _assert_no_dead_move(moves, off)
+
+
+def test_e2e_special_leaning_setter_gets_special_stab() -> None:
+    """ADR §5.3.2 — a special-leaning weather setter receives a SPECIAL STAB
+    through the real selection path, with a special nature and SpA invested
+    (Atk == 0). Verifies the special path of §3.2/§3.3.
+
+    Ninetales-A-shaped: SpA 81 > Atk 67 → special tie-break, so the Ice STAB
+    chosen is special (ice-beam / blizzard), never a physical one.
+    """
+    setter = _mk(
+        "special-snow-setter",
+        ["ice", "fairy"],
+        hp=73, atk=67, def_=75, spa=110, spd=100, spe=109,
+        abilities=["snow-warning"],
+        moves=[
+            "protect", "ice-beam", "blizzard", "icicle-crash",
+            "moonblast", "dazzling-gleam", "freeze-dry", "aurora-veil",
+        ],
+    )
+    roles, tags, moves, nature, off = _select_chain(setter)
+
+    assert "weather_setter" in tags
+    assert nature == "Timid", f"special-leaning setter must get a special nature: {nature}"
+    assert off.spa > 0 and off.atk == 0
+    # The Ice STAB picked must be special, not the physical icicle-crash.
+    assert "icicle-crash" not in moves, f"physical STAB in special build: {moves}"
+    _assert_no_dead_move(moves, off)

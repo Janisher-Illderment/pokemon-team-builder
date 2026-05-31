@@ -163,6 +163,27 @@ _SETTER_ABILITY_TO_WEATHER: dict[str, str] = {
 }
 
 
+def _has_support_kit(moves: list[str]) -> bool:
+    """True if the moveset contains at least one genuine support move.
+
+    "Support kit" = a move that lets the mon actually do a lead/support job:
+    a core-viable lead move, a redirection move, or a speed-control move.
+    Reuses the module's existing frozensets (single source of truth).
+
+    WHY (ADR weather-setter-coherence §3.1.1): the weather-setter lead_support
+    floor should only promote ``lead_support`` to PRIMARY when the mon can
+    really support. A weather setter with no support move and no offensive
+    presence (Abomasnow) is an attacker whose value is "set the weather" —
+    that is the C3 ``weather_setter`` tag, not a mechanical support role.
+    """
+    move_set = {m.lower() for m in moves}
+    return bool(
+        move_set & _CORE_VIABLE_MOVES
+        or move_set & _REDIRECT_MOVES
+        or move_set & _SPEED_CONTROL_MOVES
+    )
+
+
 @dataclass(frozen=True)
 class CoverageReport:
     offensive_gaps: list[str] = field(default_factory=list)
@@ -389,23 +410,61 @@ def assign_role_weights(pokemon: PokemonData) -> RoleAssignment:
     _apply_ability_implicit_roles(role_weights, coverage_flags, abilities_lower)
 
     # ── 5. Build the ordered role list ───────────────────────────────
+    # ADR weather-setter-coherence §3.1/§3.1.1: the weather-setter floor only
+    # surfaces ``lead_support`` as a mechanical ROLE (primary or secondary) when
+    # the mon can actually support — i.e. it has a real support kit. A setter
+    # with no support move (Abomasnow) is an attacker that happens to set the
+    # weather; "set the weather" is the C3 ``weather_setter`` tag, not a role.
+    # The 0.8 floor stays in ``role_weights`` regardless (the team scorer still
+    # sees it); only the role list is gated. The independent move-driven
+    # ``move_lead_support`` path (Tailwind+spe>=90 / priority support) is a
+    # genuine support signal and is NOT gated by this.
+    # A weather setter "supports" (lead_support is a real role) only when it
+    # carries a genuine support move. An "offensive" setter (sweeper weight at
+    # or above the cutoff) keeps its sweeper as PRIMARY even if it also
+    # supports — lead_support may still trail as a secondary role (§3.1).
+    setter_supports = is_weather_setter and _has_support_kit(moves)
+    offensive_weight = max(
+        role_weights.get("physical_sweeper", 0.0),
+        role_weights.get("special_sweeper", 0.0),
+    )
+    # ADR move-category-coherence §3.4 (2a): "offensive setter" by INCLINATION,
+    # not just by the stat-100 sweeper cutoff. A mon whose best attacking stat
+    # meets or exceeds its best defensive stat is offensive-leaning even if it
+    # falls short of stat 100 — so it should NOT be promoted to lead_support
+    # PRIMARY by the weather floor. This is additive (``or``): nobody who was
+    # already offensive by the cutoff stops being offensive.
+    #   Abomasnow: max(92,92)=92 >= max(75,85)=85 → True  → not lead primary.
+    #   Pelipper:  max(50,95)=95 >= max(100,70)=100 → False → genuine support lead.
+    #   Ninetales-A: max(67,81)=81 >= max(75,100)=100 → False → stays lead.
+    offensive_lean = max(stats.atk, stats.spa) >= max(stats.def_, stats.spd)
+    setter_is_offensive = offensive_weight >= ROLE_PRESENCE_CUTOFF or offensive_lean
+    # lead_support is promoted to PRIMARY by the weather floor only for a
+    # non-offensive setter that actually supports.
+    setter_lead_primary = setter_supports and not setter_is_offensive
+
     # Boolean view: role names whose weight crosses the presence cutoff.
     boolean_roles: set[str] = {
         r for r, w in role_weights.items() if w >= ROLE_PRESENCE_CUTOFF
     }
+    # The weather-setter floor (0.8 >= cutoff) would otherwise force
+    # lead_support into the boolean set; drop it unless the setter truly
+    # supports or another (move-driven) path re-adds it below.
+    if is_weather_setter and not setter_supports:
+        boolean_roles.discard("lead_support")
     # Move-driven roles are always boolean-present even if a hypothetical
     # weight calc disagreed.
     if move_lead_support:
         boolean_roles.add("lead_support")
     if move_redirect:
         boolean_roles.add("redirect")
-    if is_weather_setter:
+    if setter_supports:
         boolean_roles.add("lead_support")
 
     ordered: list[str] = []
 
-    # Weather setter → primary role.
-    if is_weather_setter:
+    # Weather setter → primary role ONLY when it supports and is not offensive.
+    if setter_lead_primary:
         ordered.append("lead_support")
     # Prankster also gets lead_support primary (legacy behaviour).
     elif (
@@ -429,6 +488,26 @@ def assign_role_weights(pokemon: PokemonData) -> RoleAssignment:
         ordered.append("physical_sweeper")
     elif has_spec:
         ordered.append("special_sweeper")
+
+    # ADR move-category-coherence §1.4 / §3.4: an offensive-leaning weather
+    # setter (best attack >= best defence) whose sweeper weights fall short of
+    # the stat-100 cutoff must STILL lead with its dominant-stat sweeper, not
+    # with lead_support. Without this, a sub-cutoff offensive setter (Abomasnow
+    # 92/92) whose learnset carries a support move keeps lead_support in
+    # ``boolean_roles`` and, with no sweeper ordered above, lands as roles[0] —
+    # the reported bug. We append the dominant sweeper here so lead_support can
+    # only trail as a secondary. ``setter_lead_primary`` is already False for
+    # an offensive setter, so this never demotes a genuine support lead
+    # (Pelipper / Ninetales-A are not offensive-leaning → unaffected).
+    if (
+        is_weather_setter
+        and setter_is_offensive
+        and not (has_phys or has_spec)
+        and not setter_lead_primary
+    ):
+        ordered.append(
+            "physical_sweeper" if stats.atk >= stats.spa else "special_sweeper"
+        )
 
     # Walls and the rest in spec order.
     for role in (

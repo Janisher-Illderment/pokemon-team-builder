@@ -1020,6 +1020,34 @@ def _pick_ability(pokemon: PokemonData) -> str:
     return pokemon.abilities[0]
 
 
+def _dominant_attack_category(moves: list[str]) -> str | None:
+    """Return the dominant DAMAGE category of a moveset, or None on tie/no-damage.
+
+    Counts moves whose category is known (via ``replica_exporter._MOVE_CATEGORY``)
+    and returns ``"physical"`` or ``"special"`` when one strictly outnumbers the
+    other. Returns ``None`` when there is a tie, or when no move has a known
+    damage category (e.g. an all-status set like Protect/Tailwind).
+
+    WHY (ADR §3.2): nature and SP must reflect the category of the moveset that
+    is *actually assigned*, not the role label or base atk-vs-spa. Status moves
+    and moves missing from ``_MOVE_CATEGORY`` do not vote — this is safe (it can
+    only weaken the signal, never invent a false category, ADR §6 RISK-bajo).
+    """
+    physical = 0
+    special = 0
+    for move in moves:
+        cat = replica_exporter._MOVE_CATEGORY.get(move)
+        if cat == "physical":
+            physical += 1
+        elif cat == "special":
+            special += 1
+    if physical > special:
+        return "physical"
+    if special > physical:
+        return "special"
+    return None
+
+
 def _derive_nature(primary: str, roles: list[str], moves: list[str]) -> str:
     """Pick a nature from the slot-2 STAB category when possible.
 
@@ -1031,6 +1059,14 @@ def _derive_nature(primary: str, roles: list[str], moves: list[str]) -> str:
     WHY: a Pelipper lead with Hurricane (special) was getting Jolly under
     the role-only mapping, wasting its 95 SpA. Reading the actual STAB
     category is more accurate than role alone.
+
+    ADR weather-setter-coherence §3.2: for offensive roles and lead_support we
+    now consult the DOMINANT category of the whole moveset first (more robust
+    than the isolated slot-2). This fixes mixed sets where a special coverage
+    move (Ice Beam) is orphaned by a physical slot-2. The dominant category, if
+    decisive, overrides slot-2; on a tie / status-only set it returns None and
+    we fall back to the slot-2 behaviour (unchanged for the pinned Pelipper /
+    physical-lead cases, which are mono-category → dominant == slot-2).
     """
     if primary == "trick_room_setter":
         return "Sassy"
@@ -1041,12 +1077,16 @@ def _derive_nature(primary: str, roles: list[str], moves: list[str]) -> str:
         if len(moves) > 1
         else ""
     )
+    # Whole-moveset dominant category takes precedence over the isolated
+    # slot-2 for attacking roles (ADR §3.2). None on tie/no-damage → slot-2.
+    dominant_cat = _dominant_attack_category(moves)
+    effective_cat = dominant_cat if dominant_cat is not None else slot2_cat
     if primary in ("physical_sweeper", "lead_support"):
-        if slot2_cat == "special":
+        if effective_cat == "special":
             return "Timid"
         return "Jolly"  # default for physical or unknown
     if primary == "special_sweeper":
-        if slot2_cat == "physical":
+        if effective_cat == "physical":
             return "Jolly"
         return "Timid"  # default for special or unknown
     if primary == "physical_wall":
