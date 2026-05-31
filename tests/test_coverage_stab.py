@@ -281,6 +281,79 @@ def test_dual_type_with_two_stabs_may_sacrifice_one() -> None:
     )
 
 
+def test_second_stab_invariant_respects_category_physical() -> None:
+    """ADR move-category-coherence §5.3.3: the second-STAB invariant (slot 3)
+    must respect the build's offensive category.
+
+    A physical Ground/Ice mon (Atk > SpA) whose Ice pool contains BOTH a
+    special STAB (ice-beam, first in _STAB_BY_TYPE["ice"]) AND a physical STAB
+    (icicle-crash) must take the PHYSICAL one for the second-STAB slot. Before
+    the fix, the loop took the head of _STAB_BY_TYPE regardless of category →
+    special ice-beam in a physical build → dead move (the Abomasnow bug,
+    generalised). We assert on slot 3 (the second-STAB slot) precisely.
+    """
+    mon = _mk(
+        "mamoswine-ish",
+        ["ground", "ice"],
+        atk=130, spa=70,
+        moves=[
+            "protect",
+            "earthquake",     # Ground STAB (physical) → slot 2
+            "ice-beam",       # special Ice STAB (head of the table)
+            "icicle-crash",   # physical Ice STAB
+            "stone-edge",
+        ],
+    )
+    moves = select_moves_for_role(mon, ["physical_sweeper"])
+    # slot 3 is the second-STAB slot; it must be the physical Ice STAB.
+    assert moves[2] == "icicle-crash", f"Second-STAB slot must be physical Ice STAB: {moves}"
+
+
+def test_second_stab_invariant_respects_category_special() -> None:
+    """ADR §5.3.3 (mirror): a special Ground/Ice mon (SpA > Atk) takes the
+    SPECIAL Ice STAB (ice-beam) for the second-STAB slot, not the physical
+    one (icicle-crash)."""
+    mon = _mk(
+        "special-ground-ice",
+        ["ground", "ice"],
+        atk=70, spa=130,
+        moves=[
+            "protect",
+            "earth-power",    # Ground STAB (special) → slot 2
+            "ice-beam",       # special Ice STAB
+            "icicle-crash",   # physical Ice STAB
+            "shadow-ball",
+        ],
+    )
+    moves = select_moves_for_role(mon, ["special_sweeper"])
+    assert moves[2] == "ice-beam", f"Second-STAB slot must be special Ice STAB: {moves}"
+
+
+def test_second_stab_invariant_pass1_keeps_off_category_when_only_option() -> None:
+    """ADR §5.3.3 degenerate case: if the missing type ONLY has an
+    off-category STAB in the pool, pass 1 still admits it so the
+    STAB-presence invariant ("≥1 STAB of the 2nd type if it exists") holds.
+
+    Physical Ground/Ice mon whose ONLY Ice STAB in pool is special (ice-beam)
+    → it must still appear (presence beats category when there is no choice).
+    """
+    mon = _mk(
+        "physical-ground-special-ice-only",
+        ["ground", "ice"],
+        atk=130, spa=70,
+        moves=[
+            "protect",
+            "earthquake",     # Ground STAB (physical) → slot 2
+            "ice-beam",       # the ONLY Ice STAB available (special)
+            "stone-edge",
+        ],
+    )
+    moves = select_moves_for_role(mon, ["physical_sweeper"])
+    assert "ice-beam" in moves, (
+        f"≥1 Ice STAB must be present even off-category when no other exists: {moves}"
+    )
+
+
 def test_weather_setter_drought_gets_lead_support_weight() -> None:
     """Spec role-balance: weather setters receive lead_support >= 0.8.
 

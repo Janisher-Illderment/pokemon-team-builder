@@ -384,12 +384,10 @@ def select_moves_for_role(
         slot1 = _fallback_move(move_pool, set())
     used.add(slot1)
 
-    # Primary attack category: physical if Atk >= SpA, else special.
-    primary_cat = (
-        "physical"
-        if pokemon.base_stats.atk >= pokemon.base_stats.spa
-        else "special"
-    )
+    # Primary attack category: single source of truth (ADR §3.1). Same
+    # formula as before (physical if Atk >= SpA, else special) — now shared
+    # with the second-STAB invariant below so every damage slot agrees.
+    primary_cat = _offensive_category(pokemon.base_stats)
 
     # Slot 2: STAB — try meta moves that are STAB for this pokémon and
     # category-matching first; then fall through to the static STAB table.
@@ -468,26 +466,49 @@ def select_moves_for_role(
         if t.lower() not in covered_stab_types
     ]
 
+    # ADR move-category-coherence §3.1 / §5.3.3: the second STAB must respect
+    # the build's offensive category, exactly like slot-2 and slot-3 do. Two
+    # passes: pass 0 accepts ONLY moves whose category matches ``primary_cat``;
+    # pass 1 (fallback) accepts any category, and runs only if pass 0 found no
+    # categorically-correct STAB for the missing type. This preserves the
+    # STAB-presence invariant ("≥1 STAB of the 2nd type IF one exists in pool")
+    # — pass 1 still picks up an off-category STAB when that is all the pool
+    # offers — while preventing the dead-move bug (a physical Abomasnow no
+    # longer receives special Ice Beam from the head of _STAB_BY_TYPE["ice"];
+    # it gets icicle-crash). The filter applies to BOTH the meta-moves branch
+    # and the static STAB table, symmetric with slot-2's meta/static split.
     second_stab: str | None = None
-    for missing_type in missing_stab_types:
-        # Prefer a meta-listed STAB move (PokeAPI-aligned vocabulary).
-        if meta_moves:
-            for candidate in meta_moves:
+    for pass_num in range(2):
+        for missing_type in missing_stab_types:
+            # Prefer a meta-listed STAB move (PokeAPI-aligned vocabulary).
+            if meta_moves:
+                for candidate in meta_moves:
+                    if candidate in used or candidate not in move_pool:
+                        continue
+                    cand_type = _MOVE_TYPE.get(candidate, "")
+                    if cand_type != missing_type:
+                        continue
+                    cand_cat = _MOVE_CATEGORY.get(candidate, "")
+                    # Pass 0: category must match. Unknown category ("") is
+                    # treated as ineligible in pass 0 (mirrors slot-2/slot-3),
+                    # so a categorized STAB always wins the strict pass.
+                    if pass_num == 0 and cand_cat != primary_cat:
+                        continue
+                    second_stab = candidate
+                    break
+            if second_stab is not None:
+                break
+            # Fall back to the curated STAB-by-type table.
+            for candidate in _STAB_BY_TYPE.get(missing_type, ()):
                 if candidate in used or candidate not in move_pool:
                     continue
-                cand_type = _MOVE_TYPE.get(candidate, "")
-                if cand_type != missing_type:
+                cand_cat = _MOVE_CATEGORY.get(candidate, "")
+                if pass_num == 0 and cand_cat != primary_cat:
                     continue
                 second_stab = candidate
                 break
-        if second_stab is not None:
-            break
-        # Fall back to the curated STAB-by-type table.
-        for candidate in _STAB_BY_TYPE.get(missing_type, ()):
-            if candidate in used or candidate not in move_pool:
-                continue
-            second_stab = candidate
-            break
+            if second_stab is not None:
+                break
         if second_stab is not None:
             break
 
