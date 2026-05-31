@@ -288,6 +288,33 @@ def test_abomasnow_offensive_setter_not_lead_support() -> None:
     assert "weather_setter" in derive_doubles_tags(abomasnow)
 
 
+def test_abomasnow_offensive_setter_not_lead_support_even_with_support_in_set() -> None:
+    """ADR move-category-coherence §5.2: reinforces the test above by closing
+    the actual runtime grietas. The OLD test passed only because its fixture
+    OMITTED icy-wind — but the real build starts from the full learnset (which
+    DOES include icy-wind, confirmed via PokeAPI), so _has_support_kit was True
+    in runtime and lead_support reappeared.
+
+    With (2a) "offensive by inclination", Abomasnow (max(92,92)=92 >=
+    max(75,85)=85 → offensive-leaning) is NOT promoted to lead_support PRIMARY
+    EVEN WHEN a support move (icy-wind) is present in the set. This codifies
+    that a learnset-with-support no longer resurrects the bug.
+    """
+    abomasnow = _mk(
+        "abomasnow",
+        ["grass", "ice"],
+        hp=90, atk=92, def_=75, spa=92, spd=85, spe=60,
+        abilities=["snow-warning"],
+        moves=["protect", "icicle-crash", "wood-hammer", "icy-wind"],
+    )
+    roles = assign_role(abomasnow)
+    assert roles[0] != "lead_support", (
+        f"offensive-leaning setter must not be lead primary even with a "
+        f"support move in set; got {roles}"
+    )
+    assert "weather_setter" in derive_doubles_tags(abomasnow)
+
+
 def test_setter_with_support_move_keeps_lead() -> None:
     """ADR §5.3.6: a NON-offensive weather setter WITH a real support move
     (Pelipper + tailwind) keeps lead_support primary. The fix must not break
@@ -322,6 +349,46 @@ def test_offensive_setter_with_support_is_sweeper_primary_lead_secondary() -> No
     roles = assign_role(mon)
     assert roles[0] == "physical_sweeper"
     assert "lead_support" in roles  # secondary, via the support move
+
+
+def test_offensive_lean_boundary_synergy() -> None:
+    """ADR move-category-coherence §5.3.5: the (2a) offensive-inclination
+    clause classifies a weather setter as offensive when its best attacking
+    stat >= its best defensive stat, gating it out of lead_support PRIMARY.
+
+    - Abomasnow (92/92 vs 75/85): max(92,92)=92 >= max(75,85)=85 → offensive
+      → NOT lead primary (its set has icy-wind in learnset, which previously
+      promoted it).
+    - Pelipper (50/95 vs 100/70): max(50,95)=95 >= max(100,70)=100 → False
+      → still eligible for genuine support lead.
+    - A pure wall (60/60 vs 120/120) → max(60,60)=60 >= max(120,120)=120
+      → False → not offensive (guards against over-promotion of the clause).
+    """
+    abomasnow = _mk(
+        "abomasnow", ["grass", "ice"],
+        hp=90, atk=92, def_=75, spa=92, spd=85, spe=60,
+        abilities=["snow-warning"],
+        moves=["protect", "icy-wind", "blizzard", "energy-ball"],
+    )
+    assert assign_role(abomasnow)[0] != "lead_support"
+
+    pelipper = _mk(
+        "pelipper", ["water", "flying"],
+        hp=60, atk=50, def_=100, spa=95, spd=70, spe=65,
+        abilities=["drizzle"],
+        moves=["protect", "hurricane", "scald", "tailwind"],
+    )
+    # Pelipper is NOT offensive-leaning → genuine support lead survives.
+    assert assign_role(pelipper)[0] == "lead_support"
+
+    wall_setter = _mk(
+        "wall-setter", ["water"],
+        hp=100, atk=60, def_=120, spa=60, spd=120, spe=40,
+        abilities=["drizzle"],
+        moves=["protect", "scald", "icy-wind", "recover"],
+    )
+    # Defensive wall that sets weather and supports → still a genuine lead.
+    assert assign_role(wall_setter)[0] == "lead_support"
 
 
 def test_non_weather_ability_unaffected() -> None:

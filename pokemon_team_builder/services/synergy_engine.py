@@ -428,7 +428,17 @@ def assign_role_weights(pokemon: PokemonData) -> RoleAssignment:
         role_weights.get("physical_sweeper", 0.0),
         role_weights.get("special_sweeper", 0.0),
     )
-    setter_is_offensive = offensive_weight >= ROLE_PRESENCE_CUTOFF
+    # ADR move-category-coherence §3.4 (2a): "offensive setter" by INCLINATION,
+    # not just by the stat-100 sweeper cutoff. A mon whose best attacking stat
+    # meets or exceeds its best defensive stat is offensive-leaning even if it
+    # falls short of stat 100 — so it should NOT be promoted to lead_support
+    # PRIMARY by the weather floor. This is additive (``or``): nobody who was
+    # already offensive by the cutoff stops being offensive.
+    #   Abomasnow: max(92,92)=92 >= max(75,85)=85 → True  → not lead primary.
+    #   Pelipper:  max(50,95)=95 >= max(100,70)=100 → False → genuine support lead.
+    #   Ninetales-A: max(67,81)=81 >= max(75,100)=100 → False → stays lead.
+    offensive_lean = max(stats.atk, stats.spa) >= max(stats.def_, stats.spd)
+    setter_is_offensive = offensive_weight >= ROLE_PRESENCE_CUTOFF or offensive_lean
     # lead_support is promoted to PRIMARY by the weather floor only for a
     # non-offensive setter that actually supports.
     setter_lead_primary = setter_supports and not setter_is_offensive
@@ -478,6 +488,26 @@ def assign_role_weights(pokemon: PokemonData) -> RoleAssignment:
         ordered.append("physical_sweeper")
     elif has_spec:
         ordered.append("special_sweeper")
+
+    # ADR move-category-coherence §1.4 / §3.4: an offensive-leaning weather
+    # setter (best attack >= best defence) whose sweeper weights fall short of
+    # the stat-100 cutoff must STILL lead with its dominant-stat sweeper, not
+    # with lead_support. Without this, a sub-cutoff offensive setter (Abomasnow
+    # 92/92) whose learnset carries a support move keeps lead_support in
+    # ``boolean_roles`` and, with no sweeper ordered above, lands as roles[0] —
+    # the reported bug. We append the dominant sweeper here so lead_support can
+    # only trail as a secondary. ``setter_lead_primary`` is already False for
+    # an offensive setter, so this never demotes a genuine support lead
+    # (Pelipper / Ninetales-A are not offensive-leaning → unaffected).
+    if (
+        is_weather_setter
+        and setter_is_offensive
+        and not (has_phys or has_spec)
+        and not setter_lead_primary
+    ):
+        ordered.append(
+            "physical_sweeper" if stats.atk >= stats.spa else "special_sweeper"
+        )
 
     # Walls and the rest in spec order.
     for role in (
