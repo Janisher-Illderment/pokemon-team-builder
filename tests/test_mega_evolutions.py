@@ -356,8 +356,9 @@ def test_assign_items_mega_slot_other_slots_normal() -> None:
             f"mon-{i}",
             ["normal"],
             atk=120,
-            spa=70,
-            spe=90,
+            def_=90,  # non-frail (Def+SpD 160 > 150) so C5's frail-attacker
+            spa=70,   # berry preference does not apply — keeps this test
+            spe=90,   # focused on mega-slot reservation, not item choice.
             moves=["protect", "body-slam", "earthquake", "ice-beam"],
             pid=500 + i,
         )
@@ -369,9 +370,8 @@ def test_assign_items_mega_slot_other_slots_normal() -> None:
     )
     assert items[0] == "Charizardite Y"
     # Slot 1 (and onwards) gets the role default first, then fallbacks.
-    # v0.10.3 (2026-05-15): physical_sweeper default is Shell Bell after
-    # Sergio's full in-game store paste — Sitrus Berry is NOT in
-    # Champions either.
+    # physical_sweeper default is Shell Bell (these mons are not frail, so
+    # no C5 type-resist berry).
     assert items[1] == "Shell Bell"
 
 

@@ -55,8 +55,9 @@ De V3/V4/V5, las funciones que de verdad importan:
 
 ## 5. Objetos: pool restringido OK, defaults por rol cuestionables
 - Objetos realmente usados en Champions (V4,V5,V7): **banda focus** (focus sash), **pañuelo elegido**
-  (choice scarf), **vallas de tipo** (p.ej. valla Pomaro / type-resist berries) para sobrevivir un golpe,
-  Sitrus, intimidación+sorpresa como "items virtuales". Nervio (Aerodáctil) desactiva vallas.
+  (choice scarf), **bayas de resistencia de tipo** (type-resist berries, p.ej. Baya Pomarco/Chople) para
+  sobrevivir un golpe superefectivo, Sitrus, intimidación+sorpresa como "items virtuales". Nervio
+  (Aerodáctil) desactiva las bayas. (Nota: el auto-subtítulo transcribía "baya" como "valla".)
 - → Revisar `team_generator.py:47-74`: defaults como Shell Bell / Scope Lens / Leppa / Persim no reflejan
   lo que se juega. Sustituir por elecciones reales DENTRO del pool legal (`champions_legal_items.json`).
 

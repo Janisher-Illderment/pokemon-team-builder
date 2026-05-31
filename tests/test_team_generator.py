@@ -398,6 +398,57 @@ def test_assign_items_no_synthetic_item_strings() -> None:
         )
 
 
+# ── C5: frail-attacker type-resist berry (docs/vgc-principles.md §5, V7) ──
+
+
+def test_frail_psychic_attacker_gets_dark_resist_berry() -> None:
+    """A frail Psychic special sweeper (weak to Dark/Ghost/Bug) gets the
+    berry for its highest-priority worst weakness — Dark → Colbur Berry."""
+    from pokemon_team_builder.services.team_generator import (
+        _assign_items,
+        _frail_attacker_resist_berry,
+    )
+
+    alakazam = _mk(
+        "alakazam", ["psychic"],
+        hp=55, atk=50, def_=45, spa=135, spd=95, spe=120,
+        moves=["protect", "psychic", "shadow-ball", "dazzling-gleam"],
+    )
+    assert _frail_attacker_resist_berry(alakazam, ["special_sweeper"]) == "Colbur Berry"
+    items = _assign_items([["special_sweeper"]], [alakazam])
+    assert items[0] == "Colbur Berry", items
+
+
+def test_bulky_attacker_keeps_role_default_not_berry() -> None:
+    """A bulky attacker (high HP/bulk) is NOT frail → keeps its role default,
+    never the frail-attacker berry."""
+    from pokemon_team_builder.services.team_generator import (
+        _assign_items,
+        _frail_attacker_resist_berry,
+    )
+
+    snorlax = _mk(
+        "snorlax", ["normal"],
+        hp=160, atk=110, def_=65, spa=65, spd=110, spe=30,
+        moves=["protect", "body-slam", "earthquake", "crunch"],
+    )
+    assert _frail_attacker_resist_berry(snorlax, ["physical_sweeper"]) is None
+    items = _assign_items([["physical_sweeper"]], [snorlax])
+    assert items[0] == "Shell Bell", items  # physical_sweeper static default
+
+
+def test_frail_non_offensive_role_no_berry() -> None:
+    """The berry preference only applies to offensive roles."""
+    from pokemon_team_builder.services.team_generator import (
+        _frail_attacker_resist_berry,
+    )
+
+    frail_support = _mk(
+        "support", ["psychic"], hp=55, def_=45, spd=95, spa=60, spe=120,
+    )
+    assert _frail_attacker_resist_berry(frail_support, ["lead_support"]) is None
+
+
 def test_choice_scarf_not_assigned_to_trick_room_setter() -> None:
     """Trick Room setters must never receive a Choice item."""
     from pokemon_team_builder.services.team_generator import (

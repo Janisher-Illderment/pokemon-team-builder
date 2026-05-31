@@ -194,6 +194,63 @@ _STAT_DROP_MOVES: frozenset[str] = frozenset({
     "close-combat", "superpower", "v-create",
 })
 
+# C5 (docs/vgc-principles.md §5, video V7): canonical type → type-resist
+# berry map (matches champions_items_official.csv). A frail offensive mon
+# runs the berry that halves its worst super-effective weakness so it can
+# survive one hit and still attack (V7: "muchos Pokémon han optado por
+# llevar una baya equipada para evitar movimientos superefectivos").
+_TYPE_RESIST_BERRY: dict[str, str] = {
+    "normal": "Chilan Berry", "fire": "Occa Berry", "water": "Passho Berry",
+    "electric": "Wacan Berry", "grass": "Rindo Berry", "ice": "Yache Berry",
+    "fighting": "Chople Berry", "poison": "Kebia Berry", "ground": "Shuca Berry",
+    "flying": "Coba Berry", "psychic": "Payapa Berry", "bug": "Tanga Berry",
+    "rock": "Charti Berry", "ghost": "Kasib Berry", "dragon": "Haban Berry",
+    "dark": "Colbur Berry", "steel": "Babiri Berry", "fairy": "Roseli Berry",
+}
+
+# Offensive-attacker roles eligible for the frail-attacker berry preference.
+_OFFENSIVE_ROLES: frozenset[str] = frozenset({"physical_sweeper", "special_sweeper"})
+
+# Meta-relevant offensive types (videos V3-V7) — used only as a deterministic
+# tie-break when a mon has several equally-bad weaknesses, so the berry covers
+# the threat most likely to actually show up.
+_META_THREAT_PRIORITY: tuple[str, ...] = (
+    "fairy", "fighting", "water", "ground", "ice", "dark", "ghost", "flying",
+    "fire", "rock", "electric", "dragon", "grass", "psychic", "steel", "bug",
+    "poison", "normal",
+)
+
+
+def _frail_attacker_resist_berry(
+    pokemon: PokemonData, roles: list[str]
+) -> str | None:
+    """Return the type-resist berry covering a frail attacker's worst weakness.
+
+    Returns None unless the member is an offensive role, is physically/
+    specially frail (base HP <= 80 and Def + SpD <= 150), and has at least
+    one >=2x weakness. Ties on multiplier break by ``_META_THREAT_PRIORITY``
+    so the berry covers the most common offensive type, then alphabetically.
+    """
+    if not (set(roles) & _OFFENSIVE_ROLES):
+        return None
+    bs = pokemon.base_stats
+    if bs.hp > 80 or (bs.def_ + bs.spd) > 150:
+        return None
+    weak = {t: m for t, m in pokemon.weaknesses.items() if m >= 2.0}
+    if not weak:
+        return None
+    worst = max(weak.values())
+    candidates = [t.lower() for t, m in weak.items() if m == worst]
+
+    def _rank(t: str) -> tuple[int, str]:
+        try:
+            return (_META_THREAT_PRIORITY.index(t), t)
+        except ValueError:
+            return (len(_META_THREAT_PRIORITY), t)
+
+    best_type = min(candidates, key=_rank)
+    return _TYPE_RESIST_BERRY.get(best_type)
+
 # Mirrors replica_exporter._CHOICE_ITEMS — kept as a local copy so
 # team_generator does not depend on a private constant in another module.
 # These two sets must always agree.
@@ -663,7 +720,20 @@ def _assign_items(
             candidate = meta_item
             break
 
-        # Fall back to role-based default if no meta item worked.
+        # C5: a frail offensive member prefers the type-resist berry for its
+        # worst weakness (V7 — survive one super-effective hit, then attack).
+        # Falls through to the role default if the berry is taken (Item
+        # Clause) or not in the legal pool.
+        if candidate is None and members is not None:
+            berry = _frail_attacker_resist_berry(members[i], roles)
+            if (
+                berry is not None
+                and berry not in used
+                and (not legal_items or berry in legal_items)
+            ):
+                candidate = berry
+
+        # Fall back to role-based default if no meta item / berry worked.
         if candidate is None:
             candidate = _DEFAULT_ITEM_BY_ROLE.get(primary, _FALLBACK_ITEM)
             if members is not None and not _item_is_activatable(
