@@ -146,10 +146,11 @@ def test_weather_synergy_zeroed_by_stall_archetype():
     # multiplied by 0.0 (stall), it contributes nothing to the total.
     # Confirm the raw helper is non-zero but score_team ignores it.
     assert _weather_synergy_points(members) == pytest.approx(3.0)
-    # Speed control penalty applies equally (no speed-control in either
-    # team) — but stall is exempt, so neither gets penalised.
-    # The non-weather differences are coverage/roles, so we just sanity
-    # check that stall's weather=0 does not surprise us with a bonus.
+    # Speed control penalty applies equally to both (neither has speed
+    # control; since C4 stall is no longer exempt, both take the same -15,
+    # so it cancels out of the comparison). The non-weather differences are
+    # coverage/roles, so we just sanity check that stall's weather=0 does
+    # not surprise us with a bonus.
     assert isinstance(score_with_weather, float)
 
 

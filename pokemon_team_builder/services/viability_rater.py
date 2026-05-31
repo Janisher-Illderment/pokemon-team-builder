@@ -296,12 +296,16 @@ def _count_speed_control(members: list[TeamMember]) -> float:
 def _speed_control_penalty(variant: TeamVariant, archetype: str) -> float:
     """Return the speed-control penalty (≤ 0) for the variant.
 
-    Per spec §10: ``stall`` is exempt; every other archetype must have
-    at least 1.0 combined speed-control credit, otherwise a flat
-    -15 point penalty is applied.
+    Every archetype must have at least 1.0 combined speed-control credit,
+    otherwise a flat -15 point penalty is applied.
+
+    VGC-corrected (C4, docs/vgc-principles.md §2, video V3): ``stall`` is
+    NO LONGER exempt. Stall is non-viable in VGC Doubles precisely because
+    it relies on outlasting the opponent without controlling the turn order
+    — exempting it was rewarding the very weakness that makes it lose. A
+    stall team structurally lacks speed control, so it now incurs the
+    penalty like any other archetype.
     """
-    if archetype == "stall":
-        return 0.0
     if _count_speed_control(variant.members) >= 1.0:
         return 0.0
     return _SPEED_CONTROL_PENALTY

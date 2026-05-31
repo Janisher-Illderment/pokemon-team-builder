@@ -77,11 +77,24 @@ def test_trick_room_member_passes():
     assert _speed_control_penalty(variant, "balance") == pytest.approx(0.0)
 
 
-def test_stall_archetype_exempt():
+def test_stall_archetype_not_exempt_in_doubles():
+    """C4 (V3): stall is non-viable in VGC Doubles and is NO LONGER exempt
+    from the speed-control penalty. A stall team with no speed control takes
+    the -15 like any other archetype."""
     members = _fill([_mk("mon1"), _mk("mon2")])
     variant = TeamVariant(members=members)
+    assert _speed_control_penalty(variant, "stall") == pytest.approx(-15.0)
+    assert variant_requires_speed_control(variant, "stall") is True
+
+
+def test_stall_with_speed_control_still_passes():
+    """A stall team that DOES carry speed control is not penalised — the
+    rule is about the mechanism, not the archetype label."""
+    members = _fill([
+        _mk("dusclops", moves=["protect", "shadow-ball", "trick-room", "will-o-wisp"]),
+    ])
+    variant = TeamVariant(members=members)
     assert _speed_control_penalty(variant, "stall") == pytest.approx(0.0)
-    assert variant_requires_speed_control(variant, "stall") is False
 
 
 def test_two_static_members_count_as_one_mechanism():

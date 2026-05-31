@@ -4,7 +4,8 @@
     "date": "2026-05-31",
     "highlights": "Correcciones de diseño basadas en la serie VGC de Pokémon Champions (docs/vgc-principles.md)",
     "changes": [
-      { "type": "fix", "text": "Cobertura ofensiva: un move de daño cubre su tipo aunque NO sea STAB (antes solo contaba STAB). En VGC los ataques de cobertura son cómo amenazas lo que tus STAB no pueden (video V4: 'es importante que alguno tenga ataques de cobertura para dañar al acero'). Ej.: un mono-Agua con Rayo Hielo ahora cubre Hielo. services/synergy_engine.py:analyze_coverage; test invertido en tests/test_coverage_stab.py." }
+      { "type": "fix", "text": "Cobertura ofensiva: un move de daño cubre su tipo aunque NO sea STAB (antes solo contaba STAB). En VGC los ataques de cobertura son cómo amenazas lo que tus STAB no pueden (video V4: 'es importante que alguno tenga ataques de cobertura para dañar al acero'). Ej.: un mono-Agua con Rayo Hielo ahora cubre Hielo. services/synergy_engine.py:analyze_coverage; test invertido en tests/test_coverage_stab.py." },
+      { "type": "fix", "text": "Stall ya NO está exento de la penalización de control de velocidad (-15). El stall es inviable en dobles VGC precisamente porque depende de aguantar sin controlar el orden de turno (video V3); eximirlo premiaba justo la debilidad que lo hace perder. services/viability_rater.py:_speed_control_penalty; tests actualizados." }
     ]
   },
   {
