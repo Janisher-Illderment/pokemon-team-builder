@@ -346,7 +346,9 @@ function savedTeams() {
       const raw = localStorage.getItem(STORAGE_KEY);
       try { this.presets = raw ? JSON.parse(raw) : []; } catch { this.presets = []; }
       try {
-        const r = await fetch('/changelog.json');
+        // no-store: el changelog cambia con cada release; evitar que el
+        // navegador sirva una versión cacheada tras un deploy.
+        const r = await fetch('/changelog.json', { cache: 'no-store' });
         if (r.ok) this.changelog = await r.json();
       } catch {}
     },
