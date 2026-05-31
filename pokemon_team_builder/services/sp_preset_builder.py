@@ -286,8 +286,13 @@ def _offensive_weights(
     OTHER offensive levers (speed, bulk). Choice Scarf already gives the
     speed boost → invest in raw attack instead.
     """
-    is_physical = _is_physical_attacker(member)
-    primary_atk = "atk" if is_physical else "spa"
+    # ADR weather-setter-coherence §3.3 (C'): the nature already encodes the
+    # moveset's dominant category (derived in _derive_nature), so let it govern
+    # the offensive stat. Fall back to the base-stat heuristic only when the
+    # nature is neutral/ambiguous about offense.
+    primary_atk = _offensive_stat_from_nature(nature)
+    if primary_atk is None:
+        primary_atk = "atk" if _is_physical_attacker(member) else "spa"
 
     weights: dict[str, float] = {k: 0.0 for k in _STAT_KEYS}
     weights[primary_atk] = 10.0
@@ -324,8 +329,12 @@ def _defensive_weights(
     Eviolite inflates Def + SpD → free up SPs for offense; Assault Vest
     inflates SpD → invest more in Def to balance.
     """
-    is_physical = _is_physical_attacker(member)
-    primary_atk = "atk" if is_physical else "spa"
+    # ADR §3.3 / §7.3: apply the same nature-driven offensive-stat selection to
+    # the defensive preset's attacking stake for consistency. Fall back to the
+    # base-stat heuristic when the nature is offense-neutral.
+    primary_atk = _offensive_stat_from_nature(nature)
+    if primary_atk is None:
+        primary_atk = "atk" if _is_physical_attacker(member) else "spa"
 
     weights: dict[str, float] = {k: 0.0 for k in _STAT_KEYS}
     weights["hp"] = 10.0

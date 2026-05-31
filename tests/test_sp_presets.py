@@ -270,3 +270,49 @@ def test_offensive_stat_from_nature_is_case_insensitive():
 
     assert _offensive_stat_from_nature("jolly") == "atk"
     assert _offensive_stat_from_nature("TIMID") == "spa"
+
+
+# ── Anti-bug invariant: SP follows the nature, not base atk-vs-spa (ADR §5.3.1)
+
+def test_offensive_preset_special_nature_invests_spa_not_atk():
+    """ADR §3.3: a mixed-stat mon (atk == spa) with a SPECIAL nature (Timid)
+    must invest in SpA, not Atk — the original Abomasnow bug shipped 0 SpA with
+    Ice Beam in the set.
+
+    Invariant: NOT (special damage in moveset AND spa_SP == 0).
+    """
+    member = _mk(
+        "abomasnow",
+        atk=92, spa=92, spe=60,          # mixed stats → base heuristic ties to physical
+        item="Leftovers",
+        nature="Timid",                  # moveset is special-dominant
+        role="special_sweeper",
+    )
+    # special-dominant moveset (ice-beam/blizzard/energy-ball special, +protect)
+    member = member.model_copy(
+        update={"moves": ["protect", "blizzard", "energy-ball", "ice-beam"]}
+    )
+    presets = build_presets(member, "Leftovers", "Timid")
+    off = presets["offensive"]
+    assert off.spa > 0, "special attacker must invest SpA"
+    assert off.atk == 0, "Timid zeroes Atk — no wasted SP on the unused stat"
+
+
+def test_offensive_preset_physical_nature_invests_atk_not_spa():
+    """Mirror invariant: a physical nature (Jolly) on the same mixed-stat mon
+    invests Atk and zeroes SpA.
+    """
+    member = _mk(
+        "abomasnow",
+        atk=92, spa=92, spe=60,
+        item="Leftovers",
+        nature="Jolly",
+        role="physical_sweeper",
+    )
+    member = member.model_copy(
+        update={"moves": ["protect", "seed-bomb", "ice-punch", "earthquake"]}
+    )
+    presets = build_presets(member, "Leftovers", "Jolly")
+    off = presets["offensive"]
+    assert off.atk > 0, "physical attacker must invest Atk"
+    assert off.spa == 0, "Jolly zeroes SpA"
