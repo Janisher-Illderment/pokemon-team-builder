@@ -152,8 +152,10 @@ def test_speed_boundaries_exclusive():
 # ── Signal 4: unreliable Rock moves (−0.05 each, cap −0.10) ────────────────────
 
 def test_one_unreliable_rock_move():
+    """V7's cursed profile: a ROCK-TYPE PHYSICAL attacker stuck with an
+    unreliable Rock STAB (Tyranitar/Aerodactyl-like)."""
     mon = _mk(
-        "slider", types=["ground"], atk=120, spe=100,
+        "rockslider", types=["rock"], atk=120, spa=40, spe=100,
         moves=["earthquake", "rock-slide"],
     )
     report = evaluate_pokemon_quality(mon)
@@ -162,15 +164,39 @@ def test_one_unreliable_rock_move():
 
 
 def test_two_unreliable_rock_moves_capped():
-    """Both rock-slide and stone-edge → −0.10 cap, not −0.10? (0.05*2 == 0.10)."""
+    """Both rock-slide and stone-edge on a Rock-type physical attacker →
+    −0.10 cap (0.05*2 == 0.10)."""
     mon = _mk(
-        "doublerock", types=["ground"], atk=120, spe=100,
+        "doublerock", types=["rock"], atk=120, spa=40, spe=100,
         moves=["earthquake", "rock-slide", "stone-edge"],
     )
     report = evaluate_pokemon_quality(mon)
     assert report.unreliable_moves == ["rock-slide", "stone-edge"]
     # 0.05 * 2 = 0.10, equal to the cap.
     assert report.score == 0.90
+
+
+def test_coverage_rock_slide_on_non_rock_not_penalised():
+    """A non-Rock mon merely carrying Rock Slide as COVERAGE is not the
+    profile V7 laments — the unreliable-move signal must NOT fire (avoids
+    penalising every Garchomp-style coverage Rock Slide)."""
+    mon = _mk(
+        "grounder", types=["ground"], atk=120, spa=40, spe=100,
+        moves=["earthquake", "rock-slide"],
+    )
+    report = evaluate_pokemon_quality(mon)
+    assert report.unreliable_moves == []
+    assert report.score == 1.0
+
+
+def test_unreliable_rock_skipped_for_special_rock_attacker():
+    """A specially-oriented Rock mon (spa > atk) is not the physical
+    cursed-STAB profile, so the signal does not fire."""
+    mon = _mk(
+        "specialrock", types=["rock"], atk=40, spa=120, spe=100,
+        moves=["power-gem", "rock-slide"],
+    )
+    assert evaluate_pokemon_quality(mon).unreliable_moves == []
 
 
 # ── Signal 5: movepool insufficient for sweeper role (−0.10) ───────────────────
@@ -206,10 +232,12 @@ def test_sweeper_with_stab_damage_not_penalised():
 # ── Combined signals stack and clamp ───────────────────────────────────────────
 
 def test_multiple_signals_stack():
-    """Split + speed limbo + one rock move = 1.0 − 0.10 − 0.05 − 0.05 = 0.80."""
+    """Rock-type physical+special split attacker, limbo speed, one unreliable
+    Rock STAB = 1.0 − 0.10 (split) − 0.05 (limbo) − 0.05 (rock) = 0.80.
+    (Rock Slide is the mon's own-type STAB, so no movepool penalty.)"""
     mon = _mk(
-        "messy", types=["dragon"], atk=100, spa=100, spe=80,
-        moves=["dragon-claw", "rock-slide"],
+        "messy", types=["rock"], atk=100, spa=100, spe=80,
+        moves=["body-slam", "rock-slide"],
     )
     report = evaluate_pokemon_quality(mon)
     assert report.split_attacker is True
@@ -227,7 +255,8 @@ def test_score_never_below_floor():
     mon = _mk(
         "worst", types=["ice"], atk=100, def_=100, spa=100, spd=100, spe=80,
         # ice sweeper, no ice STAB damage in learnset → movepool signal;
-        # split; type-bulk; speed limbo; two rock moves.
+        # split; type-bulk (ice + bulk); speed limbo. (Rock moves do NOT
+        # fire the unreliable signal here — it is gated on Rock typing.)
         moves=["rock-slide", "stone-edge", "earthquake"],
     )
     report = evaluate_pokemon_quality(mon)

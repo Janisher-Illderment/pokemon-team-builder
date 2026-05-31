@@ -27,10 +27,12 @@ Limitation — moveset vs learnset (documented per the task brief):
 ``evaluate_pokemon_quality`` receives only a ``PokemonData`` with no assigned
 4-move set, so the move-dependent signals (unreliable Rock moves, STAB
 movepool) are evaluated against ``pokemon.move_names`` (the full learnset),
-NOT against a chosen moveset. This means the unreliable-move signal fires if
-the mon *can* learn Rock Slide / Stone Edge, and the movepool signal checks
-whether a same-type damaging STAB exists *anywhere* in the learnset. A future
-iteration that has the assigned moveset can tighten this.
+NOT against a chosen moveset. The unreliable-move signal is gated on Rock
+typing + physical orientation (V7 is specifically about Rock-type physical
+attackers), so a non-Rock mon that merely *can* learn Rock Slide as coverage
+is NOT penalised; the movepool signal checks whether a same-type damaging
+STAB exists *anywhere* in the learnset. A future iteration with the assigned
+moveset can tighten this further.
 """
 
 from __future__ import annotations
@@ -93,7 +95,9 @@ class QualityReport:
     - ``split_attacker``: atk AND spa both ≥ 90 (one category wasted).
     - ``type_bulk_mismatch``: Rock/Ice typing with inverted defensive bulk.
     - ``speed_limbo``: 60 < spe < 95 (neither TR-slow nor fast).
-    - ``unreliable_moves``: low-accuracy physical Rock moves in the learnset.
+    - ``unreliable_moves``: low-accuracy Rock STAB moves carried by a
+      Rock-type physical attacker (the cursed-STAB profile from V7); empty
+      for non-Rock mons that merely carry Rock Slide as coverage.
     """
 
     score: float
@@ -114,7 +118,8 @@ def evaluate_pokemon_quality(pokemon: PokemonData) -> QualityReport:
       1. Split attacker — ``atk >= 90 AND spa >= 90``                  → −0.10
       2. Type↔bulk mismatch — type ∈ {rock, ice} AND (def+spd) >= 180  → −0.10
       3. Speed limbo — ``60 < spe < 95``                               → −0.05
-      4. Unreliable moves — rock-slide / stone-edge in move_names      → −0.05
+      4. Unreliable moves — Rock-type physical attacker (rock in types,
+         atk >= spa) carrying rock-slide / stone-edge                  → −0.05
          each, capped at −0.10
       5. Movepool insufficient — primary role is a sweeper but no
          same-type damaging STAB in move_names                         → −0.10
@@ -151,8 +156,18 @@ def evaluate_pokemon_quality(pokemon: PokemonData) -> QualityReport:
         flags.append("velocidad en el limbo (ni rapida ni lenta)")
 
     # ── 4. Unreliable low-accuracy Rock moves ─────────────────────────────
+    # V7's claim is specifically about ROCK-TYPE PHYSICAL attackers: their
+    # STAB Rock moves (Rock Slide 90 / Stone Edge 80) miss, and Rock has no
+    # high-power reliable physical option. A non-Rock mon merely carrying
+    # Rock Slide as coverage is NOT what V7 laments, so the signal is gated
+    # on Rock typing + a physical orientation (atk >= spa). This keeps the
+    # penalty on the cursed Tyranitar/Rampardos/Aerodactyl profile and avoids
+    # false-positives on every Garchomp-style coverage Rock Slide.
     move_set = {m.strip().lower() for m in pokemon.move_names}
-    unreliable_moves = sorted(move_set & _LOW_ACCURACY_ROCK_PHYS)
+    is_rock_physical = "rock" in types_lower and stats.atk >= stats.spa
+    unreliable_moves = (
+        sorted(move_set & _LOW_ACCURACY_ROCK_PHYS) if is_rock_physical else []
+    )
     if unreliable_moves:
         penalty = min(
             _PENALTY_UNRELIABLE_MOVE * len(unreliable_moves),
