@@ -20,9 +20,18 @@ datos de meta inventados (memoria: nunca fabricar datos competitivos).
 
 from __future__ import annotations
 
-from pokemon_team_builder.domain.models import TeamVariant
+from pokemon_team_builder.config import MAX_SP_TOTAL
+from pokemon_team_builder.domain.models import TeamMember, TeamVariant
+from pokemon_team_builder.services import replica_exporter
+from pokemon_team_builder.services.replica_exporter import _offensive_category
 from pokemon_team_builder.services.synergy_engine import derive_team_tags
+from pokemon_team_builder.services.team_generator import _derive_nature
 from pokemon_team_builder.services.viability_rater import _count_speed_control
+from pokemon_team_builder.data.move_types import MOVE_TYPE as _MOVE_TYPE
+
+# Reusa la tabla nature → (boosted, hindered) y el normalizador del preset
+# builder (single source of truth; no duplicamos conocimiento de naturalezas).
+from pokemon_team_builder.services.sp_preset_builder import _normalise_nature
 
 # ── Arquetipos (NUNCA renombrar — son claves de archetype_weights.json) ──────
 # El orden de _ARCHETYPE_ORDER refleja la prioridad de §3.2 (primera coincidencia
@@ -163,3 +172,169 @@ def detect_archetype(variant: TeamVariant) -> tuple[str, float]:
     #    llega al umbral HO sigue siendo coherentemente ofensivo → confianza
     #    media-alta; un equipo sin identidad → confianza baja → aviso ambiguo.
     return "balance", _confidence(threats, total)
+
+
+# ── B2: coherencia del set concreto (ADR §4.1) ───────────────────────────────
+# Magnitudes verbatim del ADR §4.1. [UNCERTAIN] calibrate — invierten las
+# invariantes que el builder YA aplica al GENERAR; aquí las aplicamos como
+# checklist al set parseado del usuario. Sin conocimiento de juego nuevo:
+# reusamos _MOVE_CATEGORY / _offensive_category / _derive_nature / MOVE_TYPE /
+# _normalise_nature.
+_PEN_DEAD_MOVE: float = 0.15
+_PEN_DEAD_MOVE_CAP: float = 0.30
+_PEN_NATURE_MISMATCH: float = 0.10
+_PEN_EV_WASTE: float = 0.10
+_PEN_SP_NOT_MAXED: float = 0.05
+_PEN_NO_STAB: float = 0.10
+
+# Naturaleza-stat → categoría ofensiva que esa naturaleza favorece.
+_BOOSTED_TO_CATEGORY: dict[str, str] = {"atk": "physical", "spa": "special"}
+
+
+def _invested_offensive_category(member: TeamMember) -> str | None:
+    """Categoría ofensiva COMPROMETIDA del build del usuario, o None.
+
+    Requerimos compromiso ofensivo CLARO para evitar marcar como "muerta" una
+    move de cobertura legítima de la categoría opuesta (un atacante físico
+    suele llevar una de cobertura especial, y a la inversa — esto es normal,
+    NO el bug Abomasnow). Reglas:
+
+      - Naturaleza OFENSIVA (boostea atk → physical / spa → special):
+          · si los EVs concuerdan o son neutros → esa categoría (compromiso).
+          · si los EVs contradicen (nat física + EVs especiales) → None
+            (build contradictorio; lo capturan nature/EV-waste, no move-muerto).
+      - Naturaleza NEUTRA o DEFENSIVA (boostea def/spd/hp, o sin boost): NO hay
+        compromiso ofensivo de categoría → None. Un mon defensivo con EVs en
+        una stat de ataque NO está "comprometido" a esa categoría al punto de
+        que la cobertura opuesta sea muerta (caso Forretress Impish + bug-buzz).
+
+    El caso Abomasnow (Adamant = nat física + EVs atk) → "physical", de modo
+    que Ice Beam (especial) se marca correctamente como move muerto.
+    """
+    boosted, _ = _normalise_nature(member.nature)
+    nature_cat = _BOOSTED_TO_CATEGORY.get(boosted) if boosted else None
+    if nature_cat is None:
+        # Naturaleza neutra/defensiva → sin compromiso ofensivo de categoría.
+        return None
+
+    sp = member.sp_distribution
+    if sp.atk > sp.spa:
+        ev_cat: str | None = "physical"
+    elif sp.spa > sp.atk:
+        ev_cat = "special"
+    else:
+        ev_cat = None  # EVs neutros → la naturaleza manda.
+
+    if ev_cat is not None and ev_cat != nature_cat:
+        return None  # contradicción nature↔EV; no marcamos move muerto aquí.
+    return nature_cat
+
+
+def _damaging_moves(moves: list[str]) -> list[str]:
+    """Moves con categoría de daño conocida (physical/special)."""
+    out: list[str] = []
+    for mv in moves:
+        cat = replica_exporter._MOVE_CATEGORY.get(mv.strip().lower())
+        if cat in ("physical", "special"):
+            out.append(mv.strip().lower())
+    return out
+
+
+def _set_coherence(member: TeamMember, variant: TeamVariant) -> tuple[float, list[str]]:
+    """Coherencia del set concreto del usuario en [0,1] + razones (ADR §4.1).
+
+    Empieza en 1.0 y resta penalizaciones deterministas. ``variant`` se acepta
+    por la firma del ADR (B2) aunque las señales actuales son por-miembro;
+    permite futuras penalizaciones con contexto de equipo sin romper la firma.
+
+    Checklist (cada detección reusa primitivas existentes):
+      - Move muerto: move atacante cuya categoría contradice la inversión
+        nature/EV del build (−0.15 c/u, cap −0.30).
+      - Naturaleza ↔ moveset: nature del usuario ≠ _derive_nature de los moves
+        (−0.10).
+      - EV desperdiciado: SP en una stat ofensiva que el moveset no usa
+        (atk SP en set all-special, o al revés) (−0.10).
+      - SP no maximizado: total SP < MAX_SP_TOTAL (66) (−0.05).
+      - Sin STAB: cero moves de daño del propio tipo del mon (−0.10).
+    """
+    reasons: list[str] = []
+    penalty = 0.0
+
+    moves = [m.strip().lower() for m in member.moves]
+    damaging = _damaging_moves(moves)
+    invested = _invested_offensive_category(member)
+
+    # ── Move muerto ──────────────────────────────────────────────────────
+    # Sólo cuando el build tiene una categoría de inversión clara (invested
+    # no None): un move de daño de la categoría OPUESTA es "muerto" (sus EVs/
+    # naturaleza no lo potencian — el bug clase Abomasnow Ice Beam).
+    if invested is not None:
+        dead = [mv for mv in damaging
+                if replica_exporter._MOVE_CATEGORY.get(mv) != invested]
+        if dead:
+            dead_penalty = min(_PEN_DEAD_MOVE * len(dead), _PEN_DEAD_MOVE_CAP)
+            penalty += dead_penalty
+            cat_es = "físico" if invested == "physical" else "especial"
+            reasons.append(
+                f"move(s) muerto(s) — tu build es {cat_es} pero "
+                f"{', '.join(dead)} es de la categoría opuesta"
+            )
+
+    # ── Naturaleza ↔ moveset ──────────────────────────────────────────────
+    primary = member.role[0] if member.role else "physical_sweeper"
+    recommended_nature = _derive_nature(primary, list(member.role), moves)
+    if member.nature.strip().lower() != recommended_nature.strip().lower():
+        # Sólo penaliza si la naturaleza del usuario boostea una stat ofensiva
+        # que el moveset no usa (ADR §4.1: "boosts the stat the moveset
+        # doesn't use"). Una naturaleza defensiva distinta NO es incoherente.
+        boosted, _ = _normalise_nature(member.nature)
+        boosted_cat = _BOOSTED_TO_CATEGORY.get(boosted) if boosted else None
+        from pokemon_team_builder.services.team_generator import (
+            _dominant_attack_category,
+        )
+        dom_cat = _dominant_attack_category(moves)
+        if boosted_cat is not None and dom_cat is not None and boosted_cat != dom_cat:
+            penalty += _PEN_NATURE_MISMATCH
+            reasons.append(
+                f"naturaleza {member.nature} incoherente con el moveset "
+                f"(recomendada: {recommended_nature})"
+            )
+
+    # ── EV desperdiciado ──────────────────────────────────────────────────
+    # SP en la stat ofensiva OPUESTA a la categoría invertida del build: esos
+    # EVs no potencian ningún move de la categoría dominante. Anclamos al
+    # mismo ``invested`` que el move-muerto para NO contradecirnos (si el build
+    # es físico, los EVs físicos NUNCA son "desperdicio" aunque la tabla curada
+    # _MOVE_CATEGORY —~150 moves, no exhaustiva— no reconozca el STAB físico).
+    # Sólo penaliza el desperdicio claro: invertir en la stat contraria.
+    sp = member.sp_distribution
+    if invested == "physical" and sp.spa > 0 and sp.spa >= sp.atk:
+        penalty += _PEN_EV_WASTE
+        reasons.append(
+            "EVs desperdiciados — inviertes en SpA pero tu build es físico"
+        )
+    elif invested == "special" and sp.atk > 0 and sp.atk >= sp.spa:
+        penalty += _PEN_EV_WASTE
+        reasons.append(
+            "EVs desperdiciados — inviertes en Atk pero tu build es especial"
+        )
+
+    # ── SP no maximizado ──────────────────────────────────────────────────
+    sp_total = sp.hp + sp.atk + sp.def_ + sp.spa + sp.spd + sp.spe
+    if sp_total < MAX_SP_TOTAL:
+        penalty += _PEN_SP_NOT_MAXED
+        reasons.append(
+            f"SP sin maximizar ({sp_total}/{MAX_SP_TOTAL})"
+        )
+
+    # ── Sin STAB ──────────────────────────────────────────────────────────
+    own_types = {t.strip().lower() for t in member.pokemon.types}
+    has_stab = any(
+        _MOVE_TYPE.get(mv) in own_types for mv in damaging
+    )
+    if not has_stab:
+        penalty += _PEN_NO_STAB
+        reasons.append("sin STAB — ningún move de daño es del tipo del Pokémon")
+
+    coherence = max(0.0, min(1.0, 1.0 - penalty))
+    return coherence, reasons
