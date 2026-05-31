@@ -544,3 +544,92 @@ def test_suggestions_priority_ordered():
     mr = rate_member(variant, idx, arch)
     priorities = [s.priority for s in mr.suggestions]
     assert priorities == sorted(priorities), priorities
+
+
+# ── Tests B5: rate_team orquestador ──────────────────────────────────────────
+
+def test_rate_team_shape_and_bounds():
+    from pokemon_team_builder.services.team_rater import rate_team
+
+    for builder in (
+        _team_hyper_offense,
+        _team_hard_trick_room,
+        _team_perish_trap,
+        _team_balance,
+    ):
+        rating = rate_team(builder())
+        assert 0.0 <= rating.score <= 100.0
+        assert rating.detected_archetype in team_rater.ARCHETYPES
+        assert 0.0 <= rating.archetype_confidence <= 1.0
+        assert len(rating.members) == 6
+        for mr in rating.members:
+            assert 1 <= mr.score <= 100
+
+
+def test_rate_team_passes_through_import_warnings():
+    from pokemon_team_builder.services.team_rater import rate_team
+
+    rating = rate_team(_team_hyper_offense(), import_warnings=["aviso A", "aviso B"])
+    assert rating.import_warnings == ["aviso A", "aviso B"]
+
+
+def test_rate_team_low_confidence_scores_as_balance_with_warning():
+    """Decisión de producto: confianza < 0.4 → puntúa como balance + aviso de
+    estrategia ambigua, pero conserva el label detectado como pista."""
+    from pokemon_team_builder.services import team_rater as tr
+    from pokemon_team_builder.services.team_rater import (
+        detect_archetype,
+        rate_team,
+        score_team,
+    )
+
+    variant = _team_weather_based()
+    detected, confidence = detect_archetype(variant)
+    assert confidence < tr.LOW_CONFIDENCE_CUTOFF  # precondición del fixture
+
+    rating = rate_team(variant)
+    # Label detectado se conserva como pista.
+    assert rating.detected_archetype == detected
+    # La puntuación coincide con score_team bajo 'balance' (no bajo el label).
+    expected_balance_score, _ = score_team(
+        variant, archetype="balance", team_sheet=variant.team_sheet
+    )
+    assert abs(rating.score - expected_balance_score) < 1e-6
+    # Aviso de estrategia ambigua presente.
+    assert any("ambigua" in w.lower() for w in rating.weaknesses)
+
+
+def test_rate_team_high_confidence_scores_under_detected():
+    from pokemon_team_builder.services import team_rater as tr
+    from pokemon_team_builder.services.team_rater import (
+        detect_archetype,
+        rate_team,
+        score_team,
+    )
+
+    variant = _team_hyper_offense()
+    detected, confidence = detect_archetype(variant)
+    assert confidence >= tr.LOW_CONFIDENCE_CUTOFF
+    rating = rate_team(variant)
+    expected, _ = score_team(
+        variant, archetype=detected, team_sheet=variant.team_sheet
+    )
+    assert abs(rating.score - expected) < 1e-6
+    assert not any("ambigua" in w.lower() for w in rating.weaknesses)
+
+
+def test_rate_team_strengths_reuse_generate_explanation():
+    """Las strengths del equipo incluyen la prosa de generate_explanation."""
+    from pokemon_team_builder.services.team_rater import rate_team
+    from pokemon_team_builder.services.viability_rater import (
+        generate_explanation,
+        score_team,
+    )
+
+    variant = _team_hyper_offense()
+    rating = rate_team(variant)
+    score, _ = score_team(
+        variant, archetype=rating.detected_archetype, team_sheet=variant.team_sheet
+    )
+    base = generate_explanation(variant, score)
+    assert any(base in s for s in rating.strengths)

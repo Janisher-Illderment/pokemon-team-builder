@@ -32,7 +32,13 @@ from pokemon_team_builder.services.synergy_engine import (
     derive_team_tags,
 )
 from pokemon_team_builder.services.team_generator import _derive_nature
-from pokemon_team_builder.services.viability_rater import _count_speed_control
+from pokemon_team_builder.services.viability_rater import (
+    _count_passive_liabilities,
+    _count_speed_control,
+    generate_explanation,
+    score_team,
+    variant_requires_speed_control,
+)
 from pokemon_team_builder.data.move_types import MOVE_TYPE as _MOVE_TYPE
 
 # Reusa la tabla nature → (boosted, hindered) y el normalizador del preset
@@ -493,13 +499,19 @@ def rate_member(variant: TeamVariant, index: int, archetype: str) -> MemberRatin
     team_tag_counts = _tag_counts(per_member_tags)
 
     fit = _compute_fit(variant, index, archetype, per_member_tags, team_tag_counts)
-    intrinsic = evaluate_pokemon_quality(member.pokemon).score
-    coherence, _reasons = _set_coherence(member, variant)
+    quality = evaluate_pokemon_quality(member.pokemon)
+    intrinsic = quality.score
+    coherence, reasons = _set_coherence(member, variant)
 
     blended = W_FIT * fit + W_COHERENCE * coherence + W_INTRINSIC * intrinsic
     blended = max(0.0, min(1.0, blended))
     score = round(100 * blended)
     score = max(1, min(100, score))
+
+    strengths, weaknesses = _member_strengths_weaknesses(
+        variant, index, archetype, per_member_tags, team_tag_counts,
+        fit, coherence, quality, reasons,
+    )
 
     return MemberRating(
         name=member.pokemon.name,
@@ -507,10 +519,65 @@ def rate_member(variant: TeamVariant, index: int, archetype: str) -> MemberRatin
         fit=fit,
         intrinsic=intrinsic,
         coherence=coherence,
-        strengths=[],
-        weaknesses=[],
-        suggestions=_build_suggestions(variant, index, archetype, _reasons),
+        strengths=strengths,
+        weaknesses=weaknesses,
+        suggestions=_build_suggestions(variant, index, archetype, reasons),
     )
+
+
+def _member_strengths_weaknesses(
+    variant: TeamVariant,
+    index: int,
+    archetype: str,
+    per_member_tags: list[list[str]],
+    team_tag_counts: dict[str, int],
+    fit: float,
+    coherence: float,
+    quality,
+    coherence_reasons: list[str],
+) -> tuple[list[str], list[str]]:
+    """Puntos fuertes/débiles por mon (§5.4), derivados de las mismas señales."""
+    member = variant.members[index]
+    strengths: list[str] = []
+    weaknesses: list[str] = []
+
+    presence = assess_presence(
+        member.pokemon, moves=list(member.moves), ability=member.ability
+    )
+
+    # Fuertes
+    needed = _NEEDED_TAGS_BY_ARCHETYPE.get(archetype, frozenset())
+    supplied_needed = set(per_member_tags[index]) & needed
+    scarce_needed = {t for t in supplied_needed if team_tag_counts.get(t, 0) <= 2}
+    if scarce_needed:
+        strengths.append(
+            "pieza clave de la estrategia ("
+            + ", ".join(sorted(scarce_needed)) + ")"
+        )
+    if coherence >= 0.99:
+        strengths.append("set coherente (naturaleza/EVs/moves alineados)")
+    if quality.score >= 0.99:
+        strengths.append("Pokémon de alto valor intrínseco")
+    if presence.has_disruption:
+        strengths.append(
+            "aporta disrupción (" + ", ".join(presence.disruption_sources) + ")"
+        )
+
+    # Débiles
+    if presence.is_passive_liability:
+        weaknesses.append(
+            "lastre pasivo: sin presencia ofensiva ni disrupción (el rival lo ignora)"
+        )
+    # Flags de C6 verbatim (§5.4).
+    for flag in quality.flags:
+        weaknesses.append(flag)
+    # Razones de incoherencia del set.
+    for reason in coherence_reasons:
+        weaknesses.append(reason)
+    if fit < 0.3 and not presence.is_passive_liability:
+        weaknesses.append("encaje débil con la estrategia detectada")
+
+    return strengths, weaknesses
 
 
 # ── B4: motor de sugerencias (diff build-usuario vs recomendación) (ADR §5) ──
@@ -688,3 +755,114 @@ def _pick_replacement(
         if invested is None or cat is None or cat == invested:
             return cand
     return None
+
+
+# ── B5: rate_team orquestador (ADR §5.4, §6) ─────────────────────────────────
+
+@dataclass(frozen=True)
+class TeamRating:
+    """Valoración completa de un equipo (§6)."""
+
+    score: float                  # 0..100 (reusa score_team)
+    detected_archetype: str
+    archetype_confidence: float   # [0,1]; UI muestra aviso si baja
+    strengths: list[str]
+    weaknesses: list[str]
+    members: list[MemberRating]   # índice-alineado con el variant parseado
+    import_warnings: list[str]
+
+
+def _team_strengths_weaknesses(
+    variant: TeamVariant,
+    archetype: str,
+    score: float,
+    confidence: float,
+    member_ratings: list[MemberRating],
+) -> tuple[list[str], list[str]]:
+    """Fuertes/débiles a nivel equipo (§5.4): generate_explanation + aumentos."""
+    strengths: list[str] = []
+    weaknesses: list[str] = []
+
+    # Base: la prosa del scorer existente (reuso verbatim).
+    explanation = generate_explanation(variant, score)
+    strengths.append(explanation)
+
+    # Aumentos sobre señales existentes.
+    if confidence < LOW_CONFIDENCE_CUTOFF:
+        weaknesses.append(AMBIGUOUS_STRATEGY_WARNING)
+
+    if variant_requires_speed_control(variant, archetype):
+        weaknesses.append(
+            "sin control de velocidad suficiente — el equipo cede la iniciativa"
+        )
+
+    liabilities = _count_passive_liabilities(variant.members)
+    if liabilities > 0:
+        names = [
+            m.pokemon.name
+            for m in variant.members
+            if assess_presence(
+                m.pokemon, moves=list(m.moves), ability=m.ability
+            ).is_passive_liability
+        ]
+        weaknesses.append(
+            f"{liabilities} lastre(s) pasivo(s): {', '.join(names)}"
+        )
+
+    # Núcleo coherente: si la mayoría de miembros tienen sets coherentes.
+    coherent = sum(1 for mr in member_ratings if mr.coherence >= 0.99)
+    if coherent >= 4:
+        strengths.append("la mayoría de los sets son coherentes y están maximizados")
+
+    # Piezas clave del equipo.
+    key_pieces = [mr.name for mr in member_ratings if mr.fit >= 0.8]
+    if key_pieces:
+        strengths.append("piezas clave: " + ", ".join(key_pieces))
+
+    return strengths, weaknesses
+
+
+def rate_team(
+    variant: TeamVariant, import_warnings: list[str] | None = None
+) -> TeamRating:
+    """Orquesta la valoración completa de un equipo (§6.1).
+
+    Flujo: detect_archetype → (regla de baja confianza) → score_team →
+    rate_member por índice → fuertes/débiles a nivel equipo.
+
+    DECISIÓN DE PRODUCTO (§12 [DECISION NEEDED]): si la confianza del
+    clasificador < LOW_CONFIDENCE_CUTOFF (0.4), valoramos bajo 'balance'
+    (neutral, pesos 1.0) para no castigar un equipo equilibrado por un
+    arquetipo mal detectado, PERO seguimos mostrando el label detectado como
+    pista y añadimos el aviso de estrategia ambigua.
+    """
+    warnings = list(import_warnings) if import_warnings else []
+
+    detected, confidence = detect_archetype(variant)
+    # Arquetipo usado para PUNTUAR: balance si la confianza es baja.
+    scoring_archetype = (
+        "balance" if confidence < LOW_CONFIDENCE_CUTOFF else detected
+    )
+
+    score, _flex = score_team(
+        variant, archetype=scoring_archetype, team_sheet=variant.team_sheet
+    )
+
+    member_ratings = [
+        rate_member(variant, i, scoring_archetype)
+        for i in range(len(variant.members))
+    ]
+
+    strengths, weaknesses = _team_strengths_weaknesses(
+        variant, scoring_archetype, score, confidence, member_ratings
+    )
+
+    return TeamRating(
+        score=score,
+        detected_archetype=detected,  # siempre el label detectado (pista UI)
+        archetype_confidence=confidence,
+        strengths=strengths,
+        weaknesses=weaknesses,
+        members=member_ratings,
+        import_warnings=warnings,
+    )
