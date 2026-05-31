@@ -90,6 +90,26 @@ _CORE_VIABLE_MOVES: frozenset[str] = frozenset({
     "helping-hand", "thunder-wave", "icy-wind", "follow-me", "rage-powder",
 })
 
+# Redirection moves (señuelo / polvo ira). Pulls the opponent's attacks
+# onto the user, protecting the ally — a real disruption (ADR §2.1).
+_REDIRECT_MOVES: frozenset[str] = frozenset({"follow-me", "rage-powder"})
+
+# Ally-boost moves: directly buff the partner's output (ADR §2.1, slugs
+# fixed by Sergio). Distinct from self-setup moves.
+_ALLY_BOOST_MOVES: frozenset[str] = frozenset({
+    "helping-hand", "decorate", "coaching",
+})
+
+# Pure status moves that pressure the opponent without an offensive stat.
+# Slugs fixed by Sergio (ADR §2.1 + R4). Superset of the status-flavoured
+# speed-control moves (thunder-wave/glare/nuzzle/stun-spore appear in both
+# _SPEED_CONTROL_MOVES and here on purpose — a status move is disruption
+# whether or not it also slows).
+_STATUS_MOVES: frozenset[str] = frozenset({
+    "thunder-wave", "will-o-wisp", "spore", "sleep-powder", "glare",
+    "nuzzle", "stun-spore", "yawn", "toxic",
+})
+
 
 # Threshold center for each stat-based role. The gradient band is ±15 around
 # this center: weight = 0.0 at (threshold − 15), 0.5 at threshold, 1.0 at
@@ -140,6 +160,35 @@ class RoleAssignment:
     role_weights: dict[str, float]
     roles: list[str]
     coverage_flags: dict[str, bool]
+
+
+# Offensive-presence threshold: a sweeper gradient weight of 0.5 maps
+# exactly to a base stat of 100 (the gradient midpoint), matching the
+# "atk o spa >= 100" rule in the spec.
+PRESENCE_OFFENSIVE_CUTOFF: float = ROLE_PRESENCE_CUTOFF
+
+
+@dataclass(frozen=True)
+class PresenceReport:
+    """C2 — does this Pokémon represent a threat in VGC Doubles? (ADR §2.1)
+
+    A Pokémon with neither an offensive stat nor real disruption is a
+    *passive liability*: the opponent ignores it and doubles its attacks
+    onto the ally (docs/vgc-principles.md §2, video V3 — Garganacl/Blissey).
+
+    - ``has_offensive_stat``: atk or spa gradient weight ≥ 0.5 (≈ stat ≥ 100).
+    - ``has_disruption``: provides intimidate / fake-out / redirect /
+      speed-control / pure status / ally-boost.
+    - ``disruption_sources``: human-readable ES labels for the explanation.
+    - ``is_passive_liability``: NOT offensive AND NOT disruption.
+    - ``presence_weight``: 0.0..1.0 gradient = clamp(max(off, disr)).
+    """
+
+    has_offensive_stat: bool
+    has_disruption: bool
+    disruption_sources: list[str]
+    is_passive_liability: bool
+    presence_weight: float
 
 
 def _move_contains_any(move_names: list[str], markers: tuple[str, ...]) -> bool:
@@ -375,6 +424,78 @@ def assign_role_weights(pokemon: PokemonData) -> RoleAssignment:
         role_weights=role_weights,
         roles=ordered,
         coverage_flags=coverage_flags,
+    )
+
+
+def assess_presence(
+    pokemon: PokemonData,
+    moves: list[str] | None = None,
+    ability: str | None = None,
+) -> PresenceReport:
+    """Assess a Pokémon's offensive presence / disruption (C2, ADR §2.1).
+
+    ``moves`` / ``ability`` are optional overrides. When ``None`` they fall
+    back to ``pokemon.move_names`` / ``pokemon.abilities[0]`` — the same
+    degrading pattern as :func:`analyze_coverage` when ``movesets is None``.
+    This lets callers pass an *assigned* moveset (the 4 chosen moves) while
+    species lookups can rely on the full learnset.
+
+    Formula (ADR §2.1):
+      off  = max(physical_sweeper weight, special_sweeper weight)  # gradient
+      disr = 1.0 if has_disruption else 0.0
+      presence_weight   = clamp(max(off, disr), 0.0, 1.0)
+      has_offensive_stat = off >= 0.5            # ≈ atk or spa >= 100
+      is_passive_liability = (off < 0.5) AND (not has_disruption)
+    """
+    move_list = moves if moves is not None else list(pokemon.move_names)
+    move_set = {m.strip().lower() for m in move_list}
+
+    if ability is not None:
+        ability_slug = ability.strip().lower().replace(" ", "-")
+    elif pokemon.abilities:
+        ability_slug = pokemon.abilities[0].strip().lower().replace(" ", "-")
+    else:
+        ability_slug = ""
+
+    weights = assign_role_weights(pokemon).role_weights
+    off = max(
+        weights.get("physical_sweeper", 0.0),
+        weights.get("special_sweeper", 0.0),
+    )
+    has_offensive_stat = off >= PRESENCE_OFFENSIVE_CUTOFF
+
+    # ── Disruption detection (ADR §2.1 table) ────────────────────────────
+    disruption_sources: list[str] = []
+    if ability_slug == "intimidate":
+        disruption_sources.append("intimidación")
+    if "fake-out" in move_set:
+        disruption_sources.append("sorpresa (fake-out)")
+    if move_set & _REDIRECT_MOVES:
+        disruption_sources.append("redirección")
+    if move_set & _SPEED_CONTROL_MOVES:
+        disruption_sources.append("control de velocidad")
+    if move_set & _STATUS_MOVES:
+        disruption_sources.append("estado")
+    if move_set & _ALLY_BOOST_MOVES:
+        disruption_sources.append("boost a aliado")
+
+    has_disruption = bool(disruption_sources)
+    disr = 1.0 if has_disruption else 0.0
+
+    presence_weight = max(off, disr)
+    if presence_weight < 0.0:
+        presence_weight = 0.0
+    elif presence_weight > 1.0:
+        presence_weight = 1.0
+
+    is_passive_liability = (off < PRESENCE_OFFENSIVE_CUTOFF) and (not has_disruption)
+
+    return PresenceReport(
+        has_offensive_stat=has_offensive_stat,
+        has_disruption=has_disruption,
+        disruption_sources=disruption_sources,
+        is_passive_liability=is_passive_liability,
+        presence_weight=presence_weight,
     )
 
 
