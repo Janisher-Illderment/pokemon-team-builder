@@ -217,3 +217,75 @@ def test_confidence_is_fraction():
     ):
         _, conf = detect_archetype(builder())
         assert 0.0 <= conf <= 1.0
+
+
+# ── Tests B1: recommend_member_build iguala el camino del generador ──────────
+
+def _generated_variant():
+    """Genera un equipo determinista con pool acotado (sin red, sin mega)."""
+    from pokemon_team_builder.services import team_generator as tg
+    from pokemon_team_builder.data.legal_pool_loader import get_all_names
+
+    anchor = pokemon_lookup.lookup("garchomp")
+    pool = []
+    for n in get_all_names()[:50]:
+        if n == anchor.name:
+            continue
+        try:
+            pool.append(pokemon_lookup.lookup(n))
+        except Exception:
+            continue
+    return tg.generate_team(anchor, pool=pool, num_variants=1)[0]
+
+
+def _sp_tuple(sp):
+    return (sp.hp, sp.atk, sp.def_, sp.spa, sp.spd, sp.spe)
+
+
+def test_recommend_member_build_matches_generator_path():
+    from pokemon_team_builder.services import team_generator as tg
+
+    variant = _generated_variant()
+    # moves / naturaleza / SP son MEMBER-LOCAL (no dependen del Item Clause del
+    # equipo): deben coincidir para todos los miembros sin mega.
+    checked = 0
+    for member in variant.members:
+        if member.mega_form is not None:
+            continue
+        rb = tg.recommend_member_build(
+            member.pokemon, member.role,
+            archetype=variant.archetype, team_sheet=variant.team_sheet,
+        )
+        assert rb.moves == list(member.moves), member.pokemon.name
+        assert rb.nature == member.nature, member.pokemon.name
+        assert _sp_tuple(rb.sp_distribution) == _sp_tuple(member.sp_distribution), \
+            member.pokemon.name
+        checked += 1
+    assert checked >= 5, "se esperaban ≥5 miembros sin mega para comparar"
+
+    # El item es el recomendado IDEAL por-mon (pre-Item-Clause). El ancla
+    # (índice 0) se asigna primero en el equipo, sin conflicto previo posible,
+    # así que su item DEBE coincidir con la recomendación aislada. Miembros
+    # posteriores pueden divergir si su item ideal ya lo tomó otro miembro
+    # (Item Clause) — la recomendación por-mon es intencionadamente el item
+    # ideal para ESE mon, que es justo lo que el motor de sugerencias necesita.
+    anchor = variant.members[0]
+    if anchor.mega_form is None:
+        rb0 = tg.recommend_member_build(
+            anchor.pokemon, anchor.role,
+            archetype=variant.archetype, team_sheet=variant.team_sheet,
+        )
+        assert rb0.item == anchor.item, anchor.pokemon.name
+
+
+def test_recommend_member_build_is_deterministic():
+    from pokemon_team_builder.services import team_generator as tg
+
+    chomp = pokemon_lookup.lookup("garchomp")
+    roles = ["physical_sweeper"]
+    a = tg.recommend_member_build(chomp, roles, archetype="hyper_offense")
+    b = tg.recommend_member_build(chomp, roles, archetype="hyper_offense")
+    assert a.moves == b.moves
+    assert a.item == b.item
+    assert a.nature == b.nature
+    assert _sp_tuple(a.sp_distribution) == _sp_tuple(b.sp_distribution)
