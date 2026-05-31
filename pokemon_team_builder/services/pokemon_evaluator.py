@@ -41,7 +41,10 @@ from dataclasses import dataclass
 
 from pokemon_team_builder.data.move_types import MOVE_TYPE
 from pokemon_team_builder.domain.models import PokemonData
-from pokemon_team_builder.services.synergy_engine import assign_role
+from pokemon_team_builder.services.synergy_engine import (
+    ROLE_PRESENCE_CUTOFF,
+    assign_role_weights,
+)
 
 
 # Base quality multiplier and clamp floor (ADR §4.2). A mon never drops to
@@ -77,12 +80,6 @@ _SPEED_LIMBO_HIGH: int = 95
 # fallan). Rock Slide = 90 acc, Stone Edge = 80 acc. Both are physical Rock
 # damaging moves present in MOVE_TYPE.
 _LOW_ACCURACY_ROCK_PHYS: frozenset[str] = frozenset({"rock-slide", "stone-edge"})
-
-# Sweeper role labels (subset of the mechanical labels) used by the movepool
-# signal: a mon whose PRIMARY role is a sweeper should have a same-type
-# damaging STAB available.
-_SWEEPER_ROLES: frozenset[str] = frozenset({"physical_sweeper", "special_sweeper"})
-
 
 @dataclass(frozen=True)
 class QualityReport:
@@ -179,13 +176,20 @@ def evaluate_pokemon_quality(pokemon: PokemonData) -> QualityReport:
         )
 
     # ── 5. Movepool insufficient for a sweeper role ───────────────────────
-    # Reuse assign_role (synergy_engine) for the primary role; reuse MOVE_TYPE
-    # for move→damage-type. The mon needs at least one damaging move whose
-    # type matches one of its own types (a same-type STAB) in its learnset.
-    roles = assign_role(pokemon)
-    primary_role = roles[0] if roles else ""
+    # Gate on a REAL sweeper, not assign_role's non-empty fallback (Tecle
+    # Brief #1): assign_role_weights falls back to physical/special_sweeper
+    # for any mon when no role qualifies (synergy_engine.py:444-447), so a
+    # weak roleless mon would otherwise be wrongly penalised here. Require the
+    # sweeper gradient weight to clear the presence cutoff (stat actually
+    # high enough). Then the mon needs a same-type damaging STAB in its
+    # learnset (reuse MOVE_TYPE for move→damage-type).
+    role_weights = assign_role_weights(pokemon).role_weights
+    sweeper_weight = max(
+        role_weights.get("physical_sweeper", 0.0),
+        role_weights.get("special_sweeper", 0.0),
+    )
     movepool_insufficient = False
-    if primary_role in _SWEEPER_ROLES:
+    if sweeper_weight >= ROLE_PRESENCE_CUTOFF:
         has_stab_damage = any(
             MOVE_TYPE.get(move) in types_lower for move in move_set
         )

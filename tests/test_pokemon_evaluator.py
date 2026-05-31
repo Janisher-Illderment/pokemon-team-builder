@@ -229,6 +229,20 @@ def test_sweeper_with_stab_damage_not_penalised():
     assert report.score == 1.0
 
 
+def test_weak_roleless_mon_not_penalised_for_movepool():
+    """Tecle Brief #1: assign_role falls back to a sweeper label for ANY mon
+    when no role qualifies. A weak mon (no stat near the sweeper threshold)
+    must NOT be penalised for lacking STAB damage — it is not a real sweeper.
+    """
+    mon = _mk(
+        "weakling", types=["fire"], hp=70, atk=60, def_=70, spa=50, spd=70, spe=100,
+        moves=["earthquake", "protect"],  # no fire STAB damage
+    )
+    report = evaluate_pokemon_quality(mon)
+    assert all("movepool" not in f for f in report.flags)
+    assert report.score == 1.0
+
+
 # ── Combined signals stack and clamp ───────────────────────────────────────────
 
 def test_multiple_signals_stack():
