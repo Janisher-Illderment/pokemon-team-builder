@@ -229,12 +229,14 @@ def test_team_with_three_ground_weak_no_levitate_flags_ground() -> None:
 # ── Brief #8 additions: STAB filter + dual-type sacrifice + weather setters ──
 
 
-def test_non_stab_ice_beam_does_not_cover_ice() -> None:
-    """Spec coverage-analysis: Non-STAB move does NOT count toward coverage.
+def test_non_stab_ice_beam_covers_ice() -> None:
+    """VGC-corrected coverage (docs/vgc-principles.md §4, video V4): a
+    non-STAB damaging move DOES count toward coverage.
 
-    A mono-Water member carrying Ice Beam does NOT make Ice a covered type —
-    Ice is not the member's own type so STAB filter rejects it. Ice should
-    appear in offensive_gaps.
+    A mono-Water member carrying Ice Beam makes Ice a covered type, even
+    though Ice is not the member's own type — in VGC coverage moves are how
+    you threaten what your STABs can't. Ice must NOT appear in
+    offensive_gaps. This supersedes the earlier STAB-only rule.
     """
     water_mon = _mk(
         "non-stab-water",
@@ -243,11 +245,11 @@ def test_non_stab_ice_beam_does_not_cover_ice() -> None:
     )
     movesets = [["hydro-pump", "ice-beam", "protect", "scald"]]
     report = analyze_coverage([water_mon], movesets=movesets)
-    assert "ice" in report.offensive_gaps, (
-        f"Non-STAB Ice Beam should NOT cover Ice; "
+    assert "ice" not in report.offensive_gaps, (
+        f"Non-STAB Ice Beam SHOULD cover Ice; "
         f"offensive_gaps={report.offensive_gaps}"
     )
-    # Water STAB on Water mon DOES count.
+    # Water STAB on Water mon also counts.
     assert "water" not in report.offensive_gaps, report
 
 

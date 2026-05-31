@@ -396,16 +396,20 @@ def analyze_coverage(
 ) -> CoverageReport:
     """Inspect a team for offensive coverage gaps and defensive weaknesses.
 
-    Coverage rule (Phase 2a, STAB-based — see spec coverage-analysis
-    Requirement "Coverage scoring is STAB-based"):
-      A type X is "covered" iff at least one team member has a move of
-      type X in their **assigned moveset** AND that move's type is one
-      of the member's own types (STAB). Non-STAB coverage moves (e.g. a
-      Water-mon carrying Ice Beam) do NOT count toward Ice coverage.
+    Coverage rule (VGC-corrected, move-based — supersedes the earlier
+    "STAB-based" rule; see docs/vgc-principles.md §4, video V4):
+      A type X is "covered" iff at least one team member has a damaging
+      move of type X in their **assigned moveset**, whether or not that
+      move is STAB. Non-STAB coverage moves DO count — e.g. a Water-mon
+      carrying Ice Beam covers Ice, because in VGC coverage moves are how
+      you threaten what your STABs can't (V4: "es importante que alguno
+      tenga ataques de cobertura para dañar al acero"). Only damaging
+      moves appear in ``MOVE_TYPE`` (status moves like Tailwind are
+      absent), so this naturally excludes non-offensive moves.
       If ``movesets`` is omitted the function falls back to the v1
       typing-based heuristic (every member assumed to cover its own
-      types) — this preserves pre-Phase-2a call sites that only have a
-      partial team, no items assigned yet, and no moves selected.
+      types) — this preserves call sites that only have a partial team,
+      no items assigned yet, and no moves selected.
 
     Defensive weakness rule: a type is recorded as a shared defensive
     weakness when 3+ members take >= 2.0x damage from it. Levitate
@@ -421,18 +425,17 @@ def analyze_coverage(
     offensive_gaps: list[str] = []
 
     if movesets is not None:
-        # STAB filter: only count a move toward type-X coverage when the
-        # move's type matches one of the carrying member's types. The
-        # MOVE_TYPE table lives in data/move_types.py (Phase 4b cleanup,
-        # Tecle Brief #9: was previously a lazy cross-service import).
+        # VGC-corrected: a damaging move covers its type regardless of STAB
+        # (docs/vgc-principles.md §4). The MOVE_TYPE table (data/move_types.py)
+        # lists only damaging moves, so iterating it excludes status moves
+        # without an explicit category check.
         from pokemon_team_builder.data.move_types import MOVE_TYPE
 
         move_types: set[str] = set()
         for member, moves in zip(team, movesets):
-            member_types = {t.lower() for t in member.types}
             for move in moves:
                 mtype = MOVE_TYPE.get(move)
-                if mtype and mtype.lower() in member_types:
+                if mtype:
                     move_types.add(mtype.lower())
         for type_name in ALL_TYPES:
             if type_name not in move_types:
