@@ -199,7 +199,7 @@ class EditMemberRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 class ImportRequest(BaseModel):
-    pokepaste: str = Field(min_length=1)
+    pokepaste: str = Field(min_length=1, max_length=20000)
 
 
 class ImportResponse(VariantOut):
@@ -211,7 +211,10 @@ class ImportResponse(VariantOut):
 # ---------------------------------------------------------------------------
 
 class RateTeamRequest(BaseModel):
-    pokepaste: str = Field(min_length=1)
+    # max_length: a 6-mon PokePaste is ~1KB; 20000 is generous headroom and
+    # bounds the per-request compute (rate-team runs several lookups per
+    # member). Oversized payloads get a 422 instead of a slow response.
+    pokepaste: str = Field(min_length=1, max_length=20000)
 
 
 class SuggestionOut(BaseModel):

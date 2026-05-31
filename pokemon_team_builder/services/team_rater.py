@@ -199,6 +199,18 @@ _PEN_EV_WASTE: float = 0.10
 _PEN_SP_NOT_MAXED: float = 0.05
 _PEN_NO_STAB: float = 0.10
 
+# Tolerance for the PokePaste EV→SP round-trip artifact (Tecle Brief #1):
+# the parser converts EVs to SP via floor division by 8 (pokepaste_parser
+# `val // 8`), so a fully-invested competitive spread (508 EVs, e.g. 252/252/4)
+# lands at ~62 SP, never the 66 cap — a maxed standard Showdown spread CANNOT
+# reach 66. Treating sp_total within this tolerance of the cap as "maxed"
+# stops the rater firing a spurious "SP sin maximizar" penalty + EV suggestion
+# on every member of every real paste. A genuinely under-invested set
+# (total below MAX_SP_TOTAL - tolerance) still flags. Fix lives at the
+# consumer, not the parser, to keep the /import contract stable.
+_SP_MAXED_TOLERANCE: int = 6
+_SP_MAXED_FLOOR: int = MAX_SP_TOTAL - _SP_MAXED_TOLERANCE  # 60
+
 # Naturaleza-stat → categoría ofensiva que esa naturaleza favorece.
 _BOOSTED_TO_CATEGORY: dict[str, str] = {"atk": "physical", "spa": "special"}
 
@@ -332,8 +344,11 @@ def _set_coherence(member: TeamMember, variant: TeamVariant) -> tuple[float, lis
         )
 
     # ── SP no maximizado ──────────────────────────────────────────────────
+    # Only a REAL deficit (below the maxed floor) counts; a standard paste at
+    # ~62 SP is the EV→SP floor-division artifact, not under-investment
+    # (see _SP_MAXED_TOLERANCE).
     sp_total = sp.hp + sp.atk + sp.def_ + sp.spa + sp.spd + sp.spe
-    if sp_total < MAX_SP_TOTAL:
+    if sp_total < _SP_MAXED_FLOOR:
         penalty += _PEN_SP_NOT_MAXED
         reasons.append(
             f"SP sin maximizar ({sp_total}/{MAX_SP_TOTAL})"
@@ -673,8 +688,10 @@ def _build_suggestions(
     # ── 3. EVs — SP desperdiciado en stat ofensiva no usada, o total < 66.
     sp = member.sp_distribution
     sp_total = sp.hp + sp.atk + sp.def_ + sp.spa + sp.spd + sp.spe
+    # Suggest an EV change only on a genuine EV-waste reason OR a REAL SP
+    # deficit — never on the ~62-SP EV→SP round-trip artifact (Brief #1).
     ev_reason = next((r for r in coherence_reasons if "EVs desperdiciados" in r), None)
-    if ev_reason is not None or sp_total < MAX_SP_TOTAL:
+    if ev_reason is not None or sp_total < _SP_MAXED_FLOOR:
         why = (
             ev_reason
             if ev_reason is not None

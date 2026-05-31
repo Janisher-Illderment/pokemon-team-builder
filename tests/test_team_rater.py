@@ -758,3 +758,44 @@ def test_rate_team_endpoint_no_species_suggestions(rate_client):
     for m in data["members"]:
         for s in m["suggestions"]:
             assert s["kind"] in {"move_swap", "nature", "evs", "item"}
+
+
+# ── Brief #1 (Tecle): el artefacto EV→SP (62/66) no debe generar ruido ───────
+
+def test_real_paste_no_spurious_ev_suggestion(rate_client):
+    """Un PokePaste competitivo estándar (252/252/4) parsea a ~62 SP por el
+    //8 del parser. NINGÚN miembro debe recibir la sugerencia 'SP sin
+    maximizar' — eso era el artefacto, no infrainversión real."""
+    resp = rate_client.post("/rate-team", json={"pokepaste": _REAL_PASTE})
+    data = resp.json()
+    spurious = [
+        (m["name"], s)
+        for m in data["members"]
+        for s in m["suggestions"]
+        if s["kind"] == "evs" and "sin maximizar" in s["reason"].lower()
+    ]
+    assert not spurious, f"sugerencia EV espuria por artefacto 62/66: {spurious}"
+
+
+def test_genuinely_under_invested_set_still_flags(rate_client):
+    """Un set realmente infra-invertido (muy por debajo del suelo de SP) SÍ
+    debe seguir disparando la sugerencia de EVs."""
+    under = _REAL_PASTE.replace(
+        "EVs: 4 HP / 252 Atk / 252 Spe\nJolly Nature",
+        "EVs: 100 HP\nJolly Nature",  # 12 SP total << suelo (60)
+        1,
+    )
+    resp = rate_client.post("/rate-team", json={"pokepaste": under})
+    assert resp.status_code == 200, resp.text
+    garchomp = resp.json()["members"][0]
+    assert garchomp["name"].lower().startswith("garchomp")
+    assert any(
+        s["kind"] == "evs" and "sin maximizar" in s["reason"].lower()
+        for s in garchomp["suggestions"]
+    ), garchomp["suggestions"]
+
+
+def test_rate_team_endpoint_422_on_oversized_payload(rate_client):
+    """Brief #2: payload por encima de max_length → 422, no un 200 lento."""
+    resp = rate_client.post("/rate-team", json={"pokepaste": "A" * 20001})
+    assert resp.status_code == 422
