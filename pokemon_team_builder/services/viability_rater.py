@@ -10,6 +10,9 @@ from pokemon_team_builder.data.weather_data_loader import (
     load_weather_setters,
 )
 from pokemon_team_builder.domain.models import TeamMember, TeamVariant
+from pokemon_team_builder.services.pokemon_evaluator import (
+    evaluate_pokemon_quality,
+)
 from pokemon_team_builder.services.synergy_engine import (
     analyze_coverage,
     assess_presence,
@@ -54,6 +57,17 @@ _SPEED_CONTROL_PENALTY = -15.0
 # treatment as the speed penalty (V3: stall non-viable). stall/perish_trap are
 # explicitly NOT exempted (coherent with C4).
 _PASSIVE_LIABILITY_PENALTY = 8.0
+
+# C6 (ADR §4.3) — intrinsic-quality scaling weight. quality_adjustment =
+# (mean quality multiplier − 1.0) * _QUALITY_WEIGHT. The multiplier is ≤ 1.0
+# (evaluate_pokemon_quality only subtracts), so this term is ≤ 0: a team of
+# mediocre mons loses up to ~5 pts (worst case mean 0.5 → −5.0). It is a
+# signal, not a disqualification (V7: "peores de lo que piensas", not
+# "ilegales"). Applied flat (NOT scaled by archetype) outside the clamped
+# components, same insertion point as speed_penalty / presence_penalty.
+# A team where every mon has quality == 1.0 yields adjustment 0.0, preserving
+# the additive-layer invariant (§5.3).
+_QUALITY_WEIGHT = 10.0
 
 _SWEEPER_ROLES = frozenset({"physical_sweeper", "special_sweeper"})
 _SUPPORT_ROLES = frozenset({"lead_support", "redirect"})
@@ -358,6 +372,26 @@ def _presence_penalty(variant: TeamVariant) -> float:
     return -_PASSIVE_LIABILITY_PENALTY * _count_passive_liabilities(variant.members)
 
 
+def _quality_adjustment(variant: TeamVariant) -> float:
+    """Return the C6 intrinsic-quality adjustment (≤ 0) for the variant (§4.3).
+
+    ``(mean(evaluate_pokemon_quality(m.pokemon).score) − 1.0) * _QUALITY_WEIGHT``.
+
+    Each per-mon quality multiplier is in [0.5, 1.0], so the mean is ≤ 1.0 and
+    the adjustment is ≤ 0 — it never inflates a score, only signals mediocrity.
+    Flat (archetype-agnostic) and applied outside the clamped components, like
+    ``presence_penalty``. Returns 0.0 when every member has quality 1.0, which
+    keeps the additive-layer invariant (§5.3): a healthy team of high-quality
+    mons scores identically before and after C6.
+    """
+    members = variant.members
+    if not members:
+        return 0.0
+    total = sum(evaluate_pokemon_quality(m.pokemon).score for m in members)
+    mean_quality = total / len(members)
+    return (mean_quality - 1.0) * _QUALITY_WEIGHT
+
+
 def score_team(
     variant: TeamVariant,
     format_mode: str = "bo1",
@@ -396,6 +430,10 @@ def score_team(
     # components just like speed_penalty. Zero for a team with no passive
     # liabilities → additive-layer invariant §5.3 holds.
     presence_penalty = _presence_penalty(variant)
+    # C6 §4.3 — flat, archetype-agnostic intrinsic-quality term (≤ 0),
+    # applied outside the clamped components alongside presence_penalty.
+    # Zero for a team of all-quality-1.0 mons → additive-layer invariant §5.3.
+    quality_adjustment = _quality_adjustment(variant)
 
     if format_mode == "bo3":
         # Phase 2a: STAB-based coverage using the variant's assigned movesets.
@@ -418,6 +456,7 @@ def score_team(
             + weather_pts
             + speed_penalty
             + presence_penalty
+            + quality_adjustment
         )
         return max(0.0, min(100.0, total)), flex_ratio
     else:
@@ -431,6 +470,7 @@ def score_team(
             + weather_pts
             + speed_penalty
             + presence_penalty
+            + quality_adjustment
         )
         return max(0.0, min(100.0, total)), 0.0
 

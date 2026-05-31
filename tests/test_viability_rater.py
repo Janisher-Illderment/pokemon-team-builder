@@ -11,6 +11,7 @@ from pokemon_team_builder.services import pokemon_lookup
 from pokemon_team_builder.services.synergy_engine import assess_presence, assign_role
 from pokemon_team_builder.services.viability_rater import (
     _presence_penalty,
+    _quality_adjustment,
     generate_explanation,
     rank_variants,
     score_team,
@@ -261,3 +262,109 @@ def test_rank_variants_stable_on_full_tie() -> None:
     ranked = rank_variants([v, v])
     assert ranked[0].is_recommended is True
     assert ranked[1].is_recommended is False
+
+
+# ── C6 §5.3 — quality adjustment additive-layer invariant ─────────────────────
+
+def _high_quality_variant() -> TeamVariant:
+    """A 6-member team where every mon evaluates to quality == 1.0.
+
+    Unlike ``_balanced_variant`` (whose ``move_names`` are empty, so its
+    sweepers trip the movepool signal), each species here carries a populated
+    learnset with a same-type damaging STAB move, a Speed outside the 60–95
+    limbo, only one high offensive stat (no split), no rock/ice inverted bulk,
+    and no low-accuracy Rock moves. This makes ``_quality_adjustment`` exactly
+    0.0, which is the only way to prove the C6 layer is a no-op in the nominal
+    case (§5.3): the team's score is identical before and after C6.
+    """
+    specs = [
+        # (name, types, atk, spa, spe, move_names)
+        ("garchomp", ["dragon", "ground"], 130, 80, 102, ["earthquake", "dragon-claw"]),
+        ("talonflame", ["fire", "flying"], 81, 74, 126, ["brave-bird", "flamethrower", "tailwind"]),
+        ("dragapult", ["dragon", "ghost"], 70, 120, 142, ["dragon-pulse", "shadow-ball"]),
+        ("kingambit", ["dark", "steel"], 135, 60, 50, ["knock-off", "iron-head"]),
+        ("flutter", ["water"], 70, 135, 120, ["surf", "ice-beam"]),
+        ("amoonguss", ["grass", "poison"], 85, 85, 30, ["giga-drain", "sludge-bomb", "rage-powder", "spore"]),
+    ]
+    pokemons = [
+        _mk_pokemon(
+            name, types, atk=atk, spa=spa, spe=spe, moves=moves, pid=i + 1
+        )
+        for i, (name, types, atk, spa, spe, moves) in enumerate(specs)
+    ]
+    items = [
+        "Choice Band", "Focus Sash", "Life Orb",
+        "Leftovers", "Assault Vest", "Sitrus Berry",
+    ]
+    movesets = [
+        ["protect", "earthquake", "dragon-claw", "rock-slide"],
+        ["protect", "brave-bird", "flamethrower", "tailwind"],
+        ["protect", "dragon-pulse", "shadow-ball", "u-turn"],
+        ["protect", "knock-off", "iron-head", "sucker-punch"],
+        ["protect", "surf", "ice-beam", "thunderbolt"],
+        ["protect", "giga-drain", "sludge-bomb", "rage-powder"],
+    ]
+    members = [
+        _mk_member(p, item=item, moves=mv)
+        for p, item, mv in zip(pokemons, items, movesets)
+    ]
+    return TeamVariant(members=members)
+
+
+def test_high_quality_team_quality_adjustment_is_zero() -> None:
+    """C6 §5.3 invariant: a team of all-1.0-quality mons adjusts by exactly 0.
+
+    Because C6 is additive (a flat term added to the total), proving the term
+    is 0.0 for a high-quality team proves the team's score is IDENTICAL before
+    and after C6. This is the analogue of the C2 presence_penalty invariant.
+    """
+    variant = _high_quality_variant()
+    # Sanity: every member really is quality 1.0 (no signal fires).
+    from pokemon_team_builder.services.pokemon_evaluator import (
+        evaluate_pokemon_quality,
+    )
+    for m in variant.members:
+        report = evaluate_pokemon_quality(m.pokemon)
+        assert report.score == 1.0, (
+            f"{m.pokemon.name} unexpectedly penalised: {report.flags}"
+        )
+    assert _quality_adjustment(variant) == 0.0
+
+
+def test_quality_adjustment_is_non_positive_and_bounded() -> None:
+    """quality_adjustment ∈ [-5, 0]: never inflates, bounded by the floor.
+
+    The per-mon multiplier is in [0.5, 1.0]; the mean is therefore in the same
+    range, and (mean - 1.0) * 10 lands in [-5, 0]. A team of mediocre mons is
+    signalled, not disqualified (ADR §4.3).
+    """
+    healthy = _quality_adjustment(_high_quality_variant())
+    assert healthy == 0.0
+
+    # The balanced fixture (empty move_names → sweepers trip the movepool
+    # signal) yields a strictly negative, bounded adjustment.
+    mediocre = _quality_adjustment(_balanced_variant())
+    assert -5.0 <= mediocre < 0.0
+
+
+def test_low_quality_team_scores_below_high_quality_team() -> None:
+    """A lower-quality variant scores at or below an otherwise-similar one.
+
+    Exercises the C6 term end-to-end through score_team: the high-quality
+    team (quality_adjustment 0) is not dragged down, while the balanced
+    fixture (negative adjustment) loses points it would otherwise keep.
+    """
+    high = _high_quality_variant()
+    score_high, _ = score_team(high)
+
+    # Same team but force every species learnset empty → sweepers lose their
+    # STAB-damage signal and the mean quality drops, lowering the score.
+    starved_members = [
+        m.model_copy(update={"pokemon": m.pokemon.model_copy(update={"move_names": []})})
+        for m in high.members
+    ]
+    starved = TeamVariant(members=starved_members)
+    score_starved, _ = score_team(starved)
+
+    assert score_starved < score_high
+    assert _quality_adjustment(starved) < _quality_adjustment(high)
