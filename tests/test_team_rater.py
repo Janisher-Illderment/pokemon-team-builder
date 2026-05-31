@@ -462,3 +462,85 @@ def test_rate_member_key_piece_scores_high():
     )
     mr = rate_member(variant, gengar_idx, arch)
     assert mr.fit >= 0.7, mr.fit
+
+
+# ── Tests B4: motor de sugerencias ───────────────────────────────────────────
+
+def _all_suggestions(variant, arch):
+    from pokemon_team_builder.services.team_rater import rate_member
+
+    out = []
+    for i in range(6):
+        out.extend(rate_member(variant, i, arch).suggestions)
+    return out
+
+
+def test_suggestions_never_change_species():
+    """Invariante de roster (§9.4): NINGUNA sugerencia puede ser un cambio de
+    especie — todas las kinds ∈ {move_swap, nature, evs, item}."""
+    from pokemon_team_builder.services import team_rater as tr
+    from pokemon_team_builder.services.team_rater import detect_archetype
+
+    for builder in (
+        _team_hyper_offense,
+        _team_hard_trick_room,
+        _team_balance,
+        lambda: _abomasnow_incoherent_variant()[0],
+    ):
+        variant = builder()
+        arch, _ = detect_archetype(variant)
+        for s in _all_suggestions(variant, arch):
+            assert s.kind in tr._VALID_SUGGESTION_KINDS
+            # No existe una kind 'species' ni un target_field de especie.
+            assert "species" not in s.kind
+            assert "species" not in s.target_field.lower()
+
+
+def test_suggestions_are_concrete():
+    """Concreción (§9.5): toda sugerencia tiene from/to/reason no vacíos."""
+    from pokemon_team_builder.services.team_rater import detect_archetype
+
+    variant, _ = _abomasnow_incoherent_variant()
+    arch, _ = detect_archetype(variant)
+    sugg = _all_suggestions(variant, arch)
+    assert sugg, "el equipo incoherente debe producir alguna sugerencia"
+    for s in sugg:
+        assert s.from_value, s
+        assert s.to_value, s
+        assert s.reason_es, s
+        assert isinstance(s.priority, int)
+
+
+def test_abomasnow_produces_dead_move_swap():
+    """El caso Abomasnow Ice Beam muerto produce un move_swap de prioridad alta."""
+    from pokemon_team_builder.services.team_rater import detect_archetype, rate_member
+
+    variant, idx = _abomasnow_incoherent_variant()
+    arch, _ = detect_archetype(variant)
+    mr = rate_member(variant, idx, arch)
+    swaps = [s for s in mr.suggestions if s.kind == "move_swap"]
+    assert swaps, mr.suggestions
+    assert any("ice-beam" in s.from_value.lower() for s in swaps)
+    # Dead move es la prioridad más alta (0) → primera en la lista ordenada.
+    assert mr.suggestions[0].kind == "move_swap"
+
+
+def test_clean_generated_team_yields_no_move_swaps():
+    """El output del propio builder no debe recibir move_swaps de move muerto
+    (§9.2 / §9.6): un equipo generado limpio → cero move_swaps."""
+    from pokemon_team_builder.services.team_rater import detect_archetype
+
+    variant = _generated_variant()
+    arch, _ = detect_archetype(variant)
+    swaps = [s for s in _all_suggestions(variant, arch) if s.kind == "move_swap"]
+    assert swaps == [], swaps
+
+
+def test_suggestions_priority_ordered():
+    from pokemon_team_builder.services.team_rater import detect_archetype, rate_member
+
+    variant, idx = _abomasnow_incoherent_variant()
+    arch, _ = detect_archetype(variant)
+    mr = rate_member(variant, idx, arch)
+    priorities = [s.priority for s in mr.suggestions]
+    assert priorities == sorted(priorities), priorities

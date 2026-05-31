@@ -509,5 +509,182 @@ def rate_member(variant: TeamVariant, index: int, archetype: str) -> MemberRatin
         coherence=coherence,
         strengths=[],
         weaknesses=[],
-        suggestions=[],
+        suggestions=_build_suggestions(variant, index, archetype, _reasons),
     )
+
+
+# ── B4: motor de sugerencias (diff build-usuario vs recomendación) (ADR §5) ──
+# Prioridades (§5.3): dead move > item ilegal > EVs desperdiciados > sidegrade.
+_PRIO_DEAD_MOVE: int = 0
+_PRIO_ILLEGAL_ITEM: int = 1
+_PRIO_WASTED_EVS: int = 2
+_PRIO_NATURE: int = 3
+_PRIO_SIDEGRADE: int = 4
+
+_VALID_SUGGESTION_KINDS: frozenset[str] = frozenset(
+    {"move_swap", "nature", "evs", "item"}
+)
+
+
+def _sp_summary(sp) -> str:
+    """Resumen legible de un SPDistribution (sólo stats > 0)."""
+    parts = []
+    for label, val in (
+        ("HP", sp.hp), ("Atk", sp.atk), ("Def", sp.def_),
+        ("SpA", sp.spa), ("SpD", sp.spd), ("Spe", sp.spe),
+    ):
+        if val > 0:
+            parts.append(f"{val} {label}")
+    return " / ".join(parts) if parts else "—"
+
+
+def _build_suggestions(
+    variant: TeamVariant,
+    index: int,
+    archetype: str,
+    coherence_reasons: list[str],
+) -> list[Suggestion]:
+    """Diff del build del usuario vs recommend_member_build → sugerencias (§5.3).
+
+    RESTRICCIÓN DURA: jamás sugiere cambiar de especie — se recomputa siempre
+    sobre el MISMO PokemonData (todas las kinds ∈ {move_swap, nature, evs, item}).
+    Conservador por defecto: sólo emite cuando el diff es MATERIAL.
+    """
+    from pokemon_team_builder.services.team_generator import (
+        recommend_member_build,
+        _load_champions_legal_items,
+    )
+
+    member = variant.members[index]
+    rec = recommend_member_build(
+        member.pokemon, list(member.role),
+        archetype=archetype, team_sheet=variant.team_sheet,
+    )
+
+    suggestions: list[Suggestion] = []
+    user_moves = [m.strip().lower() for m in member.moves]
+    rec_moves = [m.strip().lower() for m in rec.moves]
+
+    # ── 1. Move swap — sólo para moves muertos que la coherencia ya marcó
+    #    (§5.3: no spamear; sólo swaps flagueados o que cierran hueco). El
+    #    move recomendado del mismo tipo/categoría que el muerto es el destino.
+    dead_moves = _dead_moves_from_reasons(member, coherence_reasons)
+    for dead in dead_moves:
+        replacement = _pick_replacement(dead, user_moves, rec_moves, member)
+        if replacement is None:
+            continue
+        slot = user_moves.index(dead) if dead in user_moves else 0
+        suggestions.append(Suggestion(
+            kind="move_swap",
+            target_field=f"slot_{slot + 1}",
+            from_value=dead,
+            to_value=replacement,
+            reason_es=(
+                f"{dead} es de categoría contraria a tu build (move muerto); "
+                f"cámbialo por {replacement} o ajusta naturaleza/EVs"
+            ),
+            priority=_PRIO_DEAD_MOVE,
+        ))
+
+    # ── 2. Item — sólo con razón clara: ilegal en M-A, o el recomendado domina
+    #    por necesidad concreta. Conservador (muchos items son sidegrades).
+    legal_items, _ = _load_champions_legal_items()
+    user_item = member.item.strip()
+    if legal_items and user_item and user_item not in legal_items:
+        suggestions.append(Suggestion(
+            kind="item",
+            target_field="item",
+            from_value=user_item,
+            to_value=rec.item,
+            reason_es=(
+                f"{user_item} no es legal en Pokémon Champions M-A; "
+                f"el builder recomienda {rec.item}"
+            ),
+            priority=_PRIO_ILLEGAL_ITEM,
+        ))
+
+    # ── 3. EVs — SP desperdiciado en stat ofensiva no usada, o total < 66.
+    sp = member.sp_distribution
+    sp_total = sp.hp + sp.atk + sp.def_ + sp.spa + sp.spd + sp.spe
+    ev_reason = next((r for r in coherence_reasons if "EVs desperdiciados" in r), None)
+    if ev_reason is not None or sp_total < MAX_SP_TOTAL:
+        why = (
+            ev_reason
+            if ev_reason is not None
+            else f"SP sin maximizar ({sp_total}/{MAX_SP_TOTAL})"
+        )
+        suggestions.append(Suggestion(
+            kind="evs",
+            target_field="sp_distribution",
+            from_value=_sp_summary(sp),
+            to_value=_sp_summary(rec.sp_distribution),
+            reason_es=f"{why}; usa el spread recomendado",
+            priority=_PRIO_WASTED_EVS,
+        ))
+
+    # ── 4. Naturaleza — sólo si la del usuario boostea una stat ofensiva no
+    #    usada (la coherencia ya lo marcó) y difiere de la recomendada.
+    nature_reason = next(
+        (r for r in coherence_reasons if "naturaleza" in r.lower()), None
+    )
+    if (
+        nature_reason is not None
+        and member.nature.strip().lower() != rec.nature.strip().lower()
+    ):
+        suggestions.append(Suggestion(
+            kind="nature",
+            target_field="nature",
+            from_value=member.nature,
+            to_value=rec.nature,
+            reason_es=(
+                f"tu naturaleza {member.nature} potencia una stat que el moveset "
+                f"no usa; el builder recomienda {rec.nature}"
+            ),
+            priority=_PRIO_NATURE,
+        ))
+
+    suggestions.sort(key=lambda s: s.priority)
+    return suggestions
+
+
+def _dead_moves_from_reasons(
+    member: TeamMember, coherence_reasons: list[str]
+) -> list[str]:
+    """Extrae los slugs de moves muertas señaladas por _set_coherence.
+
+    Recalcula la categoría invertida y lista las moves de daño de la categoría
+    opuesta — exactamente las que disparan el penalty (sin re-parsear el texto).
+    """
+    has_dead = any("muerto" in r.lower() for r in coherence_reasons)
+    if not has_dead:
+        return []
+    invested = _invested_offensive_category(member)
+    if invested is None:
+        return []
+    moves = [m.strip().lower() for m in member.moves]
+    return [
+        mv for mv in _damaging_moves(moves)
+        if replica_exporter._MOVE_CATEGORY.get(mv) != invested
+    ]
+
+
+def _pick_replacement(
+    dead: str, user_moves: list[str], rec_moves: list[str], member: TeamMember
+) -> str | None:
+    """Elige un reemplazo concreto para una move muerta.
+
+    Preferencia: una move recomendada por el builder (rec_moves) que NO esté ya
+    en el set del usuario y sea de la categoría correcta (el builder ya las
+    selecciona category-coherentes). Si no hay candidato, no sugiere swap (no
+    inventa moves).
+    """
+    invested = _invested_offensive_category(member)
+    for cand in rec_moves:
+        if cand in user_moves:
+            continue
+        cat = replica_exporter._MOVE_CATEGORY.get(cand)
+        # El reemplazo ideal es de la categoría invertida (o categoría
+        # desconocida — el builder ya la eligió coherente).
+        if invested is None or cat is None or cat == invested:
+            return cand
+    return None
