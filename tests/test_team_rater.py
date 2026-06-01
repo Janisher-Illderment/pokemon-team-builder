@@ -886,6 +886,21 @@ def test_member_rating_includes_final_stats(rate_client):
     assert aggron["stats"]["def"] > aggron["stats"]["spa"], aggron["stats"]
 
 
+def test_member_rating_includes_base_stats_for_hexagon(rate_client):
+    """base_stats (0 EV) acompaña a stats (con EV) para pintar el anillo de EVs.
+    Toda stat final >= su base; estricto donde hay EVs invertidos."""
+    resp = rate_client.post("/rate-team", json={"pokepaste": _AGGRON_MEGA_PASTE})
+    assert resp.status_code == 200, resp.text
+    keys = {"hp", "atk", "def", "spa", "spd", "spe"}
+    for m in resp.json()["members"]:
+        assert set(m["base_stats"]) == keys, m["base_stats"]
+        for k in keys:
+            assert m["stats"][k] >= m["base_stats"][k], (m["name"], k)
+    aggron = next(m for m in resp.json()["members"] if m["name"].lower() == "aggron")
+    # Aggron invierte 252 HP → su HP final supera ESTRICTAMENTE su base.
+    assert aggron["stats"]["hp"] > aggron["base_stats"]["hp"], aggron
+
+
 def test_steel_stab_not_flagged_no_stab(rate_client):
     """Aggron lleva Heavy Slam (Acero = su STAB) → NO debe salir 'sin STAB'.
     Regresión: la tabla curada no reconocía Heavy Slam y daba falso positivo."""

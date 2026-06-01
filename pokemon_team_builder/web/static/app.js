@@ -428,12 +428,15 @@ function app() {
       return 'low';
     },
 
-    // Hexágono de stats FINALES de combate (rate-team). Orden canónico de los
-    // juegos: PS arriba y, en sentido horario, Atq, Def, Vel (abajo), DefE, AtqE.
-    // Escala fija (MAX 250) para que las formas sean comparables entre mons;
-    // los HP muy altos se topan en el borde (aceptable). Devuelve geometría SVG.
-    statHexagon(stats) {
-      const s = stats || {};
+    // Hexágono de stats FINALES de combate (rate-team) como STRING SVG completo,
+    // inyectado con x-html. Se hace así (no con <template x-for> dentro de <svg>)
+    // porque Alpine clona los nodos de x-for en el namespace HTML, no el SVG, y
+    // los <text>/<line> no se renderizan (por eso antes faltaban los nombres).
+    // Dos polígonos: base (sin EVs) y total (base+EVs) → el anillo entre ambos
+    // es lo que aportan los EVs. Orden canónico: PS arriba, horario Atq, Def,
+    // Vel (abajo), DefE, AtqE. Escala fija MAX=250 (comparable entre mons).
+    statHexagonSvg(stats, baseStats) {
+      const s = stats || {}, b = baseStats || {};
       const order = [
         { key: 'hp',  label: 'PS' },
         { key: 'atk', label: 'Atq' },
@@ -442,25 +445,32 @@ function app() {
         { key: 'spd', label: 'DefE' },
         { key: 'spa', label: 'AtqE' },
       ];
-      const cx = 70, cy = 62, R = 46, MAX = 250;
-      const pts = [], ring = [], axes = [], labels = [];
+      const cx = 70, cy = 64, R = 44, MAX = 250;
+      const ptsFull = [], ptsBase = [], ring = [];
+      let axes = '', labels = '';
       order.forEach((o, i) => {
         const ang = -Math.PI / 2 + i * Math.PI / 3;
-        const val = Math.max(0, s[o.key] || 0);
-        const r = Math.min(1, val / MAX) * R;
-        const x = cx + r * Math.cos(ang), y = cy + r * Math.sin(ang);
-        pts.push(`${x.toFixed(1)},${y.toFixed(1)}`);
-        const ex = cx + R * Math.cos(ang), ey = cy + R * Math.sin(ang);
-        ring.push(`${ex.toFixed(1)},${ey.toFixed(1)}`);
-        axes.push({ x1: cx, y1: cy, x2: +ex.toFixed(1), y2: +ey.toFixed(1) });
-        const lr = R + 13;
-        labels.push({
-          x: +(cx + lr * Math.cos(ang)).toFixed(1),
-          y: +(cy + lr * Math.sin(ang)).toFixed(1),
-          label: o.label, val,
-        });
+        const cos = Math.cos(ang), sin = Math.sin(ang);
+        const rf = Math.min(1, (s[o.key] || 0) / MAX) * R;
+        const rb = Math.min(1, (b[o.key] || 0) / MAX) * R;
+        ptsFull.push(`${(cx + rf * cos).toFixed(1)},${(cy + rf * sin).toFixed(1)}`);
+        ptsBase.push(`${(cx + rb * cos).toFixed(1)},${(cy + rb * sin).toFixed(1)}`);
+        const ex = (cx + R * cos).toFixed(1), ey = (cy + R * sin).toFixed(1);
+        ring.push(`${ex},${ey}`);
+        axes += `<line x1="${cx}" y1="${cy}" x2="${ex}" y2="${ey}" class="stat-hex-axis"/>`;
+        const lr = R + 14;
+        const lx = (cx + lr * cos).toFixed(1), ly = (cy + lr * sin).toFixed(1);
+        labels += `<text x="${lx}" y="${ly}" class="stat-hex-label" text-anchor="middle">`
+          + `<tspan>${o.label}</tspan>`
+          + `<tspan x="${lx}" dy="9" class="stat-hex-val">${s[o.key] || 0}</tspan></text>`;
       });
-      return { points: pts.join(' '), ring: ring.join(' '), axes, labels };
+      return `<svg viewBox="0 0 140 142" class="stat-hex-svg" role="img" aria-label="Stats finales">`
+        + `<polygon points="${ring.join(' ')}" class="stat-hex-ring"/>`
+        + axes
+        + `<polygon points="${ptsFull.join(' ')}" class="stat-hex-area"/>`
+        + `<polygon points="${ptsBase.join(' ')}" class="stat-hex-base"/>`
+        + labels
+        + `</svg>`;
     },
   };
 }
