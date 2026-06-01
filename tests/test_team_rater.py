@@ -960,3 +960,18 @@ def test_member_rating_includes_role():
     for i in range(6):
         mr = rate_member(variant, i, archetype)
         assert mr.role in allowed, mr.role
+
+
+def test_member_rating_includes_sp():
+    """rate_member puebla `sp`: dict de 6 claves canónicas (clave 'def', no
+    'def_'); la suma del dict == suma del sp_distribution del miembro."""
+    from pokemon_team_builder.services.team_rater import detect_archetype, rate_member
+
+    variant = _team_hyper_offense()
+    archetype, _ = detect_archetype(variant)
+    for i in range(6):
+        mr = rate_member(variant, i, archetype)
+        assert set(mr.sp.keys()) == {"hp", "atk", "def", "spa", "spd", "spe"}
+        sp = variant.members[i].sp_distribution
+        expected = sp.hp + sp.atk + sp.def_ + sp.spa + sp.spd + sp.spe
+        assert sum(mr.sp.values()) == expected

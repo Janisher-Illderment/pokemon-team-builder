@@ -613,6 +613,15 @@ def rate_member(variant: TeamVariant, index: int, archetype: str) -> MemberRatin
     # per-mon, así que el resultado coincide con derive_member_role).
     role_label = _role_label_from_tags(per_member_tags[index], member)
 
+    # B2 — EVs/SP por stat (clave "def", no "def_"; sólo lectura del modelo).
+    # Mismo dict que el resto de la app expone al front (router._build_sp_dict),
+    # pero aquí incluimos TODAS las stats (el front filtra >0 al renderizar).
+    sp = member.sp_distribution
+    sp_dict = {
+        "hp": sp.hp, "atk": sp.atk, "def": sp.def_,
+        "spa": sp.spa, "spd": sp.spd, "spe": sp.spe,
+    }
+
     return MemberRating(
         name=member.pokemon.name,
         score=score,
@@ -624,6 +633,7 @@ def rate_member(variant: TeamVariant, index: int, archetype: str) -> MemberRatin
         weaknesses=weaknesses,
         suggestions=_build_suggestions(variant, index, archetype, reasons),
         role=role_label,
+        sp=sp_dict,
     )
 
 
