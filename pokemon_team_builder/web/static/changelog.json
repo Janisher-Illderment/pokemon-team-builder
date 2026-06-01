@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.13.3",
+    "date": "2026-06-01",
+    "highlights": "Importar/valorar acepta equipos en formato Champions (puntos SP), no solo EVs de Showdown",
+    "changes": [
+      { "type": "fix", "text": "Al pegar un equipo cuyos EVs son los PUNTOS de Champions (0–32, p.ej. '32 HP / 2 Def / 32 SpD' = el formato que exporta esta app), el parser los entendía como EVs de Showdown y los dividía entre 8 → los Pokémon entraban infra-invertidos (p.ej. 8/66) y el optimizador sugería 'maximizarlos' sin sentido. Ahora detecta el formato: valores ≤32 que sumen ≤66 se usan como SP tal cual; los EVs reales de Showdown (252…) se siguen dividiendo /8. El round-trip exportar→importar ya conserva los SP." }
+    ]
+  },
+  {
     "version": "0.13.2",
     "date": "2026-06-01",
     "highlights": "Hexágono de stats con nombres visibles, dos colores (base vs EVs) y rejilla 2×3 en Valorar equipo",

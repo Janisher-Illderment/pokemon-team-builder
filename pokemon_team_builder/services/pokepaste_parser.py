@@ -29,12 +29,24 @@ def _slugify(name: str) -> str:
 
 
 def _evs_to_sps(ev_line: str) -> tuple[SPDistribution, list[str]]:
-    """Convert a Showdown EV line to SPDistribution.
+    """Convert an ``EVs:`` line to SPDistribution, handling BOTH formats.
+
+    The ``EVs:`` line can carry two different things:
+      - **Showdown EVs** (0–252, e.g. ``252 HP / 252 Atk / 4 Spe``) → 1 SP = 8 EVs.
+      - **Champions SP / "puntos"** (0–32, total ≤ 66) written directly — this is
+        the format THIS app exports (replica_exporter._ev_line) and the natural
+        way a Champions player writes their team.
+
+    Heuristic: if every value is ≤ MAX_SP_STAT (32) AND they sum to ≤
+    MAX_SP_TOTAL (66), the line is SP and is used verbatim; otherwise it's
+    Showdown EVs and we divide by 8. This makes the parser consistent with the
+    exporter (round-trip preserves SP) while still importing real Showdown
+    pastes. A bug before: SP values like ``32 HP`` were //8'd to 4.
 
     Returns (sp_distribution, warnings).
     """
     warnings: list[str] = []
-    raw: dict[str, int] = {}
+    parsed: dict[str, int] = {}
 
     for part in ev_line.split("/"):
         part = part.strip()
@@ -46,10 +58,22 @@ def _evs_to_sps(ev_line: str) -> tuple[SPDistribution, list[str]]:
         field = _EV_STAT_MAP.get(stat_key)
         if field is None:
             continue
-        if val > 256:
-            warnings.append(f"EV valor {val} para {stat_key} excede 256; clamp a MAX_SP_STAT")
-            val = 256
-        raw[field] = min(MAX_SP_STAT, val // 8)
+        parsed[field] = val
+
+    total_raw = sum(parsed.values())
+    max_raw = max(parsed.values(), default=0)
+    # SP if it fits the Champions point budget; else Showdown EVs.
+    as_sp = max_raw <= MAX_SP_STAT and total_raw <= MAX_SP_TOTAL
+
+    raw: dict[str, int] = {}
+    for field, val in parsed.items():
+        if as_sp:
+            raw[field] = min(MAX_SP_STAT, val)
+        else:
+            if val > 256:
+                warnings.append(f"EV valor {val} para {field} excede 256; clamp a MAX_SP_STAT")
+                val = 256
+            raw[field] = min(MAX_SP_STAT, val // 8)
 
     # Clamp total to MAX_SP_TOTAL (reduce largest first)
     total = sum(raw.values())
