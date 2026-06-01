@@ -407,3 +407,22 @@ def test_duplicate_species_raises_value_error():
 
     with pytest.raises(ValueError, match="(?i)species|venusaur"):
         _parse(paste, names=names_with_dup)
+
+
+# ---------------------------------------------------------------------------
+# EVs vs SP heuristic (bug Sergio: la app exporta SP crudos en la línea EVs:)
+# ---------------------------------------------------------------------------
+
+def test_evs_line_with_sp_values_used_verbatim():
+    """Una línea EVs con PUNTOS (SP 0-32, total <= 66) — el formato nativo que
+    exporta esta app — se usa TAL CUAL, sin dividir por 8."""
+    sp, _ = _evs_to_sps("32 HP / 2 Def / 32 SpD")
+    assert (sp.hp, sp.def_, sp.spd) == (32, 2, 32)
+    assert sp.hp + sp.atk + sp.def_ + sp.spa + sp.spd + sp.spe == 66
+
+
+def test_evs_line_with_showdown_evs_divided_by_8():
+    """Una línea con EVs reales de Showdown (>32 o total>66) sí se divide /8."""
+    sp, _ = _evs_to_sps("252 HP / 252 SpD / 4 Spe")
+    assert sp.hp == 31 and sp.spd == 31   # 252 // 8
+    assert sp.spe == 0                    # 4 // 8
