@@ -140,34 +140,38 @@ def test_mega_data_integrity() -> None:
 
 
 def test_mega_data_matches_official_list() -> None:
-    """46 mega-eligible species / 47 forms — exactly Sergio's official paste
-    from the in-game Mega Stone store (2026-05-15). Source of truth lives
-    in ``tests/fixtures/champions_megas_official.csv``; this test fails
-    loud if the JSON drifts from that list.
+    """47 mega-eligible species / 48 forms. Source of truth lives in
+    ``tests/fixtures/champions_megas_official.csv``; this test fails loud if
+    the JSON drifts from that list.
 
-    Charizard is the only species with two forms (X + Y). Mega Raichu X/Y,
-    Mega Tatsugiri, Mega Metagross, Mega Garchomp, Mega Gyarados,
-    Mega Greninja, Mega Beedrill, Mega Heracross, Mega Manectric,
-    Mega Steelix, Mega Abomasnow, Mega Aggron, Mega Chesnaught,
-    Mega Delphox, Mega Floette — all excluded (not in game per Sergio's
-    paste).
+    v3 (2026-06-01): Mega Aggron RE-ADDED — Sergio confirmed it in-game
+    (Aggron + Aggronite, played). Its v0.10.2 removal was a false negative:
+    Aggronite comes from the Mega Evolution Tutorial, not the VP shop paste.
+    Charizard remains the only species with two forms (X + Y).
     """
     data = load_mega_evolutions()
-    assert len(data) == 46
+    assert len(data) == 47
     total_forms = sum(len(forms) for forms in data.values())
-    assert total_forms == 47
+    assert total_forms == 48
     # Charizard is the only species with two forms.
     multi_form = {sp for sp, forms in data.items() if len(forms) > 1}
     assert multi_form == {"charizard"}
-    # Sanity-check the removed set never sneaks back in.
-    for removed in (
-        "abomasnow", "aggron", "beedrill", "chesnaught", "delphox",
+    # Aggron is present and well-formed (Steel / Filter Mega Aggron).
+    assert "aggron" in data
+    aggron_mega = data["aggron"][0]
+    assert aggron_mega.mega_stone == "Aggronite"
+    assert aggron_mega.types == ["steel"]
+    # Still-absent set (pending restore or genuinely not in game) must not
+    # sneak back in silently. NOTE: most of these are pending restore (same
+    # Tutorial/Z-A reason as aggron); only metagross seems truly absent.
+    for absent in (
+        "abomasnow", "beedrill", "chesnaught", "delphox",
         "floette", "garchomp", "greninja", "gyarados", "heracross",
         "manectric", "metagross", "steelix",
     ):
-        assert removed not in data, (
-            f"{removed} re-added to mega_evolutions.json — not in Sergio's "
-            "official list (tests/fixtures/champions_megas_official.csv)"
+        assert absent not in data, (
+            f"{absent} present but not yet in the CSV source of truth "
+            "(tests/fixtures/champions_megas_official.csv)"
         )
 
 

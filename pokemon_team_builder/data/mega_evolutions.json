@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "regulation": "M-A",
-  "data_version": 2,
+  "data_version": 3,
   "megas": {
     "absol": [
       {
@@ -38,6 +38,25 @@
           "spa": 70,
           "spd": 95,
           "spe": 150
+        },
+        "verified": true
+      }
+    ],
+    "aggron": [
+      {
+        "form_id": "aggron-mega",
+        "mega_stone": "Aggronite",
+        "types": [
+          "steel"
+        ],
+        "ability": "filter",
+        "stats": {
+          "hp": 70,
+          "atk": 140,
+          "def": 230,
+          "spa": 60,
+          "spd": 80,
+          "spe": 50
         },
         "verified": true
       }
@@ -936,5 +955,5 @@
     ]
   },
   "_source": "tests/fixtures/champions_megas_official.csv (Sergio pasted from Champions in-game store 2026-05-15)",
-  "_notes": "47 stones / 46 species. Charizard has X+Y. Removed 13 species absent from Sergio's official list: abomasnow, aggron, beedrill, chesnaught, delphox, floette, garchomp, greninja, gyarados, heracross, manectric, metagross, steelix. All remaining entries marked verified=true after the official confirmation."
+  "_notes": "v3 (2026-06-01): 48 stones / 47 species. Charizard has X+Y. AGGRON re-added (Mega Aggron: Steel, Filter, 70/140/230/60/80/50) — Sergio confirmed in-game (Aggron + Aggronite, played); it was a false-negative removal in v0.10.2 because Aggronite comes from the Mega Evolution Tutorial, not the VP shop Sergio pasted. PENDING restore (same Tutorial/Z-A-deposit reason): beedrill, garchomp, gyarados, heracross, manectric, steelix, abomasnow, chesnaught, delphox, floette, greninja. Only metagross appears genuinely absent. All entries verified=true."
 }

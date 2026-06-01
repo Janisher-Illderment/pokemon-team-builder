@@ -799,3 +799,80 @@ def test_rate_team_endpoint_422_on_oversized_payload(rate_client):
     """Brief #2: payload por encima de max_length → 422, no un 200 lento."""
     resp = rate_client.post("/rate-team", json={"pokepaste": "A" * 20001})
     assert resp.status_code == 422
+
+
+# ── Mega stones son legales (viven en mega_evolutions.json, no en items) ─────
+
+_AGGRON_MEGA_PASTE = """Aggron @ Aggronite
+Ability: Heavy Metal
+Level: 50
+EVs: 252 HP / 252 SpD
+Careful Nature
+- Body Press
+- Heavy Slam
+- Iron Defense
+- Protect
+
+Garchomp @ Choice Scarf
+Ability: Rough Skin
+Level: 50
+EVs: 252 Atk / 252 Spe
+Jolly Nature
+- Dragon Claw
+- Earthquake
+- Rock Slide
+- Protect
+
+Incineroar @ Sitrus Berry
+Ability: Intimidate
+Level: 50
+EVs: 252 HP / 252 SpD
+Careful Nature
+- Fake Out
+- Flare Blitz
+- Parting Shot
+- Protect
+
+Whimsicott @ Occa Berry
+Ability: Prankster
+Level: 50
+EVs: 252 Spe
+Timid Nature
+- Moonblast
+- Tailwind
+- Encore
+- Protect
+
+Milotic @ Leftovers
+Ability: Competitive
+Level: 50
+EVs: 252 HP / 252 SpA
+Modest Nature
+- Scald
+- Ice Beam
+- Recover
+- Protect
+
+Dragonite @ Lum Berry
+Ability: Multiscale
+Level: 50
+EVs: 252 Atk / 252 Spe
+Adamant Nature
+- Dragon Claw
+- Earthquake
+- Extreme Speed
+- Protect
+"""
+
+
+def test_mega_stone_not_flagged_illegal(rate_client):
+    """Una mega-piedra (Aggronite) es legal-por-datos-de-mega; NO debe salir
+    como 'item ilegal, usa X'. Regresión del bug reportado por Sergio."""
+    resp = rate_client.post("/rate-team", json={"pokepaste": _AGGRON_MEGA_PASTE})
+    assert resp.status_code == 200, resp.text
+    aggron = next(m for m in resp.json()["members"] if m["name"].lower() == "aggron")
+    illegal_item = [
+        s for s in aggron["suggestions"]
+        if s["kind"] == "item" and "no es legal" in s["reason"].lower()
+    ]
+    assert not illegal_item, f"mega-piedra marcada ilegal: {illegal_item}"

@@ -2,19 +2,25 @@ mega_stone_es,mega_stone_en,species,price_pv,notes
 # Champions M-A official Mega Stones list. Source of truth = pasted by
 # Sergio 2026-05-15 directly from the in-game store. Price column is the
 # in-game PV cost (2000 PV for every stone — kept for completeness).
-# Total: 47 stones across 46 Pokémon (Charizard has X + Y).
+# Total: 48 stones across 47 Pokémon (Charizard has X + Y).
 #
 # Update procedure: when Champions adds / removes a stone, edit this CSV
 # first, then regenerate `pokemon_team_builder/data/mega_evolutions.json`
 # (currently a manual sync — the stats / abilities live there because
 # they don't come from the in-game store listing).
 #
+# 2026-06-01 CORRECTION: the v0.10.2 removal was a FALSE NEGATIVE — same
+# store-only-paste mistake as the items pool. Sergio's 2026-05-15 paste was
+# the VP SHOP; several stones are obtained via the **Mega Evolution Tutorial**
+# or by depositing from Pokémon Legends Z-A, so they were missing from the
+# shop listing. AGGRON re-added here (Sergio confirmed: Aggron + Aggronite,
+# played in-game). The other ~11 removed-by-mistake (beedrill, garchomp,
+# gyarados, heracross, manectric, steelix, abomasnow, chesnaught, delphox,
+# floette, greninja — all "Mega Evolution Tutorial" or Z-A deposit) are
+# pending restore. Only METAGROSS appears genuinely absent (no Metagrossite
+# in the in-game list).
 # Items NOT in this CSV are NOT legal Mega Stones in Champions M-A.
-# v0.10.2 (2026-05-15) removed 13 species from mega_evolutions.json
-# that were present in the previous data but absent here:
-#   abomasnow, aggron, beedrill, chesnaught, delphox, floette,
-#   garchomp, greninja, gyarados, heracross, manectric, metagross,
-#   steelix.
+Aggronita,Aggronite,aggron,0,Mega Evolution Tutorial (no se vende en tienda)
 Venusaurita,Venusaurite,venusaur,2000,
 Charizardita X,Charizardite X,charizard,2000,form charizard-mega-x
 Charizardita Y,Charizardite Y,charizard,2000,form charizard-mega-y
