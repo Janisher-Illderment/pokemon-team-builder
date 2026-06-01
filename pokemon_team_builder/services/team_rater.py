@@ -355,11 +355,17 @@ def _set_coherence(member: TeamMember, variant: TeamVariant) -> tuple[float, lis
         )
 
     # ── Sin STAB ──────────────────────────────────────────────────────────
+    # CONSERVADOR: sólo concluimos "sin STAB" cuando tenemos info de tipo
+    # COMPLETA de los moves de daño (todos en _MOVE_TYPE) y ninguno coincide
+    # con los tipos del mon. _MOVE_TYPE/_MOVE_CATEGORY son tablas curadas e
+    # incompletas (~150 moves); si el STAB del mon no está en ellas (p.ej.
+    # Heavy Slam de Aggron), antes salía un FALSO "sin STAB". Si algún move de
+    # daño tiene tipo desconocido — o no hay moves de daño reconocidos — no
+    # podemos descartar el STAB, así que NO lo marcamos.
     own_types = {t.strip().lower() for t in member.pokemon.types}
-    has_stab = any(
-        _MOVE_TYPE.get(mv) in own_types for mv in damaging
-    )
-    if not has_stab:
+    move_types = [_MOVE_TYPE.get(mv) for mv in damaging]
+    all_types_known = bool(damaging) and all(t is not None for t in move_types)
+    if all_types_known and not any(t in own_types for t in move_types):
         penalty += _PEN_NO_STAB
         reasons.append("sin STAB — ningún move de daño es del tipo del Pokémon")
 
@@ -415,6 +421,7 @@ class MemberRating:
     fit: float              # [0,1]
     intrinsic: float        # [0.5,1.0] (C6)
     coherence: float        # [0,1]
+    moves: list[str]        # los 4 moves del set del usuario (para la UI)
     strengths: list[str]
     weaknesses: list[str]
     suggestions: list[Suggestion]
@@ -534,6 +541,7 @@ def rate_member(variant: TeamVariant, index: int, archetype: str) -> MemberRatin
         fit=fit,
         intrinsic=intrinsic,
         coherence=coherence,
+        moves=list(member.moves),
         strengths=strengths,
         weaknesses=weaknesses,
         suggestions=_build_suggestions(variant, index, archetype, reasons),

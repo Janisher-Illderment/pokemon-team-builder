@@ -128,4 +128,11 @@ MOVE_TYPE: dict[str, str] = {
     "moonblast": "fairy",
     "play-rough": "fairy",
     "fleur-cannon": "fairy",
+    # Common STAB/coverage missing from the curated table (added 2026-06-01
+    # so the rater recognises them — e.g. Aggron's Heavy Slam = Steel STAB).
+    "heavy-slam": "steel",
+    "body-press": "fighting",
+    "dire-claw": "poison",
+    "stomping-tantrum": "ground",
+    "wave-crash": "water",
 }

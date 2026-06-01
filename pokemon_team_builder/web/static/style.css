@@ -672,6 +672,19 @@ main { max-width: 960px; margin: 0 auto; padding: 1.5rem 1rem; }
   border-radius: 4px;
   padding: 0.05rem 0.3rem;
 }
+.rate-mon-moves {
+  list-style: none;
+  display: flex; flex-wrap: wrap; gap: 0.25rem;
+  margin: 0.35rem 0 0; padding: 0;
+}
+.rate-mon-moves li {
+  font-size: 0.62rem;
+  color: #e2e8f0;
+  background: #1e293b;
+  border: 1px solid #475569;
+  border-radius: 4px;
+  padding: 0.08rem 0.4rem;
+}
 
 /* Per-mon strengths / weaknesses */
 .rate-mon-list { list-style: none; margin-top: 0.35rem; }
