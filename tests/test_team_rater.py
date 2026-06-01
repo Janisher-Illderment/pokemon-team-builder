@@ -865,6 +865,23 @@ Adamant Nature
 """
 
 
+def test_member_rating_includes_moves(rate_client):
+    """Cada miembro valorado expone sus 4 moves (para mostrarlos en la UI)."""
+    resp = rate_client.post("/rate-team", json={"pokepaste": _AGGRON_MEGA_PASTE})
+    assert resp.status_code == 200, resp.text
+    for m in resp.json()["members"]:
+        assert isinstance(m["moves"], list) and len(m["moves"]) == 4, m
+
+
+def test_steel_stab_not_flagged_no_stab(rate_client):
+    """Aggron lleva Heavy Slam (Acero = su STAB) → NO debe salir 'sin STAB'.
+    Regresión: la tabla curada no reconocía Heavy Slam y daba falso positivo."""
+    resp = rate_client.post("/rate-team", json={"pokepaste": _AGGRON_MEGA_PASTE})
+    aggron = next(m for m in resp.json()["members"] if m["name"].lower() == "aggron")
+    no_stab = [w for w in aggron["weaknesses"] if "sin stab" in w.lower()]
+    assert not no_stab, f"falso 'sin STAB' en Aggron (lleva Heavy Slam): {no_stab}"
+
+
 def test_mega_stone_not_flagged_illegal(rate_client):
     """Una mega-piedra (Aggronite) es legal-por-datos-de-mega; NO debe salir
     como 'item ilegal, usa X'. Regresión del bug reportado por Sergio."""

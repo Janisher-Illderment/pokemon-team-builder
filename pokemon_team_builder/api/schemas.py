@@ -232,6 +232,7 @@ class MemberRatingOut(BaseModel):
     fit: float
     intrinsic: float
     coherence: float
+    moves: list[str] = []
     strengths: list[str] = []
     weaknesses: list[str] = []
     suggestions: list[SuggestionOut] = []

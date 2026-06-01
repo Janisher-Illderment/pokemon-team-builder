@@ -203,6 +203,13 @@ _MOVE_CATEGORY: dict[str, str] = {
     "moonblast": "special",
     "play-rough": "physical",
     "fleur-cannon": "special",
+    # Common damaging moves missing from the curated table (added 2026-06-01;
+    # keep in sync with data/move_types.py — both consumed by the rater).
+    "heavy-slam": "physical",
+    "body-press": "physical",
+    "dire-claw": "physical",
+    "stomping-tantrum": "physical",
+    "wave-crash": "physical",
 }
 
 def _offensive_category(stats: BaseStats) -> str:

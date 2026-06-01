@@ -373,6 +373,7 @@ def _team_rating_to_out(rating: team_rater.TeamRating) -> TeamRatingOut:
                 fit=m.fit,
                 intrinsic=m.intrinsic,
                 coherence=m.coherence,
+                moves=list(m.moves),
                 strengths=list(m.strengths),
                 weaknesses=list(m.weaknesses),
                 suggestions=[

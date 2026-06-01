@@ -43,7 +43,7 @@
   </script>
 
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-  <link rel="stylesheet" href="style.css?v=20260601-1" />
+  <link rel="stylesheet" href="style.css?v=20260601-2" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -559,6 +559,15 @@ ajustes concretos (naturaleza, EVs, item, moves) — nunca cambiamos de especie.
                   <span x-text="'Coherencia ' + Math.round(m.coherence * 100) + '%'"></span>
                   <span x-text="'Especie ' + Math.round(m.intrinsic * 100) + '%'"></span>
                 </div>
+
+                <!-- Moves del set -->
+                <template x-if="m.moves && m.moves.length > 0">
+                  <ul class="rate-mon-moves">
+                    <template x-for="(mv, mvi) in m.moves" :key="mvi">
+                      <li x-text="mv.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')"></li>
+                    </template>
+                  </ul>
+                </template>
 
                 <!-- Fuertes / débiles del mon -->
                 <template x-if="m.strengths && m.strengths.length > 0">
