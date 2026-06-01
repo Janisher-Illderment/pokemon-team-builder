@@ -20,7 +20,7 @@ datos de meta inventados (memoria: nunca fabricar datos competitivos).
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from pokemon_team_builder.config import MAX_SP_TOTAL
 from pokemon_team_builder.domain.models import TeamMember, TeamVariant
@@ -29,6 +29,7 @@ from pokemon_team_builder.services.pokemon_evaluator import evaluate_pokemon_qua
 from pokemon_team_builder.services.synergy_engine import (
     analyze_coverage,
     assess_presence,
+    derive_doubles_tags,
     derive_team_tags,
 )
 from pokemon_team_builder.services.team_generator import _derive_nature
@@ -254,6 +255,71 @@ def _invested_offensive_category(member: TeamMember) -> str | None:
     return nature_cat
 
 
+# ── B1: rol coherente por mon (label primario legible ES) (ADR §3) ───────────
+# Labels ES fijos (decisión de presentación, ADR §3.2). Aditivo: ningún otro
+# símbolo depende de estos strings.
+_ROLE_TRICK_ROOM: str = "Trick Room"
+_ROLE_WEATHER: str = "Inductor de clima"
+_ROLE_SUPPORT: str = "Apoyo"
+_ROLE_WALL: str = "Muro / pivote"
+_ROLE_PHYSICAL: str = "Atacante físico"
+_ROLE_SPECIAL: str = "Atacante especial"
+_ROLE_ATTACKER: str = "Atacante"
+_ROLE_SPEED: str = "Control de velocidad"
+_ROLE_VERSATILE: str = "Versátil"
+
+
+def _role_label_from_tags(tags: list[str], member: TeamMember) -> str:
+    """Mapea tags de dobles (+ desempate físico/especial) a UN label ES (§3.2).
+
+    Algoritmo determinista, primer match gana (orden = prioridad de identidad
+    del mon). El refinamiento por naturaleza/EVs sólo desempata el caso
+    ofensivo (paso 5) vía ``_invested_offensive_category`` — el item no altera
+    el label primario (ADR §3.2, conservador).
+    """
+    tag_set = set(tags)
+
+    # 1. Trick Room — identidad de equipo dominante.
+    if "trick_room_setter" in tag_set:
+        return _ROLE_TRICK_ROOM
+    # 2. Inductor de clima.
+    if "weather_setter" in tag_set:
+        return _ROLE_WEATHER
+    # 3. Apoyo puro (enabler sin amenaza ofensiva).
+    if "support_enabler" in tag_set and "offensive_threat" not in tag_set:
+        return _ROLE_SUPPORT
+    # 4. Muro / pivote.
+    if "defensive_pivot" in tag_set:
+        return _ROLE_WALL
+    # 5. Atacante — desempate físico/especial por naturaleza+EVs.
+    if "offensive_threat" in tag_set:
+        category = _invested_offensive_category(member)
+        if category == "physical":
+            return _ROLE_PHYSICAL
+        if category == "special":
+            return _ROLE_SPECIAL
+        return _ROLE_ATTACKER
+    # 6. Control de velocidad.
+    if "speed_control" in tag_set:
+        return _ROLE_SPEED
+    # 7. Fallback sin tags.
+    return _ROLE_VERSATILE
+
+
+def derive_member_role(member: TeamMember) -> str:
+    """Rol primario legible (ES) del SET concreto de un miembro (ADR §3.2).
+
+    Wrapper público autosuficiente para tests/CLI: deriva los tags de dobles
+    del moveset+habilidad reales del miembro (``derive_doubles_tags``) y los
+    mapea a un único label vía ``_role_label_from_tags``. NO introduce lógica
+    de juego nueva — reusa la pieza C3 + el desempate ofensivo ya existente.
+    """
+    tags = derive_doubles_tags(
+        member.pokemon, moves=list(member.moves), ability=member.ability
+    )
+    return _role_label_from_tags(tags, member)
+
+
 def _damaging_moves(moves: list[str]) -> list[str]:
     """Moves con categoría de daño conocida (physical/special)."""
     out: list[str] = []
@@ -425,6 +491,13 @@ class MemberRating:
     strengths: list[str]
     weaknesses: list[str]
     suggestions: list[Suggestion]
+    # B1 (aditivo, al final): rol primario legible ES derivado del SET concreto
+    # (derive_member_role). Default "" mantiene seguros los constructores
+    # posicionales y los fixtures que no lo pasen.
+    role: str = ""
+    # B2 (aditivo, al final): EVs/SP del miembro por stat (6 claves canónicas,
+    # clave "def" — no "def_"). Default factory para no compartir mutable.
+    sp: dict[str, int] = field(default_factory=dict)
 
 
 def _tag_need_match(
@@ -535,6 +608,11 @@ def rate_member(variant: TeamVariant, index: int, archetype: str) -> MemberRatin
         fit, coherence, quality, reasons,
     )
 
+    # B1 — rol primario legible del SET concreto. Reusa los tags ya calculados
+    # (per_member_tags incluye los context-tags; el label sólo mira los
+    # per-mon, así que el resultado coincide con derive_member_role).
+    role_label = _role_label_from_tags(per_member_tags[index], member)
+
     return MemberRating(
         name=member.pokemon.name,
         score=score,
@@ -545,6 +623,7 @@ def rate_member(variant: TeamVariant, index: int, archetype: str) -> MemberRatin
         strengths=strengths,
         weaknesses=weaknesses,
         suggestions=_build_suggestions(variant, index, archetype, reasons),
+        role=role_label,
     )
 
 
