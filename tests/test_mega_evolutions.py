@@ -150,9 +150,9 @@ def test_mega_data_matches_official_list() -> None:
     Charizard remains the only species with two forms (X + Y).
     """
     data = load_mega_evolutions()
-    assert len(data) == 47
+    assert len(data) == 58
     total_forms = sum(len(forms) for forms in data.values())
-    assert total_forms == 48
+    assert total_forms == 59
     # Charizard is the only species with two forms.
     multi_form = {sp for sp, forms in data.items() if len(forms) > 1}
     assert multi_form == {"charizard"}
@@ -161,18 +161,19 @@ def test_mega_data_matches_official_list() -> None:
     aggron_mega = data["aggron"][0]
     assert aggron_mega.mega_stone == "Aggronite"
     assert aggron_mega.types == ["steel"]
-    # Still-absent set (pending restore or genuinely not in game) must not
-    # sneak back in silently. NOTE: most of these are pending restore (same
-    # Tutorial/Z-A reason as aggron); only metagross seems truly absent.
-    for absent in (
-        "abomasnow", "beedrill", "chesnaught", "delphox",
-        "floette", "garchomp", "greninja", "gyarados", "heracross",
-        "manectric", "metagross", "steelix",
+    # The 12 megas restored 2026-06-01 (false-negative removal in v0.10.2)
+    # are present: 8 Gen-6 (verified=true) + 4 Legends Z-A (verified=false,
+    # web stats pending Sergio's in-game confirmation).
+    for restored in (
+        "abomasnow", "beedrill", "garchomp", "gyarados", "heracross",
+        "manectric", "steelix", "chesnaught", "delphox", "greninja", "floette",
     ):
-        assert absent not in data, (
-            f"{absent} present but not yet in the CSV source of truth "
-            "(tests/fixtures/champions_megas_official.csv)"
-        )
+        assert restored in data, f"{restored} should be restored"
+    # The 4 Z-A megas are flagged unverified until confirmed in-game.
+    for za in ("chesnaught", "delphox", "greninja", "floette"):
+        assert data[za][0].verified is False, f"{za} must stay verified=False"
+    # Only metagross remains genuinely absent.
+    assert "metagross" not in data
 
 
 # ---------------------------------------------------------------------------
@@ -197,25 +198,39 @@ def test_pokemon_data_megas_field_accepts_list() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_mega_loader_no_unverified_after_official_paste(
+_ZA_UNVERIFIED_FORMS = {
+    "chesnaught-mega", "delphox-mega", "greninja-mega", "floette-mega",
+}
+
+
+def test_mega_loader_unverified_set_is_exactly_the_za_megas(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """v0.10.2: Sergio pasted the official store listing 2026-05-15 so
-    every remaining entry is now verified=true. The loader must emit
-    NO warning at all — if a regression re-flips a flag to false, this
-    test fails loud.
+    """v3 (2026-06-01): the ONLY unverified entries are the 4 Legends Z-A
+    megas (web-researched stats pending Sergio's in-game confirmation). Every
+    other form is verified=true. If a regression flips any OTHER flag to
+    false — or if the Z-A ones get confirmed without updating this set — the
+    test fails loud. The loader's informational warning must list exactly
+    those 4 form_ids.
     """
     load_mega_evolutions.cache_clear()
     data = load_mega_evolutions()
     captured = capsys.readouterr()
-    assert "warning" not in captured.err.lower(), (
-        f"unexpected unverified-mega warning: {captured.err}"
+
+    unverified = {
+        form.form_id
+        for forms in data.values()
+        for form in forms
+        if not form.verified
+    }
+    assert unverified == _ZA_UNVERIFIED_FORMS, (
+        f"unverified set drifted: {unverified}"
     )
-    # Belt-and-suspenders: confirm every form is verified=True on the
-    # data structure itself.
-    for species, forms in data.items():
-        for form in forms:
-            assert form.verified, f"{form.form_id} should be verified after official paste"
+    # The loader warning (informational) must mention exactly the Z-A forms.
+    if unverified:
+        assert "warning" in captured.err.lower()
+        for form_id in _ZA_UNVERIFIED_FORMS:
+            assert form_id in captured.err
 
 
 # ---------------------------------------------------------------------------
