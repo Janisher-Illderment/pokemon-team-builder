@@ -393,6 +393,7 @@ def _team_rating_to_out(rating: team_rater.TeamRating) -> TeamRatingOut:
                 ],
                 role=m.role,
                 sp=dict(m.sp),
+                stats=dict(m.stats),
             )
             for m in rating.members
         ],

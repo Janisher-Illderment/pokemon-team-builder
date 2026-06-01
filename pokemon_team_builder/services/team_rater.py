@@ -25,6 +25,7 @@ from dataclasses import dataclass, field
 from pokemon_team_builder.config import MAX_SP_TOTAL
 from pokemon_team_builder.domain.models import TeamMember, TeamVariant
 from pokemon_team_builder.services import replica_exporter
+from pokemon_team_builder.services.damage_calc import calc_stat, get_nature_mod
 from pokemon_team_builder.services.pokemon_evaluator import evaluate_pokemon_quality
 from pokemon_team_builder.services.synergy_engine import (
     analyze_coverage,
@@ -498,6 +499,9 @@ class MemberRating:
     # B2 (aditivo, al final): EVs/SP del miembro por stat (6 claves canónicas,
     # clave "def" — no "def_"). Default factory para no compartir mutable.
     sp: dict[str, int] = field(default_factory=dict)
+    # Stats FINALES de combate (nivel 50, IVs 31, naturaleza + EVs aplicados) —
+    # los mismos que la pantalla Características del juego. Para el hexágono.
+    stats: dict[str, int] = field(default_factory=dict)
 
 
 def _tag_need_match(
@@ -634,7 +638,28 @@ def rate_member(variant: TeamVariant, index: int, archetype: str) -> MemberRatin
         suggestions=_build_suggestions(variant, index, archetype, reasons),
         role=role_label,
         sp=sp_dict,
+        stats=_final_stats(member),
     )
+
+
+def _final_stats(member: TeamMember) -> dict[str, int]:
+    """Stats FINALES de combate (nivel 50, IVs 31, naturaleza + EVs aplicados).
+
+    Reusa damage_calc.calc_stat (1 SP = 8 EVs internamente) y get_nature_mod —
+    el mismo número que muestra la pantalla Características del juego. Para el
+    hexágono de stats de la UI. Clave "def" (no "def_") por consistencia con sp.
+    """
+    bs = member.pokemon.base_stats
+    sp = member.sp_distribution
+    nat = member.nature
+    return {
+        "hp":  calc_stat(bs.hp,  sp.hp,  get_nature_mod(nat, "hp"),  is_hp=True),
+        "atk": calc_stat(bs.atk, sp.atk, get_nature_mod(nat, "atk")),
+        "def": calc_stat(bs.def_, sp.def_, get_nature_mod(nat, "def")),
+        "spa": calc_stat(bs.spa, sp.spa, get_nature_mod(nat, "spa")),
+        "spd": calc_stat(bs.spd, sp.spd, get_nature_mod(nat, "spd")),
+        "spe": calc_stat(bs.spe, sp.spe, get_nature_mod(nat, "spe")),
+    }
 
 
 def _member_strengths_weaknesses(

@@ -647,9 +647,44 @@ main { max-width: 960px; margin: 0 auto; padding: 1.5rem 1rem; }
 .rate-list--weakness li::before { content: "✕"; position: absolute; left: 0; color: #f87171; }
 
 /* Per-mon card head: name + score badge */
-.rate-member-head { display: flex; align-items: center; gap: 0.4rem; }
+/* Rate cards carry much more content than generate cards — give them room
+   so the head (name + score + lock) never clips against the border. */
+.rate-members { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+.rate-member { min-width: 0; }
+.rate-member-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+}
+.rate-member-head strong {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.rate-role-tag { align-self: flex-start; margin-top: 0.1rem; }
+.lock-toggle {
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1;
+  padding: 0.12rem 0.32rem;
+}
+.lock-toggle--on { border-color: #8b5cf6; background: #2a1f45; }
+
+/* Stat hexagon (final lvl-50 stats) */
+.stat-hex { margin-top: 0.4rem; }
+.stat-hex-svg { width: 100%; height: auto; max-width: 220px; display: block; margin: 0 auto; }
+.stat-hex-ring { fill: #0f172a; stroke: #334155; stroke-width: 1; }
+.stat-hex-axis { stroke: #334155; stroke-width: 0.5; }
+.stat-hex-area { fill: rgba(139, 92, 246, 0.35); stroke: #8b5cf6; stroke-width: 1.5; }
+.stat-hex-label { fill: #94a3b8; font-size: 7px; font-weight: 600; }
+.stat-hex-val { fill: #f1f5f9; font-size: 8px; font-weight: 800; }
 .rate-mon-score {
-  margin-left: auto;
+  flex-shrink: 0;
   font-size: 0.8rem;
   font-weight: 800;
   padding: 0.1rem 0.45rem;

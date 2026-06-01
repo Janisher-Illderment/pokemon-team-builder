@@ -427,6 +427,41 @@ function app() {
       if (score >= 50) return 'mid';
       return 'low';
     },
+
+    // Hexágono de stats FINALES de combate (rate-team). Orden canónico de los
+    // juegos: PS arriba y, en sentido horario, Atq, Def, Vel (abajo), DefE, AtqE.
+    // Escala fija (MAX 250) para que las formas sean comparables entre mons;
+    // los HP muy altos se topan en el borde (aceptable). Devuelve geometría SVG.
+    statHexagon(stats) {
+      const s = stats || {};
+      const order = [
+        { key: 'hp',  label: 'PS' },
+        { key: 'atk', label: 'Atq' },
+        { key: 'def', label: 'Def' },
+        { key: 'spe', label: 'Vel' },
+        { key: 'spd', label: 'DefE' },
+        { key: 'spa', label: 'AtqE' },
+      ];
+      const cx = 70, cy = 62, R = 46, MAX = 250;
+      const pts = [], ring = [], axes = [], labels = [];
+      order.forEach((o, i) => {
+        const ang = -Math.PI / 2 + i * Math.PI / 3;
+        const val = Math.max(0, s[o.key] || 0);
+        const r = Math.min(1, val / MAX) * R;
+        const x = cx + r * Math.cos(ang), y = cy + r * Math.sin(ang);
+        pts.push(`${x.toFixed(1)},${y.toFixed(1)}`);
+        const ex = cx + R * Math.cos(ang), ey = cy + R * Math.sin(ang);
+        ring.push(`${ex.toFixed(1)},${ey.toFixed(1)}`);
+        axes.push({ x1: cx, y1: cy, x2: +ex.toFixed(1), y2: +ey.toFixed(1) });
+        const lr = R + 13;
+        labels.push({
+          x: +(cx + lr * Math.cos(ang)).toFixed(1),
+          y: +(cy + lr * Math.sin(ang)).toFixed(1),
+          label: o.label, val,
+        });
+      });
+      return { points: pts.join(' '), ring: ring.join(' '), axes, labels };
+    },
   };
 }
 
