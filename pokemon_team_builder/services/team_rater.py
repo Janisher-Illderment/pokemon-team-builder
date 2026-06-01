@@ -632,6 +632,7 @@ def _build_suggestions(
     sobre el MISMO PokemonData (todas las kinds ∈ {move_swap, nature, evs, item}).
     Conservador por defecto: sólo emite cuando el diff es MATERIAL.
     """
+    from pokemon_team_builder.data.mega_loader import load_mega_evolutions
     from pokemon_team_builder.services.team_generator import (
         recommend_member_build,
         _load_champions_legal_items,
@@ -670,9 +671,23 @@ def _build_suggestions(
 
     # ── 2. Item — sólo con razón clara: ilegal en M-A, o el recomendado domina
     #    por necesidad concreta. Conservador (muchos items son sidegrades).
+    #    Las MEGA-PIEDRAS son legales-por-datos-de-mega (viven en
+    #    mega_evolutions.json, NO en champions_legal_items.json), así que se
+    #    excluyen del flag de ilegalidad — si no, CUALQUIER mega-piedra
+    #    (Aggronite, Charizardite, ...) saldría como "ilegal, usa Shell Bell".
     legal_items, _ = _load_champions_legal_items()
+    mega_stones = {
+        mf.mega_stone
+        for forms in load_mega_evolutions().values()
+        for mf in forms
+    }
     user_item = member.item.strip()
-    if legal_items and user_item and user_item not in legal_items:
+    if (
+        legal_items
+        and user_item
+        and user_item not in legal_items
+        and user_item not in mega_stones
+    ):
         suggestions.append(Suggestion(
             kind="item",
             target_field="item",

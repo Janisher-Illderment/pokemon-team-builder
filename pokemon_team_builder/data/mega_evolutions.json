@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "regulation": "M-A",
-  "data_version": 2,
+  "data_version": 3,
   "megas": {
     "absol": [
       {
@@ -38,6 +38,25 @@
           "spa": 70,
           "spd": 95,
           "spe": 150
+        },
+        "verified": true
+      }
+    ],
+    "aggron": [
+      {
+        "form_id": "aggron-mega",
+        "mega_stone": "Aggronite",
+        "types": [
+          "steel"
+        ],
+        "ability": "filter",
+        "stats": {
+          "hp": 70,
+          "atk": 140,
+          "def": 230,
+          "spa": 60,
+          "spd": 80,
+          "spe": 50
         },
         "verified": true
       }
@@ -933,8 +952,118 @@
         },
         "verified": true
       }
+    ],
+    "abomasnow": [
+      {
+        "form_id": "abomasnow-mega",
+        "mega_stone": "Abomasite",
+        "types": ["grass", "ice"],
+        "ability": "snow-warning",
+        "stats": {"hp": 90, "atk": 132, "def": 105, "spa": 132, "spd": 105, "spe": 30},
+        "verified": true
+      }
+    ],
+    "beedrill": [
+      {
+        "form_id": "beedrill-mega",
+        "mega_stone": "Beedrillite",
+        "types": ["bug", "poison"],
+        "ability": "adaptability",
+        "stats": {"hp": 65, "atk": 150, "def": 40, "spa": 15, "spd": 80, "spe": 145},
+        "verified": true
+      }
+    ],
+    "garchomp": [
+      {
+        "form_id": "garchomp-mega",
+        "mega_stone": "Garchompite",
+        "types": ["dragon", "ground"],
+        "ability": "sand-force",
+        "stats": {"hp": 108, "atk": 170, "def": 115, "spa": 120, "spd": 95, "spe": 92},
+        "verified": true
+      }
+    ],
+    "gyarados": [
+      {
+        "form_id": "gyarados-mega",
+        "mega_stone": "Gyaradosite",
+        "types": ["water", "dark"],
+        "ability": "mold-breaker",
+        "stats": {"hp": 95, "atk": 155, "def": 109, "spa": 70, "spd": 130, "spe": 81},
+        "verified": true
+      }
+    ],
+    "heracross": [
+      {
+        "form_id": "heracross-mega",
+        "mega_stone": "Heracronite",
+        "types": ["bug", "fighting"],
+        "ability": "skill-link",
+        "stats": {"hp": 80, "atk": 185, "def": 115, "spa": 40, "spd": 105, "spe": 75},
+        "verified": true
+      }
+    ],
+    "manectric": [
+      {
+        "form_id": "manectric-mega",
+        "mega_stone": "Manectite",
+        "types": ["electric"],
+        "ability": "intimidate",
+        "stats": {"hp": 70, "atk": 75, "def": 80, "spa": 135, "spd": 80, "spe": 135},
+        "verified": true
+      }
+    ],
+    "steelix": [
+      {
+        "form_id": "steelix-mega",
+        "mega_stone": "Steelixite",
+        "types": ["steel", "ground"],
+        "ability": "sand-force",
+        "stats": {"hp": 75, "atk": 125, "def": 230, "spa": 55, "spd": 95, "spe": 30},
+        "verified": true
+      }
+    ],
+    "chesnaught": [
+      {
+        "form_id": "chesnaught-mega",
+        "mega_stone": "Chesnaughtite",
+        "types": ["grass", "fighting"],
+        "ability": "bulletproof",
+        "stats": {"hp": 88, "atk": 137, "def": 172, "spa": 74, "spd": 115, "spe": 44},
+        "verified": false
+      }
+    ],
+    "delphox": [
+      {
+        "form_id": "delphox-mega",
+        "mega_stone": "Delphoxite",
+        "types": ["fire", "psychic"],
+        "ability": "levitate",
+        "stats": {"hp": 75, "atk": 69, "def": 72, "spa": 159, "spd": 125, "spe": 134},
+        "verified": false
+      }
+    ],
+    "greninja": [
+      {
+        "form_id": "greninja-mega",
+        "mega_stone": "Greninjite",
+        "types": ["water", "dark"],
+        "ability": "protean",
+        "stats": {"hp": 72, "atk": 125, "def": 77, "spa": 133, "spd": 81, "spe": 142},
+        "verified": false
+      }
+    ],
+    "floette": [
+      {
+        "form_id": "floette-mega",
+        "mega_stone": "Floettite",
+        "types": ["fairy"],
+        "ability": "flower-veil",
+        "stats": {"hp": 74, "atk": 85, "def": 87, "spa": 155, "spd": 148, "spe": 102},
+        "verified": false
+      }
     ]
   },
   "_source": "tests/fixtures/champions_megas_official.csv (Sergio pasted from Champions in-game store 2026-05-15)",
-  "_notes": "47 stones / 46 species. Charizard has X+Y. Removed 13 species absent from Sergio's official list: abomasnow, aggron, beedrill, chesnaught, delphox, floette, garchomp, greninja, gyarados, heracross, manectric, metagross, steelix. All remaining entries marked verified=true after the official confirmation."
+  "_notes": "v3 (2026-06-01): 59 stones / 58 species. Charizard has X+Y. Restored the 12 megas wrongly removed in v0.10.2 (false negative: Sergio's 2026-05-15 paste was the VP SHOP only; these come from the Mega Evolution Tutorial or Z-A deposit). AGGRON confirmed in-game by Sergio (verified=true). Gen-6 megas (abomasnow, beedrill, garchomp, gyarados, heracross, manectric, steelix) added with canonical stats (verified=true). The 4 Legends Z-A megas (chesnaught, delphox, greninja, floette) added with WEB-researched stats (Game8/RotomLabs via Inte) → verified=false PENDING Sergio's in-game confirmation from the Características screen. Only METAGROSS remains genuinely absent (no Metagrossite in the in-game list)."
 }
