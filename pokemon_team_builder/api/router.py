@@ -16,6 +16,9 @@ from pokemon_team_builder.api.schemas import (
     MemberOut,
     MemberRatingOut,
     MetaTeamsResponse,
+    OptimizedChangeOut,
+    OptimizeTeamRequest,
+    OptimizeTeamResponse,
     PresetKitOut,
     RateTeamRequest,
     SpReadOut,
@@ -44,6 +47,7 @@ from pokemon_team_builder.domain.models import MegaForm, TeamMember, TeamVariant
 from pokemon_team_builder.services import team_editor, viability_rater
 from pokemon_team_builder.services import pokepaste_parser
 from pokemon_team_builder.services import team_rater
+from pokemon_team_builder.services import team_optimizer
 from pokemon_team_builder.services.team_generator import generate_team
 from pokemon_team_builder.services import labmaus_service, tournament_service
 
@@ -404,6 +408,67 @@ def rate_team_endpoint(req: RateTeamRequest) -> TeamRatingOut:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     rating = team_rater.rate_team(variant, import_warnings=warnings)
     return _team_rating_to_out(rating)
+
+
+def _optimization_to_out(
+    result: team_optimizer.OptimizationResult,
+) -> OptimizeTeamResponse:
+    """Serializa un OptimizationResult (servicio) a OptimizeTeamResponse (API).
+
+    Reusa SuggestionOut (mismo mapeo reason_es→reason que _team_rating_to_out).
+    """
+    return OptimizeTeamResponse(
+        score_before=result.score_before,
+        score_after=result.score_after,
+        delta_total=result.delta_total,
+        detected_archetype=result.detected_archetype,
+        archetype_confidence=result.archetype_confidence,
+        pokepaste_after=result.pokepaste_after,
+        locked_indices=list(result.locked_indices),
+        changes=[
+            OptimizedChangeOut(
+                member_index=c.member_index,
+                member_name=c.member_name,
+                delta=c.delta,
+                suggestions=[
+                    SuggestionOut(
+                        kind=s.kind,
+                        target_field=s.target_field,
+                        from_value=s.from_value,
+                        to_value=s.to_value,
+                        reason=s.reason_es,
+                        priority=s.priority,
+                    )
+                    for s in c.suggestions
+                ],
+            )
+            for c in result.changes
+        ],
+        import_warnings=list(result.import_warnings),
+    )
+
+
+@router.post("/optimize-team", response_model=OptimizeTeamResponse)
+def optimize_team_endpoint(req: OptimizeTeamRequest) -> OptimizeTeamResponse:
+    try:
+        variant, warnings = pokepaste_parser.parse_pokepaste(req.pokepaste)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    # Validación de locked_indices: cada índice ∈ [0,5]; dedup + orden estable.
+    # (len puede ser 6 → all-locked = no-op, NO error, ADR §5.2.)
+    for idx in req.locked_indices:
+        if idx < 0 or idx > 5:
+            raise HTTPException(
+                status_code=422,
+                detail=f"locked_indices fuera de rango [0,5]: {idx}",
+            )
+    locked = sorted(set(req.locked_indices))
+
+    result = team_optimizer.optimize_team(
+        variant, locked, import_warnings=warnings
+    )
+    return _optimization_to_out(result)
 
 
 @router.post("/analyze-matchup", response_model=MatchupAnalysisResponse)

@@ -226,3 +226,84 @@ def test_optimization_improves_when_room():
     result = team_optimizer.optimize_team(variant, [])
     assert result.score_after > result.score_before
     assert len(result.changes) >= 1
+
+
+# ── Tests del endpoint POST /optimize-team ───────────────────────────────────
+#
+# Montamos un FastAPI() con SÓLO `router` (evita main/jinja2), igual que
+# tests/test_team_rater.py::rate_client.
+
+@pytest.fixture
+def opt_client():
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from pokemon_team_builder.api.router import router
+
+    app = FastAPI()
+    app.include_router(router)
+    return TestClient(app)
+
+
+def test_endpoint_optimize_team(opt_client):
+    resp = opt_client.post(
+        "/optimize-team",
+        json={"pokepaste": _PASTE, "locked_indices": [0, 3]},
+    )
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    # Forma de OptimizeTeamResponse.
+    for key in (
+        "score_before", "score_after", "delta_total", "detected_archetype",
+        "archetype_confidence", "pokepaste_after", "locked_indices", "changes",
+        "import_warnings",
+    ):
+        assert key in data, key
+    assert data["score_after"] >= data["score_before"] - 1e-6
+    assert data["locked_indices"] == [0, 3]
+    assert isinstance(data["pokepaste_after"], str) and data["pokepaste_after"]
+    # Σ(deltas) == delta_total (tolerancia float).
+    total = sum(c["delta"] for c in data["changes"])
+    assert abs(total - data["delta_total"]) < 1e-6
+    # Ningún cambio toca un fijado; sugerencias con kinds acotadas.
+    for c in data["changes"]:
+        assert c["member_index"] not in (0, 3)
+        for s in c["suggestions"]:
+            assert s["kind"] in {"move_swap", "nature", "evs", "item"}
+
+
+def test_endpoint_optimize_team_no_locks(opt_client):
+    resp = opt_client.post("/optimize-team", json={"pokepaste": _PASTE})
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["locked_indices"] == []
+
+
+def test_endpoint_422_on_invalid_paste(opt_client):
+    resp = opt_client.post(
+        "/optimize-team", json={"pokepaste": "esto no es un equipo"}
+    )
+    assert resp.status_code == 422
+
+
+def test_endpoint_422_on_empty_paste(opt_client):
+    resp = opt_client.post("/optimize-team", json={"pokepaste": ""})
+    assert resp.status_code == 422  # min_length=1 (Pydantic)
+
+
+def test_invalid_locked_indices(opt_client):
+    """Un índice fuera de [0,5] → 422 (contrato fijado)."""
+    resp = opt_client.post(
+        "/optimize-team", json={"pokepaste": _PASTE, "locked_indices": [0, 9]}
+    )
+    assert resp.status_code == 422
+
+
+def test_endpoint_all_locked_noop(opt_client):
+    resp = opt_client.post(
+        "/optimize-team",
+        json={"pokepaste": _PASTE, "locked_indices": [0, 1, 2, 3, 4, 5]},
+    )
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data["changes"] == []
+    assert data["score_after"] == data["score_before"]
