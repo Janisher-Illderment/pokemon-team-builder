@@ -298,6 +298,14 @@ def test_invalid_locked_indices(opt_client):
     assert resp.status_code == 422
 
 
+def test_invalid_negative_locked_index(opt_client):
+    """Tecle LOW: un índice negativo también → 422 (cierra el contrato)."""
+    resp = opt_client.post(
+        "/optimize-team", json={"pokepaste": _PASTE, "locked_indices": [-1]}
+    )
+    assert resp.status_code == 422
+
+
 def test_endpoint_all_locked_noop(opt_client):
     resp = opt_client.post(
         "/optimize-team",
