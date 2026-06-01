@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.13.0",
+    "date": "2026-06-01",
+    "highlights": "Valorar equipo crece: rol coherente y EVs por Pokémon en la tarjeta, y un optimizador que mejora los mons que no fijes — sin tocar la plantilla",
+    "changes": [
+      { "type": "feat", "text": "Cada Pokémon valorado muestra ahora su ROL primario coherente con el set que pegaste (Atacante físico/especial, Apoyo, Muro/pivote, Inductor de clima, Trick Room, Control de velocidad o Versátil). Se deriva del moveset + habilidad reales (no de las stats base) y desempata físico/especial mirando naturaleza + EVs. services/team_rater.py:derive_member_role." },
+      { "type": "feat", "text": "La tarjeta de cada Pokémon muestra sus EVs/SP repartidos (solo las stats invertidas), igual que en la pestaña de generación. Campo `sp` añadido a la respuesta de /rate-team (retrocompatible)." },
+      { "type": "feat", "text": "Optimizador de equipo (POST /optimize-team): fija con el candado 🔒 los Pokémon que quieras conservar y pulsa 'Optimizar (no fijados)'. El builder recalcula un set coherente para cada mon NO fijado (misma especie SIEMPRE) y solo aplica el cambio si SUBE la nota global del equipo. Greedy determinista de una pasada: misma entrada → misma salida." },
+      { "type": "feat", "text": "El optimizador muestra ambas vistas: el resumen nota antes→después (+mejora) con el PokePaste resultante copiable, y el desglose rankeado de cada cambio aceptado por su impacto en la nota, con el diff exacto (item/naturaleza/EVs/moves) reusando las tarjetas de sugerencia del rater. La plantilla es sagrada: nunca cambia de especie y nunca toca un mon fijado. La interacción visual real se verifica en el deploy (el entorno local de desarrollo no tiene jinja2 para levantar la SPA completa)." }
+    ]
+  },
+  {
     "version": "0.12.0",
     "date": "2026-06-01",
     "highlights": "Nueva función: Valorar equipo — pega tu PokePaste y obtén nota global, arquetipo detectado y notas + sugerencias por Pokémon",
