@@ -502,6 +502,9 @@ class MemberRating:
     # Stats FINALES de combate (nivel 50, IVs 31, naturaleza + EVs aplicados) —
     # los mismos que la pantalla Características del juego. Para el hexágono.
     stats: dict[str, int] = field(default_factory=dict)
+    # Stats finales SIN EVs (0 SP) — el front pinta en otro color el anillo
+    # entre base_stats y stats = la contribución de los EVs.
+    base_stats: dict[str, int] = field(default_factory=dict)
 
 
 def _tag_need_match(
@@ -639,26 +642,35 @@ def rate_member(variant: TeamVariant, index: int, archetype: str) -> MemberRatin
         role=role_label,
         sp=sp_dict,
         stats=_final_stats(member),
+        base_stats=_final_stats(member, with_evs=False),
     )
 
 
-def _final_stats(member: TeamMember) -> dict[str, int]:
-    """Stats FINALES de combate (nivel 50, IVs 31, naturaleza + EVs aplicados).
+def _final_stats(member: TeamMember, *, with_evs: bool = True) -> dict[str, int]:
+    """Stats FINALES de combate (nivel 50, IVs 31, naturaleza aplicada).
 
     Reusa damage_calc.calc_stat (1 SP = 8 EVs internamente) y get_nature_mod —
     el mismo número que muestra la pantalla Características del juego. Para el
     hexágono de stats de la UI. Clave "def" (no "def_") por consistencia con sp.
+
+    Con ``with_evs=False`` usa 0 SP en cada stat: da la base del hexágono (lo
+    que el mon vale sin EVs), de modo que el front pueda dibujar en otro color
+    la parte ADICIONAL que aportan los EVs (anillo exterior).
     """
     bs = member.pokemon.base_stats
     sp = member.sp_distribution
     nat = member.nature
+
+    def s(base: int, sp_val: int, stat: str, is_hp: bool = False) -> int:
+        return calc_stat(base, sp_val if with_evs else 0, get_nature_mod(nat, stat), is_hp=is_hp)
+
     return {
-        "hp":  calc_stat(bs.hp,  sp.hp,  get_nature_mod(nat, "hp"),  is_hp=True),
-        "atk": calc_stat(bs.atk, sp.atk, get_nature_mod(nat, "atk")),
-        "def": calc_stat(bs.def_, sp.def_, get_nature_mod(nat, "def")),
-        "spa": calc_stat(bs.spa, sp.spa, get_nature_mod(nat, "spa")),
-        "spd": calc_stat(bs.spd, sp.spd, get_nature_mod(nat, "spd")),
-        "spe": calc_stat(bs.spe, sp.spe, get_nature_mod(nat, "spe")),
+        "hp":  s(bs.hp,  sp.hp,  "hp", is_hp=True),
+        "atk": s(bs.atk, sp.atk, "atk"),
+        "def": s(bs.def_, sp.def_, "def"),
+        "spa": s(bs.spa, sp.spa, "spa"),
+        "spd": s(bs.spd, sp.spd, "spd"),
+        "spe": s(bs.spe, sp.spe, "spe"),
     }
 
 

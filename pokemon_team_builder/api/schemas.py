@@ -240,7 +240,8 @@ class MemberRatingOut(BaseModel):
     # por stat. Defaults retrocompatibles (clientes viejos no se rompen).
     role: str = ""
     sp: dict[str, int] = {}
-    stats: dict[str, int] = {}   # stats finales de combate (lvl50) para el hexágono
+    stats: dict[str, int] = {}        # stats finales de combate (lvl50) para el hexágono
+    base_stats: dict[str, int] = {}   # stats finales SIN EVs (0 SP) — anillo base del hexágono
 
 
 class TeamRatingOut(BaseModel):

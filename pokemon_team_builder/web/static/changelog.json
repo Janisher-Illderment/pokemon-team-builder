@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.13.2",
+    "date": "2026-06-01",
+    "highlights": "Hexágono de stats con nombres visibles, dos colores (base vs EVs) y rejilla 2×3 en Valorar equipo",
+    "changes": [
+      { "type": "fix", "text": "El hexágono de stats ahora muestra los NOMBRES y valores de cada stat (PS/Atq/Def/Vel/DefE/AtqE). Antes salía el hexágono sin referencias por un problema de renderizado SVG con Alpine." },
+      { "type": "feat", "text": "El hexágono distingue en DOS COLORES el stat base (azul) y la parte ADICIONAL que aportan los EVs (morado), con leyenda — se ve de un vistazo cuánto suma tu inversión de EVs en cada stat." },
+      { "type": "fix", "text": "Las tarjetas al valorar se distribuyen en 2 filas de 3 (antes 4+2 con un hueco), más equilibrado visualmente." }
+    ]
+  },
+  {
     "version": "0.13.1",
     "date": "2026-06-01",
     "highlights": "Tarjetas de Valorar equipo: layout arreglado, los 6 EVs y un hexágono de stats finales por Pokémon",

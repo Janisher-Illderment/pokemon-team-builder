@@ -43,7 +43,7 @@
   </script>
 
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-  <link rel="stylesheet" href="style.css?v=20260601-3" />
+  <link rel="stylesheet" href="style.css?v=20260601-4" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -672,23 +672,16 @@ ajustes concretos (naturaleza, EVs, item, moves) — nunca cambiamos de especie.
                   </div>
                 </template>
 
-                <!-- Hexágono de stats FINALES de combate (lvl 50 + EVs + nat) -->
+                <!-- Hexágono de stats FINALES de combate (lvl 50 + EVs + nat).
+                     SVG inyectado como string (x-html) para evitar el bug de
+                     namespace de <template x-for> dentro de <svg>. -->
                 <template x-if="m.stats && (m.stats.hp || m.stats.atk || m.stats.spa)">
-                  <div class="stat-hex" x-data="{ hex: statHexagon(m.stats) }"
-                    title="Stats finales a nivel 50 (base + EVs + naturaleza)">
-                    <svg viewBox="0 0 140 140" class="stat-hex-svg" aria-hidden="true">
-                      <polygon :points="hex.ring" class="stat-hex-ring"></polygon>
-                      <template x-for="(a, ai) in hex.axes" :key="ai">
-                        <line :x1="a.x1" :y1="a.y1" :x2="a.x2" :y2="a.y2" class="stat-hex-axis"></line>
-                      </template>
-                      <polygon :points="hex.points" class="stat-hex-area"></polygon>
-                      <template x-for="(l, li) in hex.labels" :key="li">
-                        <text :x="l.x" :y="l.y" class="stat-hex-label" text-anchor="middle">
-                          <tspan x-text="l.label"></tspan>
-                          <tspan :x="l.x" dy="9" class="stat-hex-val" x-text="l.val"></tspan>
-                        </text>
-                      </template>
-                    </svg>
+                  <div class="stat-hex" title="Stats finales a nivel 50 (base + EVs + naturaleza)">
+                    <div x-html="statHexagonSvg(m.stats, m.base_stats)"></div>
+                    <div class="stat-hex-legend">
+                      <span><i class="legend-base"></i> base</span>
+                      <span><i class="legend-ev"></i> EVs</span>
+                    </div>
                   </div>
                 </template>
 

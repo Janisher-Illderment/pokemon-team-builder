@@ -649,7 +649,10 @@ main { max-width: 960px; margin: 0 auto; padding: 1.5rem 1rem; }
 /* Per-mon card head: name + score badge */
 /* Rate cards carry much more content than generate cards — give them room
    so the head (name + score + lock) never clips against the border. */
-.rate-members { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+/* 6 miembros → 2 filas de 3 (más agradable que 4+2 con un hueco). */
+.rate-members { grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 760px) { .rate-members { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 480px) { .rate-members { grid-template-columns: 1fr; } }
 .rate-member { min-width: 0; }
 .rate-member-head {
   display: flex;
@@ -680,9 +683,22 @@ main { max-width: 960px; margin: 0 auto; padding: 1.5rem 1rem; }
 .stat-hex-svg { width: 100%; height: auto; max-width: 220px; display: block; margin: 0 auto; }
 .stat-hex-ring { fill: #0f172a; stroke: #334155; stroke-width: 1; }
 .stat-hex-axis { stroke: #334155; stroke-width: 0.5; }
-.stat-hex-area { fill: rgba(139, 92, 246, 0.35); stroke: #8b5cf6; stroke-width: 1.5; }
+/* total (base+EVs): anillo morado. base (0 EVs): núcleo azul dibujado encima,
+   así el morado que asoma entre ambos = lo que aportan los EVs. */
+.stat-hex-area { fill: rgba(139, 92, 246, 0.45); stroke: #8b5cf6; stroke-width: 1.5; }
+.stat-hex-base { fill: rgba(56, 189, 248, 0.7); stroke: #38bdf8; stroke-width: 1; }
 .stat-hex-label { fill: #94a3b8; font-size: 7px; font-weight: 600; }
 .stat-hex-val { fill: #f1f5f9; font-size: 8px; font-weight: 800; }
+.stat-hex-legend {
+  display: flex; justify-content: center; gap: 0.6rem;
+  font-size: 0.6rem; color: #94a3b8; margin-top: 0.1rem;
+}
+.stat-hex-legend i {
+  display: inline-block; width: 9px; height: 9px; border-radius: 2px;
+  vertical-align: -1px; margin-right: 2px;
+}
+.stat-hex-legend .legend-base { background: rgba(56, 189, 248, 0.7); border: 1px solid #38bdf8; }
+.stat-hex-legend .legend-ev { background: rgba(139, 92, 246, 0.45); border: 1px solid #8b5cf6; }
 .rate-mon-score {
   flex-shrink: 0;
   font-size: 0.8rem;
