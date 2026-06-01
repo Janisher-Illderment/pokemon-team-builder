@@ -27,6 +27,14 @@ function app() {
     importError: '',
     importedVariants: [],
 
+    // B7 — "Valorar equipo" state. Mirrors the import plumbing: paste in a
+    // textarea, POST /rate-team, render the TeamRatingOut. teamRating holds
+    // the full response object (null until the first successful call).
+    ratePaste: '',
+    rateLoading: false,
+    rateError: '',
+    teamRating: null,
+
     // Phase 4a: per-member SP preset choice. Keyed as `${variantIdx}:${memberIdx}` → 'offensive' | 'defensive'. Default offensive.
     presetChoice: {},
 
@@ -325,6 +333,43 @@ function app() {
       } finally {
         this.importLoading = false;
       }
+    },
+
+    // B7 — POST the pasted team to /rate-team and store the TeamRatingOut.
+    // no-store on the POST so a proxy/browser never serves a stale rating
+    // for the same paste after a backend deploy that changed the scoring.
+    async rateTeam() {
+      if (!this.ratePaste.trim()) return;
+      this.rateError = '';
+      this.rateLoading = true;
+      this.teamRating = null;
+      try {
+        const res = await fetch('/rate-team', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          cache: 'no-store',
+          body: JSON.stringify({ pokepaste: this.ratePaste }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          this.rateError = data.detail ?? 'Error al valorar';
+        } else {
+          this.teamRating = data;
+        }
+      } catch {
+        this.rateError = 'Error de red';
+      } finally {
+        this.rateLoading = false;
+      }
+    },
+
+    // B7 — bucket a 0..100 score into a CSS modifier so the UI tints the
+    // global note and per-mon badges by quality tier. Shared by team score
+    // (float 0..100) and member score (int 1..100).
+    scoreTier(score) {
+      if (score >= 75) return 'high';
+      if (score >= 50) return 'mid';
+      return 'low';
     },
   };
 }

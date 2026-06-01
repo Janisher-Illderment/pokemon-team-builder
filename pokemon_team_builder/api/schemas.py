@@ -199,10 +199,51 @@ class EditMemberRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 class ImportRequest(BaseModel):
-    pokepaste: str = Field(min_length=1)
+    pokepaste: str = Field(min_length=1, max_length=20000)
 
 
 class ImportResponse(VariantOut):
+    import_warnings: list[str] = []
+
+
+# ---------------------------------------------------------------------------
+# Team Rater schemas (POST /rate-team) — ADR docs/adr-team-rater.md §7
+# ---------------------------------------------------------------------------
+
+class RateTeamRequest(BaseModel):
+    # max_length: a 6-mon PokePaste is ~1KB; 20000 is generous headroom and
+    # bounds the per-request compute (rate-team runs several lookups per
+    # member). Oversized payloads get a 422 instead of a slow response.
+    pokepaste: str = Field(min_length=1, max_length=20000)
+
+
+class SuggestionOut(BaseModel):
+    kind: Literal["move_swap", "nature", "evs", "item"]
+    target_field: str
+    from_value: str
+    to_value: str
+    reason: str          # español
+    priority: int
+
+
+class MemberRatingOut(BaseModel):
+    name: str
+    score: int           # 1..100
+    fit: float
+    intrinsic: float
+    coherence: float
+    strengths: list[str] = []
+    weaknesses: list[str] = []
+    suggestions: list[SuggestionOut] = []
+
+
+class TeamRatingOut(BaseModel):
+    score: float
+    detected_archetype: str
+    archetype_confidence: float
+    strengths: list[str] = []
+    weaknesses: list[str] = []
+    members: list[MemberRatingOut]
     import_warnings: list[str] = []
 
 

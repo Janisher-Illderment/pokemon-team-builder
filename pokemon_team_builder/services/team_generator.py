@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+from dataclasses import dataclass
 from functools import lru_cache
 from typing import Callable, Iterable
 
@@ -1198,6 +1199,129 @@ def _build_variant(
     return TeamVariant(members=members, archetype=archetype)
 
 
+@dataclass(frozen=True)
+class RecommendedBuild:
+    """Lo que el builder recomendaría para UN Pokémon (ADR §5.2, B1).
+
+    Resultado del mismo camino que ``_build_variant`` ejecuta por miembro:
+    preview-moves → item → re-selección de moves con el item → naturaleza →
+    spread SP (preset ofensivo). Es la base del motor de diff de sugerencias
+    (B4): comparar este build con el del usuario produce las sugerencias
+    concretas, y NUNCA puede sugerir cambiar de especie (se recomputa siempre
+    sobre el mismo ``PokemonData``).
+    """
+
+    moves: list[str]
+    item: str
+    nature: str
+    sp_distribution: SPDistribution
+    ability: str
+    roles: list[str]
+
+
+def recommend_member_build(
+    pokemon: PokemonData,
+    roles: list[str],
+    archetype: str = "balance",
+    team_sheet: str = "closed",
+    *,
+    format_mode: str = "bo1",
+) -> RecommendedBuild:
+    """Recomendación de build del builder para un solo Pokémon (ADR §5.2).
+
+    Wrapper público ADITIVO: NO cambia ninguna firma ni comportamiento de los
+    privados existentes. Reproduce EXACTAMENTE el camino por-miembro de
+    ``_build_variant`` (mismas llamadas, mismo orden) para que la recomendación
+    coincida con lo que el generador produciría para esa especie en ese
+    arquetipo:
+
+      1. preview moves (``select_moves_for_role`` con meta_moves).
+      2. item (``_assign_items`` para un solo miembro, con preview_moves).
+      3. re-selección de moves CON el item (gate Choice+setup del slot 4).
+      4. naturaleza (``_derive_nature`` sobre los moves finales).
+      5. spread SP: preset ofensivo (``sp_preset_builder.build_presets``),
+         con fallback al template por rol si el preset falla — idéntico a
+         ``_build_variant``.
+
+    ``roles`` se respeta tal cual (el llamador pasa los roles del miembro
+    parseado). El item NO se preasigna como mega: este wrapper es para valorar,
+    no para construir un equipo con un ancla mega concreto.
+    """
+    primary = roles[0] if roles else "physical_sweeper"
+
+    # Meta (degrada a [] offline, igual que _build_variant).
+    meta_entry = _meta_service.get(pokemon.name)
+    meta_moves = meta_entry.moves if meta_entry is not None else []
+    meta_items = meta_entry.items if meta_entry is not None else []
+
+    # 1. Preview moves (sin item todavía).
+    preview = replica_exporter.select_moves_for_role(
+        pokemon, roles,
+        meta_moves=meta_moves,
+        format_mode=format_mode,
+        archetype=archetype,
+        team_sheet=team_sheet,
+    )
+
+    # 2. Item — _assign_items para un solo miembro (mismas guardas: legalidad
+    #    M-A, berry de atacante frágil C5, Choice, Item Clause trivial con n=1).
+    item = _assign_items(
+        [roles],
+        [pokemon],
+        preview_moves=[preview],
+        meta_items_by_member=[meta_items],
+    )[0]
+
+    # 3. Re-selección de moves con el item (el slot 4 Choice+setup depende
+    #    del item asignado).
+    moves = replica_exporter.select_moves_for_role(
+        pokemon, roles,
+        item=item,
+        meta_moves=meta_moves,
+        format_mode=format_mode,
+        archetype=archetype,
+        team_sheet=team_sheet,
+    )
+
+    # 4. Naturaleza coherente con los moves finales.
+    nature = _derive_nature(primary, roles, moves)
+
+    ability = _pick_ability(pokemon)
+
+    # 5. SP: preset ofensivo, con fallback al template por rol (idéntico a
+    #    _build_variant; la generación NUNCA debe romper por un corner-case
+    #    del preset builder).
+    sp_distribution = suggest_sp_distribution(pokemon, primary)
+    member = TeamMember(
+        pokemon=pokemon,
+        role=roles,
+        sp_distribution=sp_distribution,
+        item=item,
+        ability=ability,
+        nature=nature,
+        moves=moves,
+    )
+    try:
+        from pokemon_team_builder.services import sp_preset_builder
+        presets = sp_preset_builder.build_presets(member, item, nature)
+        sp_distribution = presets["offensive"].to_sp_distribution()
+    except Exception as exc:
+        _logger.warning(
+            "sp_preset_builder failed for %s (item=%r nature=%r): %s — "
+            "falling back to role template",
+            pokemon.name, item, nature, exc,
+        )
+
+    return RecommendedBuild(
+        moves=list(moves),
+        item=item,
+        nature=nature,
+        sp_distribution=sp_distribution,
+        ability=ability,
+        roles=list(roles),
+    )
+
+
 def _default_pool_loader(anchor: PokemonData) -> list[PokemonData]:
     """Fallback pool loader: lookup() every legal name except the anchor.
 
@@ -1223,5 +1347,7 @@ def _default_pool_loader(anchor: PokemonData) -> list[PokemonData]:
 __all__ = [
     "generate_team",
     "suggest_sp_distribution",
+    "recommend_member_build",
+    "RecommendedBuild",
     "MAX_SP_TOTAL",
 ]

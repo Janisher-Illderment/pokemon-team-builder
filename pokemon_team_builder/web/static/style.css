@@ -613,6 +613,92 @@ main { max-width: 960px; margin: 0 auto; padding: 1.5rem 1rem; }
 .import-card { border-color: #3b82f6; }
 .import-warnings { color: #94a3b8; font-size: 0.75rem; padding-left: 1rem; margin: 0.4rem 0; list-style: none; }
 
+/* ── B7 — Valorar equipo (Team Rater) ─────────────────────────────────────── */
+.rate-section { border-color: #8b5cf6; }
+.rate-results { margin-top: 1rem; }
+.rate-card { border-color: #8b5cf6; }
+.rate-header { background: #1a1430; }
+
+/* Low-confidence / ambiguous-strategy badge */
+.badge-low-confidence { background: #f59e0b; color: #0f172a; }
+
+/* Big global score, colored by tier */
+.rate-team-score {
+  margin-left: auto;
+  font-size: 1.1rem;
+  font-weight: 800;
+  padding: 0.2rem 0.7rem;
+  border-radius: 999px;
+}
+.rate-team-score--high { background: #14532d; color: #4ade80; }
+.rate-team-score--mid  { background: #422006; color: #fbbf24; }
+.rate-team-score--low  { background: #450a0a; color: #f87171; }
+
+/* Team strengths / weaknesses */
+.rate-team-lists {
+  display: flex; flex-wrap: wrap; gap: 0.75rem;
+  padding: 0.85rem 1rem;
+}
+.rate-list { flex: 1 1 220px; }
+.rate-list h3 { font-size: 0.8rem; color: #94a3b8; margin-bottom: 0.35rem; }
+.rate-list ul { list-style: none; }
+.rate-list li { font-size: 0.8rem; line-height: 1.4; padding-left: 0.9rem; position: relative; }
+.rate-list--strength li::before { content: "✓"; position: absolute; left: 0; color: #4ade80; }
+.rate-list--weakness li::before { content: "✕"; position: absolute; left: 0; color: #f87171; }
+
+/* Per-mon card head: name + score badge */
+.rate-member-head { display: flex; align-items: center; gap: 0.4rem; }
+.rate-mon-score {
+  margin-left: auto;
+  font-size: 0.8rem;
+  font-weight: 800;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+}
+.rate-mon-score--high { background: #14532d; color: #4ade80; }
+.rate-mon-score--mid  { background: #422006; color: #fbbf24; }
+.rate-mon-score--low  { background: #450a0a; color: #f87171; }
+
+/* Note breakdown chips */
+.rate-breakdown {
+  display: flex; flex-wrap: wrap; gap: 0.25rem;
+  margin-top: 0.3rem;
+}
+.rate-breakdown span {
+  font-size: 0.6rem;
+  color: #94a3b8;
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 4px;
+  padding: 0.05rem 0.3rem;
+}
+
+/* Per-mon strengths / weaknesses */
+.rate-mon-list { list-style: none; margin-top: 0.35rem; }
+.rate-mon-list li { font-size: 0.72rem; line-height: 1.35; padding-left: 0.85rem; position: relative; }
+.rate-mon-list--strength li::before { content: "✓"; position: absolute; left: 0; color: #4ade80; }
+.rate-mon-list--weakness li::before { content: "✕"; position: absolute; left: 0; color: #f87171; }
+
+/* Concrete suggestions (from → to + reason) */
+.rate-suggestions { margin-top: 0.45rem; display: flex; flex-direction: column; gap: 0.35rem; }
+.rate-suggestion {
+  display: flex; flex-direction: column; gap: 0.15rem;
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 5px;
+  padding: 0.3rem 0.4rem;
+}
+.rate-suggestion-diff { font-size: 0.74rem; display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; }
+.rate-from { color: #f87171; text-decoration: line-through; }
+.rate-arrow { color: #64748b; }
+.rate-to { color: #4ade80; font-weight: 600; }
+.rate-suggestion .adj-type-badge { align-self: flex-start; }
+.rate-suggestion .adj-reason { font-size: 0.72rem; line-height: 1.3; }
+
+/* Suggestion kind badges — extend the matchup palette to nature/evs */
+.adj-type--nature { background: #0891b2; color: #fff; }
+.adj-type--evs { background: #ca8a04; color: #fff; }
+
 @media (max-width: 375px) {
   .members { grid-template-columns: 1fr 1fr; }
   .sp-grid { grid-template-columns: repeat(3, 1fr); }

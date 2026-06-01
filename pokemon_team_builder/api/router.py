@@ -14,9 +14,13 @@ from pokemon_team_builder.api.schemas import (
     MatchupAnalysisResponse,
     MemberIn,
     MemberOut,
+    MemberRatingOut,
     MetaTeamsResponse,
     PresetKitOut,
+    RateTeamRequest,
     SpReadOut,
+    SuggestionOut,
+    TeamRatingOut,
     TournamentOut,
     TournamentsResponse,
     VariantIn,
@@ -39,6 +43,7 @@ from pokemon_team_builder.data.mega_loader import load_mega_evolutions
 from pokemon_team_builder.domain.models import MegaForm, TeamMember, TeamVariant
 from pokemon_team_builder.services import team_editor, viability_rater
 from pokemon_team_builder.services import pokepaste_parser
+from pokemon_team_builder.services import team_rater
 from pokemon_team_builder.services.team_generator import generate_team
 from pokemon_team_builder.services import labmaus_service, tournament_service
 
@@ -351,6 +356,51 @@ def import_pokepaste(req: ImportRequest) -> ImportResponse:
         team_sheet=base_out.team_sheet,
         import_warnings=warnings,
     )
+
+
+def _team_rating_to_out(rating: team_rater.TeamRating) -> TeamRatingOut:
+    """Serializa un TeamRating (servicio) a TeamRatingOut (API) — ADR §7."""
+    return TeamRatingOut(
+        score=rating.score,
+        detected_archetype=rating.detected_archetype,
+        archetype_confidence=rating.archetype_confidence,
+        strengths=list(rating.strengths),
+        weaknesses=list(rating.weaknesses),
+        members=[
+            MemberRatingOut(
+                name=m.name,
+                score=m.score,
+                fit=m.fit,
+                intrinsic=m.intrinsic,
+                coherence=m.coherence,
+                strengths=list(m.strengths),
+                weaknesses=list(m.weaknesses),
+                suggestions=[
+                    SuggestionOut(
+                        kind=s.kind,
+                        target_field=s.target_field,
+                        from_value=s.from_value,
+                        to_value=s.to_value,
+                        reason=s.reason_es,
+                        priority=s.priority,
+                    )
+                    for s in m.suggestions
+                ],
+            )
+            for m in rating.members
+        ],
+        import_warnings=list(rating.import_warnings),
+    )
+
+
+@router.post("/rate-team", response_model=TeamRatingOut)
+def rate_team_endpoint(req: RateTeamRequest) -> TeamRatingOut:
+    try:
+        variant, warnings = pokepaste_parser.parse_pokepaste(req.pokepaste)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    rating = team_rater.rate_team(variant, import_warnings=warnings)
+    return _team_rating_to_out(rating)
 
 
 @router.post("/analyze-matchup", response_model=MatchupAnalysisResponse)
