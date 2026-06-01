@@ -387,6 +387,8 @@ def _team_rating_to_out(rating: team_rater.TeamRating) -> TeamRatingOut:
                     )
                     for s in m.suggestions
                 ],
+                role=m.role,
+                sp=dict(m.sp),
             )
             for m in rating.members
         ],

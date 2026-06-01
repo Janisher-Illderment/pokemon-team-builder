@@ -236,6 +236,10 @@ class MemberRatingOut(BaseModel):
     strengths: list[str] = []
     weaknesses: list[str] = []
     suggestions: list[SuggestionOut] = []
+    # Adiciones display "Valorar equipo": rol primario legible (ES) y EVs/SP
+    # por stat. Defaults retrocompatibles (clientes viejos no se rompen).
+    role: str = ""
+    sp: dict[str, int] = {}
 
 
 class TeamRatingOut(BaseModel):

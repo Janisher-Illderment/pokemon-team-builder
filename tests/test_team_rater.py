@@ -975,3 +975,14 @@ def test_member_rating_includes_sp():
         sp = variant.members[i].sp_distribution
         expected = sp.hp + sp.atk + sp.def_ + sp.spa + sp.spd + sp.spe
         assert sum(mr.sp.values()) == expected
+
+
+def test_rate_team_out_serializes_role_sp(rate_client):
+    """El endpoint /rate-team devuelve `role` (str no vacío) y `sp` (dict de 6
+    claves canónicas) en cada miembro. Retrocompatible: clientes que no los
+    lean no rompen (defaults en MemberRatingOut)."""
+    resp = rate_client.post("/rate-team", json={"pokepaste": _REAL_PASTE})
+    assert resp.status_code == 200, resp.text
+    for m in resp.json()["members"]:
+        assert isinstance(m["role"], str) and m["role"], m
+        assert set(m["sp"].keys()) == {"hp", "atk", "def", "spa", "spd", "spe"}, m

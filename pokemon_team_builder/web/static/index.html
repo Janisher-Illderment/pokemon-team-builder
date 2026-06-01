@@ -547,6 +547,9 @@ ajustes concretos (naturaleza, EVs, item, moves) — nunca cambiamos de especie.
                   @error="$event.target.style.display='none'" />
                 <div class="rate-member-head">
                   <strong x-text="capitalize(m.name)"></strong>
+                  <!-- Rol primario coherente con el SET (derive_member_role) -->
+                  <span class="role-tag" x-show="m.role" x-text="m.role"
+                    :title="'Rol coherente con el set'"></span>
                   <span class="rate-mon-score"
                     :class="'rate-mon-score--' + scoreTier(m.score)"
                     x-text="m.score"
@@ -567,6 +570,16 @@ ajustes concretos (naturaleza, EVs, item, moves) — nunca cambiamos de especie.
                       <li x-text="mv.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')"></li>
                     </template>
                   </ul>
+                </template>
+
+                <!-- EVs/SP del set (sólo stats > 0, mismo criterio que _sp_summary) -->
+                <template x-if="m.sp && Object.values(m.sp).some(v => v > 0)">
+                  <div class="rate-mon-sp sp-grid">
+                    <template x-for="stat in ['hp','atk','def','spa','spd','spe']" :key="stat">
+                      <span class="sp-cell" x-show="m.sp[stat] > 0"
+                        x-text="m.sp[stat] + ' ' + stat.toUpperCase()"></span>
+                    </template>
+                  </div>
                 </template>
 
                 <!-- Fuertes / débiles del mon -->
