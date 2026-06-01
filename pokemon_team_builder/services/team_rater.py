@@ -728,17 +728,41 @@ def _build_suggestions(
     RESTRICCIÓN DURA: jamás sugiere cambiar de especie — se recomputa siempre
     sobre el MISMO PokemonData (todas las kinds ∈ {move_swap, nature, evs, item}).
     Conservador por defecto: sólo emite cuando el diff es MATERIAL.
+
+    Wrapper behavior-preserving (ADR §5.5): calcula ``rec`` con
+    ``recommend_member_build`` y delega el diff en ``_diff_to_suggestions``.
+    El optimizador (B5) reusa el helper con un ``rec`` ya calculado, evitando
+    recomputar el build. La firma pública de esta función NO cambia.
     """
-    from pokemon_team_builder.data.mega_loader import load_mega_evolutions
     from pokemon_team_builder.services.team_generator import (
         recommend_member_build,
-        _load_champions_legal_items,
     )
 
     member = variant.members[index]
     rec = recommend_member_build(
         member.pokemon, list(member.role),
         archetype=archetype, team_sheet=variant.team_sheet,
+    )
+    return _diff_to_suggestions(member, rec, coherence_reasons, archetype)
+
+
+def _diff_to_suggestions(
+    member: TeamMember,
+    rec,
+    coherence_reasons: list[str],
+    archetype: str,
+) -> list[Suggestion]:
+    """Diff build-usuario → ``list[Suggestion]`` dado un ``RecommendedBuild`` ya
+    calculado (ADR §5.5).
+
+    Extraído verbatim del cuerpo histórico de ``_build_suggestions`` para que
+    tanto el rater (vía el wrapper) como el optimizador (B5) compartan la MISMA
+    maquinaria de diff sin duplicar la llamada a ``recommend_member_build``.
+    RESTRICCIÓN DURA: kinds ∈ {move_swap, nature, evs, item} — nunca especie.
+    """
+    from pokemon_team_builder.data.mega_loader import load_mega_evolutions
+    from pokemon_team_builder.services.team_generator import (
+        _load_champions_legal_items,
     )
 
     suggestions: list[Suggestion] = []
