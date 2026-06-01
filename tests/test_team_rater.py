@@ -873,6 +873,19 @@ def test_member_rating_includes_moves(rate_client):
         assert isinstance(m["moves"], list) and len(m["moves"]) == 4, m
 
 
+def test_member_rating_includes_final_stats(rate_client):
+    """Cada miembro expone sus 6 stats FINALES de combate (lvl 50) para el
+    hexágono — base + EVs + naturaleza, como la pantalla Características."""
+    resp = rate_client.post("/rate-team", json={"pokepaste": _AGGRON_MEGA_PASTE})
+    assert resp.status_code == 200, resp.text
+    keys = {"hp", "atk", "def", "spa", "spd", "spe"}
+    for m in resp.json()["members"]:
+        assert set(m["stats"]) == keys, m["stats"]
+        assert all(isinstance(v, int) and v > 0 for v in m["stats"].values()), m
+    aggron = next(m for m in resp.json()["members"] if m["name"].lower() == "aggron")
+    assert aggron["stats"]["def"] > aggron["stats"]["spa"], aggron["stats"]
+
+
 def test_steel_stab_not_flagged_no_stab(rate_client):
     """Aggron lleva Heavy Slam (Acero = su STAB) → NO debe salir 'sin STAB'.
     Regresión: la tabla curada no reconocía Heavy Slam y daba falso positivo."""

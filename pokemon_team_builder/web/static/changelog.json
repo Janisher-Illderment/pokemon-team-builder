@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.13.1",
+    "date": "2026-06-01",
+    "highlights": "Tarjetas de Valorar equipo: layout arreglado, los 6 EVs y un hexágono de stats finales por Pokémon",
+    "changes": [
+      { "type": "fix", "text": "Arreglado el layout de las tarjetas al valorar: ya no se corta la nota ni el contenido contra el borde, y el candado 🔒/🔓 de fijar/desfijar ahora se ve. Tarjetas más anchas para tanta info." },
+      { "type": "feat", "text": "Cada Pokémon valorado muestra ahora sus 6 EVs (las no invertidas atenuadas, como en el team builder) y un HEXÁGONO con sus 6 stats FINALES de combate (nivel 50: base + EVs + naturaleza — los mismos números que la pantalla Características del juego), para leer de un vistazo fortalezas/debilidades." }
+    ]
+  },
+  {
     "version": "0.13.0",
     "date": "2026-06-01",
     "highlights": "Valorar equipo crece: rol coherente y EVs por Pokémon en la tarjeta, y un optimizador que mejora los mons que no fijes — sin tocar la plantilla",

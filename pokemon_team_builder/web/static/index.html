@@ -43,7 +43,7 @@
   </script>
 
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-  <link rel="stylesheet" href="style.css?v=20260601-2" />
+  <link rel="stylesheet" href="style.css?v=20260601-3" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -627,9 +627,6 @@ ajustes concretos (naturaleza, EVs, item, moves) — nunca cambiamos de especie.
                   @error="$event.target.style.display='none'" />
                 <div class="rate-member-head">
                   <strong x-text="capitalize(m.name)"></strong>
-                  <!-- Rol primario coherente con el SET (derive_member_role) -->
-                  <span class="role-tag" x-show="m.role" x-text="m.role"
-                    :title="'Rol coherente con el set'"></span>
                   <span class="rate-mon-score"
                     :class="'rate-mon-score--' + scoreTier(m.score)"
                     x-text="m.score"
@@ -642,6 +639,9 @@ ajustes concretos (naturaleza, EVs, item, moves) — nunca cambiamos de especie.
                     <span x-text="lockedMembers[mi] ? '🔒' : '🔓'"></span>
                   </button>
                 </div>
+                <!-- Rol primario coherente con el SET (derive_member_role) -->
+                <span class="role-tag rate-role-tag" x-show="m.role" x-text="m.role"
+                  :title="'Rol coherente con el set'"></span>
 
                 <!-- Desglose de la nota (fit / coherencia / intrínseco) -->
                 <div class="rate-breakdown" :title="'Sinergia/rol · coherencia del set · valor de especie'">
@@ -659,13 +659,36 @@ ajustes concretos (naturaleza, EVs, item, moves) — nunca cambiamos de especie.
                   </ul>
                 </template>
 
-                <!-- EVs/SP del set (sólo stats > 0, mismo criterio que _sp_summary) -->
-                <template x-if="m.sp && Object.values(m.sp).some(v => v > 0)">
+                <!-- EVs/SP del set: las 6 stats (las no invertidas atenuadas),
+                     mismo formato que el team builder. -->
+                <template x-if="m.sp">
                   <div class="rate-mon-sp sp-grid">
                     <template x-for="stat in ['hp','atk','def','spa','spd','spe']" :key="stat">
-                      <span class="sp-cell" x-show="m.sp[stat] > 0"
-                        x-text="m.sp[stat] + ' ' + stat.toUpperCase()"></span>
+                      <span class="sp-cell" :class="{ 'sp-zero': !(m.sp[stat] > 0) }">
+                        <span class="sp-label" x-text="stat.toUpperCase()"></span>
+                        <span class="sp-val" x-text="m.sp[stat] || 0"></span>
+                      </span>
                     </template>
+                  </div>
+                </template>
+
+                <!-- Hexágono de stats FINALES de combate (lvl 50 + EVs + nat) -->
+                <template x-if="m.stats && (m.stats.hp || m.stats.atk || m.stats.spa)">
+                  <div class="stat-hex" x-data="{ hex: statHexagon(m.stats) }"
+                    title="Stats finales a nivel 50 (base + EVs + naturaleza)">
+                    <svg viewBox="0 0 140 140" class="stat-hex-svg" aria-hidden="true">
+                      <polygon :points="hex.ring" class="stat-hex-ring"></polygon>
+                      <template x-for="(a, ai) in hex.axes" :key="ai">
+                        <line :x1="a.x1" :y1="a.y1" :x2="a.x2" :y2="a.y2" class="stat-hex-axis"></line>
+                      </template>
+                      <polygon :points="hex.points" class="stat-hex-area"></polygon>
+                      <template x-for="(l, li) in hex.labels" :key="li">
+                        <text :x="l.x" :y="l.y" class="stat-hex-label" text-anchor="middle">
+                          <tspan x-text="l.label"></tspan>
+                          <tspan :x="l.x" dy="9" class="stat-hex-val" x-text="l.val"></tspan>
+                        </text>
+                      </template>
+                    </svg>
                   </div>
                 </template>
 
