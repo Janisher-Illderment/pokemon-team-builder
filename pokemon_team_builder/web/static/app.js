@@ -35,6 +35,13 @@ function app() {
     rateError: '',
     teamRating: null,
 
+    // Optimizador (adición 3): fijar/desfijar por miembro + resultado.
+    // lockedMembers: dict índice→bool (true = fijado, no se toca al optimizar).
+    lockedMembers: {},
+    optimizeLoading: false,
+    optimizeError: '',
+    optimization: null,
+
     // Phase 4a: per-member SP preset choice. Keyed as `${variantIdx}:${memberIdx}` → 'offensive' | 'defensive'. Default offensive.
     presetChoice: {},
 
@@ -343,6 +350,10 @@ function app() {
       this.rateError = '';
       this.rateLoading = true;
       this.teamRating = null;
+      // Re-valorar invalida cualquier optimización previa y los fijados.
+      this.optimization = null;
+      this.optimizeError = '';
+      this.lockedMembers = {};
       try {
         const res = await fetch('/rate-team', {
           method: 'POST',
@@ -361,6 +372,51 @@ function app() {
       } finally {
         this.rateLoading = false;
       }
+    },
+
+    // Optimizador: POST /optimize-team con el paste valorado + los índices
+    // fijados (espejo de rateTeam). Renderiza ambas vistas (resumen + desglose).
+    async optimizeTeam() {
+      if (!this.teamRating || !this.ratePaste.trim()) return;
+      this.optimizeError = '';
+      this.optimizeLoading = true;
+      this.optimization = null;
+      const locked = Object.keys(this.lockedMembers)
+        .filter((k) => this.lockedMembers[k])
+        .map(Number);
+      try {
+        const res = await fetch('/optimize-team', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          cache: 'no-store',
+          body: JSON.stringify({
+            pokepaste: this.ratePaste,
+            locked_indices: locked,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          this.optimizeError = data.detail ?? 'Error al optimizar';
+        } else {
+          this.optimization = data;
+        }
+      } catch {
+        this.optimizeError = 'Error de red';
+      } finally {
+        this.optimizeLoading = false;
+      }
+    },
+
+    // Copia al portapapeles con feedback en el propio botón. Local al scope
+    // app() porque savedTeams().copyPaste vive en otro componente Alpine.
+    async copyText(text, event) {
+      try {
+        await navigator.clipboard.writeText(text);
+        const btn = event.target;
+        const orig = btn.textContent;
+        btn.textContent = '¡Copiado!';
+        setTimeout(() => { btn.textContent = orig; }, 1500);
+      } catch {}
     },
 
     // B7 — bucket a 0..100 score into a CSS modifier so the UI tints the

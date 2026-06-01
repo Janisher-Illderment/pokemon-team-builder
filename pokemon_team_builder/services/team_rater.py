@@ -20,7 +20,7 @@ datos de meta inventados (memoria: nunca fabricar datos competitivos).
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from pokemon_team_builder.config import MAX_SP_TOTAL
 from pokemon_team_builder.domain.models import TeamMember, TeamVariant
@@ -29,6 +29,7 @@ from pokemon_team_builder.services.pokemon_evaluator import evaluate_pokemon_qua
 from pokemon_team_builder.services.synergy_engine import (
     analyze_coverage,
     assess_presence,
+    derive_doubles_tags,
     derive_team_tags,
 )
 from pokemon_team_builder.services.team_generator import _derive_nature
@@ -254,6 +255,71 @@ def _invested_offensive_category(member: TeamMember) -> str | None:
     return nature_cat
 
 
+# ── B1: rol coherente por mon (label primario legible ES) (ADR §3) ───────────
+# Labels ES fijos (decisión de presentación, ADR §3.2). Aditivo: ningún otro
+# símbolo depende de estos strings.
+_ROLE_TRICK_ROOM: str = "Trick Room"
+_ROLE_WEATHER: str = "Inductor de clima"
+_ROLE_SUPPORT: str = "Apoyo"
+_ROLE_WALL: str = "Muro / pivote"
+_ROLE_PHYSICAL: str = "Atacante físico"
+_ROLE_SPECIAL: str = "Atacante especial"
+_ROLE_ATTACKER: str = "Atacante"
+_ROLE_SPEED: str = "Control de velocidad"
+_ROLE_VERSATILE: str = "Versátil"
+
+
+def _role_label_from_tags(tags: list[str], member: TeamMember) -> str:
+    """Mapea tags de dobles (+ desempate físico/especial) a UN label ES (§3.2).
+
+    Algoritmo determinista, primer match gana (orden = prioridad de identidad
+    del mon). El refinamiento por naturaleza/EVs sólo desempata el caso
+    ofensivo (paso 5) vía ``_invested_offensive_category`` — el item no altera
+    el label primario (ADR §3.2, conservador).
+    """
+    tag_set = set(tags)
+
+    # 1. Trick Room — identidad de equipo dominante.
+    if "trick_room_setter" in tag_set:
+        return _ROLE_TRICK_ROOM
+    # 2. Inductor de clima.
+    if "weather_setter" in tag_set:
+        return _ROLE_WEATHER
+    # 3. Apoyo puro (enabler sin amenaza ofensiva).
+    if "support_enabler" in tag_set and "offensive_threat" not in tag_set:
+        return _ROLE_SUPPORT
+    # 4. Muro / pivote.
+    if "defensive_pivot" in tag_set:
+        return _ROLE_WALL
+    # 5. Atacante — desempate físico/especial por naturaleza+EVs.
+    if "offensive_threat" in tag_set:
+        category = _invested_offensive_category(member)
+        if category == "physical":
+            return _ROLE_PHYSICAL
+        if category == "special":
+            return _ROLE_SPECIAL
+        return _ROLE_ATTACKER
+    # 6. Control de velocidad.
+    if "speed_control" in tag_set:
+        return _ROLE_SPEED
+    # 7. Fallback sin tags.
+    return _ROLE_VERSATILE
+
+
+def derive_member_role(member: TeamMember) -> str:
+    """Rol primario legible (ES) del SET concreto de un miembro (ADR §3.2).
+
+    Wrapper público autosuficiente para tests/CLI: deriva los tags de dobles
+    del moveset+habilidad reales del miembro (``derive_doubles_tags``) y los
+    mapea a un único label vía ``_role_label_from_tags``. NO introduce lógica
+    de juego nueva — reusa la pieza C3 + el desempate ofensivo ya existente.
+    """
+    tags = derive_doubles_tags(
+        member.pokemon, moves=list(member.moves), ability=member.ability
+    )
+    return _role_label_from_tags(tags, member)
+
+
 def _damaging_moves(moves: list[str]) -> list[str]:
     """Moves con categoría de daño conocida (physical/special)."""
     out: list[str] = []
@@ -425,6 +491,13 @@ class MemberRating:
     strengths: list[str]
     weaknesses: list[str]
     suggestions: list[Suggestion]
+    # B1 (aditivo, al final): rol primario legible ES derivado del SET concreto
+    # (derive_member_role). Default "" mantiene seguros los constructores
+    # posicionales y los fixtures que no lo pasen.
+    role: str = ""
+    # B2 (aditivo, al final): EVs/SP del miembro por stat (6 claves canónicas,
+    # clave "def" — no "def_"). Default factory para no compartir mutable.
+    sp: dict[str, int] = field(default_factory=dict)
 
 
 def _tag_need_match(
@@ -535,6 +608,20 @@ def rate_member(variant: TeamVariant, index: int, archetype: str) -> MemberRatin
         fit, coherence, quality, reasons,
     )
 
+    # B1 — rol primario legible del SET concreto. Reusa los tags ya calculados
+    # (per_member_tags incluye los context-tags; el label sólo mira los
+    # per-mon, así que el resultado coincide con derive_member_role).
+    role_label = _role_label_from_tags(per_member_tags[index], member)
+
+    # B2 — EVs/SP por stat (clave "def", no "def_"; sólo lectura del modelo).
+    # Mismo dict que el resto de la app expone al front (router._build_sp_dict),
+    # pero aquí incluimos TODAS las stats (el front filtra >0 al renderizar).
+    sp = member.sp_distribution
+    sp_dict = {
+        "hp": sp.hp, "atk": sp.atk, "def": sp.def_,
+        "spa": sp.spa, "spd": sp.spd, "spe": sp.spe,
+    }
+
     return MemberRating(
         name=member.pokemon.name,
         score=score,
@@ -545,6 +632,8 @@ def rate_member(variant: TeamVariant, index: int, archetype: str) -> MemberRatin
         strengths=strengths,
         weaknesses=weaknesses,
         suggestions=_build_suggestions(variant, index, archetype, reasons),
+        role=role_label,
+        sp=sp_dict,
     )
 
 
@@ -639,17 +728,41 @@ def _build_suggestions(
     RESTRICCIÓN DURA: jamás sugiere cambiar de especie — se recomputa siempre
     sobre el MISMO PokemonData (todas las kinds ∈ {move_swap, nature, evs, item}).
     Conservador por defecto: sólo emite cuando el diff es MATERIAL.
+
+    Wrapper behavior-preserving (ADR §5.5): calcula ``rec`` con
+    ``recommend_member_build`` y delega el diff en ``_diff_to_suggestions``.
+    El optimizador (B5) reusa el helper con un ``rec`` ya calculado, evitando
+    recomputar el build. La firma pública de esta función NO cambia.
     """
-    from pokemon_team_builder.data.mega_loader import load_mega_evolutions
     from pokemon_team_builder.services.team_generator import (
         recommend_member_build,
-        _load_champions_legal_items,
     )
 
     member = variant.members[index]
     rec = recommend_member_build(
         member.pokemon, list(member.role),
         archetype=archetype, team_sheet=variant.team_sheet,
+    )
+    return _diff_to_suggestions(member, rec, coherence_reasons, archetype)
+
+
+def _diff_to_suggestions(
+    member: TeamMember,
+    rec,
+    coherence_reasons: list[str],
+    archetype: str,
+) -> list[Suggestion]:
+    """Diff build-usuario → ``list[Suggestion]`` dado un ``RecommendedBuild`` ya
+    calculado (ADR §5.5).
+
+    Extraído verbatim del cuerpo histórico de ``_build_suggestions`` para que
+    tanto el rater (vía el wrapper) como el optimizador (B5) compartan la MISMA
+    maquinaria de diff sin duplicar la llamada a ``recommend_member_build``.
+    RESTRICCIÓN DURA: kinds ∈ {move_swap, nature, evs, item} — nunca especie.
+    """
+    from pokemon_team_builder.data.mega_loader import load_mega_evolutions
+    from pokemon_team_builder.services.team_generator import (
+        _load_champions_legal_items,
     )
 
     suggestions: list[Suggestion] = []

@@ -893,3 +893,96 @@ def test_mega_stone_not_flagged_illegal(rate_client):
         if s["kind"] == "item" and "no es legal" in s["reason"].lower()
     ]
     assert not illegal_item, f"mega-piedra marcada ilegal: {illegal_item}"
+
+
+# ── B1/B2: rol coherente + EVs por mon (adiciones "Valorar equipo") ──────────
+
+def test_member_role_label_es():
+    """derive_member_role devuelve un label ES coherente con el SET (§3.2):
+    atacante físico vs especial (desempate naturaleza+EVs), setter de TR, etc."""
+    from pokemon_team_builder.services.team_rater import derive_member_role
+
+    # Garchomp Adamant + EVs físicos → offensive_threat físico.
+    chomp = _member("garchomp", ["earthquake", "dragon-claw", "rock-slide", "protect"],
+                    ability="Rough Skin", nature="Adamant",
+                    sp={"atk": 31, "spe": 31})
+    assert derive_member_role(chomp) == "Atacante físico"
+
+    # Gengar Modest (boostea SpA) + EVs especiales → offensive_threat especial.
+    # (Una naturaleza Timid sólo boostea Spe → _invested_offensive_category
+    # devuelve None y el label sería "Atacante" a secas; el desempate
+    # físico/especial exige naturaleza que boostee atk/spa, ADR §3.2.)
+    gengar = _member("gengar", ["shadow-ball", "sludge-bomb", "thunderbolt", "protect"],
+                     ability="Levitate", nature="Modest",
+                     sp={"spa": 31, "spe": 31})
+    assert derive_member_role(gengar) == "Atacante especial"
+
+    # Slowbro con Trick Room → label de identidad de equipo (prioridad 1).
+    slowbro = _member("slowbro", ["trick-room", "psychic", "ice-beam", "protect"],
+                      ability="Regenerator", nature="Sassy",
+                      sp={"hp": 31, "def_": 31})
+    assert derive_member_role(slowbro) == "Trick Room"
+
+    # Ninetales Drought → inductor de clima (prioridad 2, por encima de
+    # offensive_threat).
+    ninetales = _member("ninetales", ["flamethrower", "sunny-day", "solar-beam", "protect"],
+                        ability="Drought", nature="Timid")
+    assert derive_member_role(ninetales) == "Inductor de clima"
+
+
+def test_member_role_label_is_one_of_fixed_set():
+    """El label siempre pertenece al conjunto cerrado de labels ES (§3.2)."""
+    from pokemon_team_builder.services import team_rater as tr
+    from pokemon_team_builder.services.team_rater import derive_member_role
+
+    allowed = {
+        tr._ROLE_TRICK_ROOM, tr._ROLE_WEATHER, tr._ROLE_SUPPORT, tr._ROLE_WALL,
+        tr._ROLE_PHYSICAL, tr._ROLE_SPECIAL, tr._ROLE_ATTACKER, tr._ROLE_SPEED,
+        tr._ROLE_VERSATILE,
+    }
+    variant = _team_hyper_offense()
+    for m in variant.members:
+        assert derive_member_role(m) in allowed
+
+
+def test_member_rating_includes_role():
+    """rate_member puebla `role` (no vacío, del conjunto fijo de labels ES)."""
+    from pokemon_team_builder.services import team_rater as tr
+    from pokemon_team_builder.services.team_rater import detect_archetype, rate_member
+
+    allowed = {
+        tr._ROLE_TRICK_ROOM, tr._ROLE_WEATHER, tr._ROLE_SUPPORT, tr._ROLE_WALL,
+        tr._ROLE_PHYSICAL, tr._ROLE_SPECIAL, tr._ROLE_ATTACKER, tr._ROLE_SPEED,
+        tr._ROLE_VERSATILE,
+    }
+    variant = _team_hyper_offense()
+    archetype, _ = detect_archetype(variant)
+    for i in range(6):
+        mr = rate_member(variant, i, archetype)
+        assert mr.role in allowed, mr.role
+
+
+def test_member_rating_includes_sp():
+    """rate_member puebla `sp`: dict de 6 claves canónicas (clave 'def', no
+    'def_'); la suma del dict == suma del sp_distribution del miembro."""
+    from pokemon_team_builder.services.team_rater import detect_archetype, rate_member
+
+    variant = _team_hyper_offense()
+    archetype, _ = detect_archetype(variant)
+    for i in range(6):
+        mr = rate_member(variant, i, archetype)
+        assert set(mr.sp.keys()) == {"hp", "atk", "def", "spa", "spd", "spe"}
+        sp = variant.members[i].sp_distribution
+        expected = sp.hp + sp.atk + sp.def_ + sp.spa + sp.spd + sp.spe
+        assert sum(mr.sp.values()) == expected
+
+
+def test_rate_team_out_serializes_role_sp(rate_client):
+    """El endpoint /rate-team devuelve `role` (str no vacío) y `sp` (dict de 6
+    claves canónicas) en cada miembro. Retrocompatible: clientes que no los
+    lean no rompen (defaults en MemberRatingOut)."""
+    resp = rate_client.post("/rate-team", json={"pokepaste": _REAL_PASTE})
+    assert resp.status_code == 200, resp.text
+    for m in resp.json()["members"]:
+        assert isinstance(m["role"], str) and m["role"], m
+        assert set(m["sp"].keys()) == {"hp", "atk", "def", "spa", "spd", "spe"}, m

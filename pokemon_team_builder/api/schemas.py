@@ -236,6 +236,10 @@ class MemberRatingOut(BaseModel):
     strengths: list[str] = []
     weaknesses: list[str] = []
     suggestions: list[SuggestionOut] = []
+    # Adiciones display "Valorar equipo": rol primario legible (ES) y EVs/SP
+    # por stat. Defaults retrocompatibles (clientes viejos no se rompen).
+    role: str = ""
+    sp: dict[str, int] = {}
 
 
 class TeamRatingOut(BaseModel):
@@ -245,6 +249,37 @@ class TeamRatingOut(BaseModel):
     strengths: list[str] = []
     weaknesses: list[str] = []
     members: list[MemberRatingOut]
+    import_warnings: list[str] = []
+
+
+# ---------------------------------------------------------------------------
+# Team Optimizer schemas (POST /optimize-team) — ADR docs/adr-team-optimizer.md §5.2
+# ---------------------------------------------------------------------------
+
+class OptimizeTeamRequest(BaseModel):
+    # Misma forma que RateTeamRequest + locked_indices (mínima superficie nueva).
+    pokepaste: str = Field(min_length=1, max_length=20000)
+    # Índices 0..5 de los mons FIJADOS (no se tocan). Validados en el endpoint:
+    # cada índice ∈ [0,5], deduplicado. all-locked NO es error (no-op).
+    locked_indices: list[int] = []
+
+
+class OptimizedChangeOut(BaseModel):
+    member_index: int
+    member_name: str
+    delta: float
+    suggestions: list[SuggestionOut] = []   # reusa SuggestionOut existente
+
+
+class OptimizeTeamResponse(BaseModel):
+    score_before: float
+    score_after: float
+    delta_total: float
+    detected_archetype: str
+    archetype_confidence: float
+    pokepaste_after: str
+    locked_indices: list[int] = []
+    changes: list[OptimizedChangeOut] = []
     import_warnings: list[str] = []
 
 

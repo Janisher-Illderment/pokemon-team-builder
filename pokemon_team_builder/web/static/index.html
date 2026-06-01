@@ -539,6 +539,86 @@ ajustes concretos (naturaleza, EVs, item, moves) — nunca cambiamos de especie.
             </template>
           </div>
 
+          <!-- Optimizador: fija los mons que quieras conservar y deja que el
+               builder mejore el resto (nunca cambia de especie). -->
+          <div class="rate-optimize-bar">
+            <button class="import-btn" @click="optimizeTeam()"
+              :disabled="optimizeLoading || !teamRating">
+              <span x-show="!optimizeLoading">Optimizar (no fijados)</span>
+              <span x-show="optimizeLoading">Optimizando…</span>
+            </button>
+            <span class="rate-optimize-hint">
+              Usa el candado 🔒 de cada Pokémon para fijarlo; los fijados no se tocan.
+            </span>
+          </div>
+          <p x-show="optimizeError" class="error-msg" x-text="optimizeError"></p>
+
+          <!-- Resultado del optimizador: AMBAS vistas (resumen + desglose) -->
+          <template x-if="optimization">
+            <div class="rate-optimize-result">
+              <!-- (a) Resumen: score before→after + delta + pokepaste copiable -->
+              <div class="optimize-summary">
+                <span class="optimize-score optimize-score--before"
+                  :class="'rate-team-score--' + scoreTier(optimization.score_before)"
+                  x-text="Math.round(optimization.score_before)"></span>
+                <span class="optimize-arrow">→</span>
+                <span class="optimize-score optimize-score--after"
+                  :class="'rate-team-score--' + scoreTier(optimization.score_after)"
+                  x-text="Math.round(optimization.score_after)"></span>
+                <span class="optimize-delta"
+                  x-show="optimization.delta_total > 0"
+                  x-text="'(+' + Math.round(optimization.delta_total) + ')'"></span>
+              </div>
+
+              <!-- (b) Desglose rankeado (ya viene ordenado desc por delta) -->
+              <template x-if="optimization.changes && optimization.changes.length > 0">
+                <div class="optimize-changes">
+                  <h3>Cambios propuestos (por impacto en la nota)</h3>
+                  <template x-for="(c, ci) in optimization.changes" :key="ci">
+                    <div class="optimize-change">
+                      <img :src="memberSprite(c.member_name)" :alt="c.member_name"
+                        class="member-sprite member-sprite--sm"
+                        @error="$event.target.style.display='none'" />
+                      <strong x-text="capitalize(c.member_name)"></strong>
+                      <span class="optimize-change-delta"
+                        x-text="'+' + Math.round(c.delta)"></span>
+                      <!-- Reusa el bloque .rate-suggestion del rater -->
+                      <div class="rate-suggestions" x-show="c.suggestions && c.suggestions.length > 0">
+                        <template x-for="(sg, sgi) in c.suggestions" :key="sgi">
+                          <div class="rate-suggestion">
+                            <span class="adj-type-badge" :class="'adj-type--' + sg.kind.replace('_','-')"
+                              x-text="sg.kind.replace(/_/g,' ')"></span>
+                            <span class="rate-suggestion-diff">
+                              <span class="rate-from" x-text="capitalize(sg.from_value)"></span>
+                              <span class="rate-arrow">→</span>
+                              <span class="rate-to" x-text="capitalize(sg.to_value)"></span>
+                            </span>
+                            <span class="adj-reason" x-text="sg.reason"></span>
+                          </div>
+                        </template>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </template>
+              <template x-if="optimization.changes && optimization.changes.length === 0">
+                <p class="optimize-noop">
+                  El equipo ya está optimizado para los mons no fijados (ningún cambio mejora la nota).
+                </p>
+              </template>
+
+              <!-- PokePaste resultante, copiable -->
+              <div class="optimize-paste">
+                <label>PokePaste optimizado</label>
+                <textarea readonly rows="8" class="import-textarea"
+                  x-text="optimization.pokepaste_after"></textarea>
+                <button class="copy-btn" @click="copyText(optimization.pokepaste_after, $event)">
+                  Copiar PokePaste
+                </button>
+              </div>
+            </div>
+          </template>
+
           <!-- Notas por Pokémon -->
           <div class="members rate-members">
             <template x-for="(m, mi) in (teamRating ? teamRating.members : [])" :key="mi">
@@ -547,10 +627,20 @@ ajustes concretos (naturaleza, EVs, item, moves) — nunca cambiamos de especie.
                   @error="$event.target.style.display='none'" />
                 <div class="rate-member-head">
                   <strong x-text="capitalize(m.name)"></strong>
+                  <!-- Rol primario coherente con el SET (derive_member_role) -->
+                  <span class="role-tag" x-show="m.role" x-text="m.role"
+                    :title="'Rol coherente con el set'"></span>
                   <span class="rate-mon-score"
                     :class="'rate-mon-score--' + scoreTier(m.score)"
                     x-text="m.score"
                     :title="'Nota: ' + m.score + '/100'"></span>
+                  <!-- Toggle fijar/desfijar: un mon fijado no se toca al optimizar -->
+                  <button type="button" class="lock-toggle"
+                    :class="{ 'lock-toggle--on': lockedMembers[mi] }"
+                    @click="lockedMembers[mi] = !lockedMembers[mi]"
+                    :title="lockedMembers[mi] ? 'Fijado (no se tocará al optimizar)' : 'Sin fijar (el optimizador puede cambiarlo)'">
+                    <span x-text="lockedMembers[mi] ? '🔒' : '🔓'"></span>
+                  </button>
                 </div>
 
                 <!-- Desglose de la nota (fit / coherencia / intrínseco) -->
@@ -567,6 +657,16 @@ ajustes concretos (naturaleza, EVs, item, moves) — nunca cambiamos de especie.
                       <li x-text="mv.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')"></li>
                     </template>
                   </ul>
+                </template>
+
+                <!-- EVs/SP del set (sólo stats > 0, mismo criterio que _sp_summary) -->
+                <template x-if="m.sp && Object.values(m.sp).some(v => v > 0)">
+                  <div class="rate-mon-sp sp-grid">
+                    <template x-for="stat in ['hp','atk','def','spa','spd','spe']" :key="stat">
+                      <span class="sp-cell" x-show="m.sp[stat] > 0"
+                        x-text="m.sp[stat] + ' ' + stat.toUpperCase()"></span>
+                    </template>
+                  </div>
                 </template>
 
                 <!-- Fuertes / débiles del mon -->
