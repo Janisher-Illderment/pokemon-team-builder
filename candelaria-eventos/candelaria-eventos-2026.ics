@@ -1,0 +1,129 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Candelaria Eventos//Junio-Julio 2026//ES
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+X-WR-CALNAME:Fiestas y eventos en Candelaria (jun-jul 2026)
+X-WR-TIMEZONE:Atlantic/Canary
+X-WR-CALDESC:Fiestas, romerías y celebraciones del municipio de Candelaria (Tenerife) en junio y julio de 2026. Fechas orientativas: confirmar programa en candelaria.es
+BEGIN:VEVENT
+UID:corpus-christi-2026@candelaria-eventos
+DTSTAMP:20260606T000000Z
+DTSTART;VALUE=DATE:20260604
+DTEND;VALUE=DATE:20260605
+SUMMARY:Alfombras del Corpus Christi
+LOCATION:Candelaria casco, Tenerife
+DESCRIPTION:Elaboración de alfombras de flores y sal\, y procesión del Corpus Christi (fiesta móvil\, en 2026 cae el 4 de junio). Confirmar en candelaria.es
+CATEGORIES:Religiosa,Tradicional
+END:VEVENT
+BEGIN:VEVENT
+UID:san-antonio-padua-malpais-2026@candelaria-eventos
+DTSTAMP:20260606T000000Z
+DTSTART;VALUE=DATE:20260611
+DTEND;VALUE=DATE:20260615
+SUMMARY:Fiestas de San Antonio de Padua (Malpaís)
+LOCATION:Malpaís, Candelaria, Tenerife
+DESCRIPTION:Fiestas patronales del barrio de Malpaís\, con actos religiosos\, actividades infantiles\, música y verbenas. Festividad: 13 de junio. Fechas aproximadas.
+CATEGORIES:Patronal
+END:VEVENT
+BEGIN:VEVENT
+UID:noche-san-juan-2026@candelaria-eventos
+DTSTAMP:20260606T000000Z
+DTSTART;VALUE=DATE:20260623
+DTEND;VALUE=DATE:20260624
+SUMMARY:Noche de San Juan / Hogueras
+LOCATION:Playas de Las Caletillas y Punta Larga, Candelaria
+DESCRIPTION:Hogueras\, baños y verbenas en las playas la noche del 23 de junio.
+CATEGORIES:Tradicional,Popular
+END:VEVENT
+BEGIN:VEVENT
+UID:san-juanito-2026@candelaria-eventos
+DTSTAMP:20260606T000000Z
+DTSTART;VALUE=DATE:20260624
+DTEND;VALUE=DATE:20260625
+SUMMARY:Fiestas de San Juan ("San Juanito")
+LOCATION:Araya, Igueste de Candelaria y Playa La Viuda
+DESCRIPTION:Fiestas patronales con actos religiosos y festejos populares. Festividad: 24 de junio. Pueden trasladarse al fin de semana próximo.
+CATEGORIES:Patronal
+END:VEVENT
+BEGIN:VEVENT
+UID:san-pedro-apostol-2026@candelaria-eventos
+DTSTAMP:20260606T000000Z
+DTSTART;VALUE=DATE:20260629
+DTEND;VALUE=DATE:20260630
+SUMMARY:San Pedro Apóstol
+LOCATION:Barrios marineros de Candelaria
+DESCRIPTION:Festividad de los barrios marineros.
+CATEGORIES:Religiosa,Marinera
+END:VEVENT
+BEGIN:VEVENT
+UID:festival-cancion-candelaria-2026@candelaria-eventos
+DTSTAMP:20260606T000000Z
+DTSTART;VALUE=DATE:20260712
+DTEND;VALUE=DATE:20260713
+SUMMARY:Festival de la Canción de Candelaria
+LOCATION:Candelaria casco, Tenerife
+DESCRIPTION:Festival musical (tradicionalmente el 2.º domingo de julio). Fecha aproximada.
+CATEGORIES:Cultural,Musical
+END:VEVENT
+BEGIN:VEVENT
+UID:fiestas-carmen-santa-ana-2026@candelaria-eventos
+DTSTAMP:20260606T000000Z
+DTSTART;VALUE=DATE:20260710
+DTEND;VALUE=DATE:20260728
+SUMMARY:Fiestas de la Virgen del Carmen, Santa Ana y San Joaquín
+LOCATION:Municipio de Candelaria, Tenerife
+DESCRIPTION:Fiestas patronales de julio: ferias gastronómicas\, festivales de música\, actividades infantiles\, talleres\, homenajes y bailes de magos. Fechas aproximadas\, confirmar programa oficial.
+CATEGORIES:Patronal
+END:VEVENT
+BEGIN:VEVENT
+UID:procesion-marinera-carmen-2026@candelaria-eventos
+DTSTAMP:20260606T000000Z
+DTSTART;VALUE=DATE:20260716
+DTEND;VALUE=DATE:20260717
+SUMMARY:Día de la Virgen del Carmen - Procesión marinera
+LOCATION:Muelle pesquero y costa de Candelaria
+DESCRIPTION:Ofrenda floral en el muelle pesquero\, embarque de la Virgen y procesión marinera por la costa (Samarines y Las Caletillas) con la Banda de Música Las Candelas.
+CATEGORIES:Religiosa,Marinera
+END:VEVENT
+BEGIN:VEVENT
+UID:cristo-buena-muerte-barranco-hondo-2026@candelaria-eventos
+DTSTAMP:20260606T000000Z
+DTSTART;VALUE=DATE:20260716
+DTEND;VALUE=DATE:20260727
+SUMMARY:Fiestas del Santísimo Cristo de la Buena Muerte (Barranco Hondo)
+LOCATION:Barranco Hondo, Candelaria, Tenerife
+DESCRIPTION:Fiestas patronales del barrio de Barranco Hondo con actos religiosos y eventos artísticos. Fechas aproximadas.
+CATEGORIES:Patronal
+END:VEVENT
+BEGIN:VEVENT
+UID:romeria-santa-ana-2026@candelaria-eventos
+DTSTAMP:20260606T000000Z
+DTSTART;VALUE=DATE:20260725
+DTEND;VALUE=DATE:20260726
+SUMMARY:Romería de Santa Ana
+LOCATION:Candelaria casco, Tenerife
+DESCRIPTION:Romería tradicional con carretas\, agrupaciones folclóricas y degustaciones. Fecha aproximada.
+CATEGORIES:Romería,Folclórica
+END:VEVENT
+BEGIN:VEVENT
+UID:santa-ana-san-joaquin-2026@candelaria-eventos
+DTSTAMP:20260606T000000Z
+DTSTART;VALUE=DATE:20260726
+DTEND;VALUE=DATE:20260727
+SUMMARY:Festividad de Santa Ana y San Joaquín (patrona)
+LOCATION:Candelaria casco, Tenerife
+DESCRIPTION:Festividad principal del municipio con actos religiosos y procesión. Festivo local: lunes 27 de julio de 2026.
+CATEGORIES:Patronal
+END:VEVENT
+BEGIN:VEVENT
+UID:festivo-local-candelaria-2026@candelaria-eventos
+DTSTAMP:20260606T000000Z
+DTSTART;VALUE=DATE:20260727
+DTEND;VALUE=DATE:20260728
+SUMMARY:Festivo local en Candelaria (Santa Ana)
+LOCATION:Candelaria, Tenerife
+DESCRIPTION:Día festivo local del municipio de Candelaria en 2026 por la festividad de Santa Ana.
+CATEGORIES:Festivo
+END:VEVENT
+END:VCALENDAR
