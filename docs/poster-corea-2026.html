@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<style>
+  @page { size: A3 portrait; margin: 0; }
+  :root{
+    --indigo:#0B2C5E;      /* azul bandera profundo */
+    --blue:#1763C9;
+    --red:#CD2E3A;         /* rojo taegeuk */
+    --gold:#F2A900;
+    --yellow:#FFD23F;
+    --jade:#1C9E8E;
+    --pink:#E7589B;
+    --ink:#21130D;
+    --hanji:#FBF2DE;       /* papel hanji */
+    --hanji2:#F6E7C6;
+    --cream:#FFFBF1;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html,body{ width:297mm; height:420mm; }
+  body{
+    font-family:"NanumSquareRound","Noto Sans CJK KR",sans-serif;
+    color:var(--ink);
+    background:
+      radial-gradient(circle at 18% 12%, rgba(255,210,63,.18), transparent 38%),
+      radial-gradient(circle at 85% 88%, rgba(23,99,201,.12), transparent 42%),
+      var(--hanji);
+    position:relative;
+  }
+  /* ---------- bandas dancheong ---------- */
+  .dancheong{
+    height:15mm; width:100%; position:relative;
+    border-top:1.5mm solid var(--gold); border-bottom:1.5mm solid var(--gold);
+    background:repeating-linear-gradient(90deg,
+      var(--indigo) 0, var(--indigo) 14mm,
+      var(--jade) 14mm, var(--jade) 28mm,
+      var(--gold) 28mm, var(--gold) 42mm,
+      var(--red) 42mm, var(--red) 56mm,
+      var(--pink) 56mm, var(--pink) 70mm);
+  }
+  .dancheong::after{
+    content:""; position:absolute; left:0; right:0; top:0; bottom:0;
+    background:repeating-linear-gradient(90deg,
+      rgba(255,255,255,.9) 0, rgba(255,255,255,.9) 1.6mm,
+      transparent 1.6mm, transparent 14mm);
+    opacity:.5;
+  }
+  .dancheong.bottom{ position:absolute; bottom:0; left:0; }
+
+  .wrap{ padding:9mm 13mm 0; }
+
+  /* ---------- cabecera ---------- */
+  header{ display:flex; align-items:center; gap:7mm; margin-bottom:5mm; }
+  .taegeuk{ width:34mm; height:34mm; flex:none; }
+  .title h1{
+    font-family:"NanumSquareRound",sans-serif; font-weight:800;
+    font-size:46pt; line-height:.92; letter-spacing:.5pt;
+    color:var(--indigo);
+  }
+  .title h1 .acc{ color:var(--red); }
+  .title .ko{
+    font-family:"Noto Serif CJK KR","NanumMyeongjo",serif;
+    font-size:17pt; color:var(--jade); font-weight:700; margin-top:1mm; letter-spacing:6pt;
+  }
+  .title .sub{
+    margin-top:2.5mm; font-size:13.5pt; font-weight:700; color:var(--ink);
+  }
+  .title .sub b{ color:var(--red); }
+  .datechip{
+    margin-left:auto; text-align:center; flex:none;
+    background:var(--indigo); color:var(--cream); border-radius:5mm;
+    padding:4mm 6mm; box-shadow:0 2mm 0 rgba(11,44,94,.25);
+  }
+  .datechip .big{ font-size:30pt; font-weight:800; line-height:1; }
+  .datechip .small{ font-size:10pt; font-weight:700; letter-spacing:2pt; color:var(--yellow); margin-top:1.5mm; }
+
+  /* ---------- skyline ---------- */
+  .skyline{ width:100%; height:30mm; display:block; margin:1mm 0 5mm; }
+
+  /* ---------- leyenda ---------- */
+  .legend{ display:flex; gap:5mm; flex-wrap:wrap; margin-bottom:4mm; font-size:9.5pt; font-weight:700; }
+  .legend span{ display:flex; align-items:center; gap:2mm; }
+  .dot{ width:4mm; height:4mm; border-radius:50%; display:inline-block; }
+
+  /* ---------- columnas de dias ---------- */
+  .grid{ display:flex; gap:6mm; }
+  .col{ flex:1; display:flex; flex-direction:column; gap:3.2mm; }
+
+  .day{
+    position:relative; background:var(--cream); border-radius:3.5mm;
+    padding:3mm 4mm 3mm 15mm; border:.5mm solid rgba(33,19,13,.1);
+    box-shadow:0 1mm 2mm rgba(33,19,13,.06);
+  }
+  .day .num{
+    position:absolute; left:0; top:0; bottom:0; width:12mm;
+    border-radius:3.5mm 0 0 3.5mm; color:#fff;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+  }
+  .day .num .d{ font-size:19pt; font-weight:800; line-height:1; }
+  .day .num .w{ font-size:7pt; font-weight:700; letter-spacing:1pt; margin-top:.6mm; opacity:.95; }
+  .day .place{ font-size:11pt; font-weight:800; color:var(--indigo); line-height:1.12; }
+  .day .desc{ font-size:8.8pt; font-weight:600; color:#4a3a30; margin-top:.8mm; line-height:1.25; }
+  .day .tip{ font-size:8pt; font-weight:700; color:var(--red); margin-top:1mm; }
+  .day .tip.ok{ color:var(--jade); }
+
+  .num.seoul{ background:linear-gradient(var(--blue),var(--indigo)); }
+  .num.busan{ background:linear-gradient(var(--red),#9c1f29); }
+  .num.trip{ background:linear-gradient(#8a8278,#5f5950); }
+  .num.exc{ background:linear-gradient(var(--gold),#c98700); }
+
+  .ribbon{
+    position:absolute; top:-1mm; right:-1mm; background:var(--jade); color:#fff;
+    font-size:6.5pt; font-weight:800; padding:.8mm 2mm; border-radius:0 3.5mm 0 3mm; letter-spacing:.5pt;
+  }
+  .cityband{
+    display:flex; align-items:center; gap:2mm; font-weight:800; letter-spacing:3pt;
+    font-size:11pt; padding:1mm 0; margin-top:1mm;
+  }
+  .cityband .ko{ font-family:"Noto Serif CJK KR",serif; font-size:13pt; }
+  .cityband.s{ color:var(--indigo); }
+  .cityband.b{ color:var(--red); }
+  .cityband .ln{ flex:1; height:1mm; border-radius:1mm; }
+  .cityband.s .ln{ background:var(--blue); }
+  .cityband.b .ln{ background:var(--red); }
+
+  /* ---------- panel inferior ---------- */
+  .bottom{ display:flex; gap:6mm; margin:5mm 0 22mm; }
+  .panel{ flex:1; background:var(--cream); border-radius:4mm; padding:4mm 5mm; border:.5mm solid rgba(33,19,13,.1); }
+  .panel h3{ font-size:12pt; color:var(--indigo); margin-bottom:2.5mm; display:flex; align-items:center; gap:2mm; }
+  .panel h3 .k{ font-family:"Noto Serif CJK KR",serif; color:var(--gold); font-size:11pt; }
+  .panel ul{ list-style:none; }
+  .panel li{ font-size:9pt; font-weight:600; color:#3a2c22; line-height:1.5; padding-left:5mm; position:relative; }
+  .panel li::before{ content:"❖"; position:absolute; left:0; color:var(--red); font-size:8pt; }
+  .panel.book li::before{ content:"✔"; color:var(--jade); }
+  .phrases{ flex:.9; background:linear-gradient(135deg,var(--indigo),#15407e); color:var(--cream); }
+  .phrases h3{ color:var(--yellow); }
+  .phrases .row{ margin-bottom:2.6mm; }
+  .phrases .ko{ font-family:"Noto Serif CJK KR",serif; font-size:13pt; font-weight:700; color:#fff; }
+  .phrases .es{ font-size:8.5pt; font-weight:600; opacity:.9; }
+  .phrases .ro{ font-size:7.5pt; font-style:italic; opacity:.7; }
+
+  .credit{ position:absolute; bottom:5mm; left:0; right:0; text-align:center;
+           font-size:8pt; font-weight:700; color:var(--indigo); letter-spacing:1pt; }
+</style>
+</head>
+<body>
+  <div class="dancheong"></div>
+  <div class="wrap">
+
+    <header>
+      <svg class="taegeuk" viewBox="0 0 100 100">
+        <circle cx="50" cy="50" r="48" fill="#fff" stroke="#0B2C5E" stroke-width="2"/>
+        <path d="M50 2 a48 48 0 0 1 0 96 a24 24 0 0 1 0-48 a24 24 0 0 0 0-48Z" fill="#CD2E3A"/>
+        <path d="M50 98 a48 48 0 0 1 0-96 a24 24 0 0 1 0 48 a24 24 0 0 0 0 48Z" fill="#1763C9"/>
+      </svg>
+      <div class="title">
+        <h1>C<span class="acc">O</span>REA<br>DEL SUR</h1>
+        <div class="ko">대한민국 여행</div>
+        <div class="sub">Seúl <b>·</b> Busan <b>·</b> Gyeongju &nbsp;—&nbsp; Verano 2026</div>
+      </div>
+      <div class="datechip">
+        <div class="big">3–20</div>
+        <div class="small">AGOSTO</div>
+      </div>
+    </header>
+
+    <!-- skyline: montañas + hanok + sol -->
+    <svg class="skyline" viewBox="0 0 1000 150" preserveAspectRatio="none">
+      <circle cx="500" cy="70" r="40" fill="#FFD23F"/>
+      <circle cx="500" cy="70" r="40" fill="none" stroke="#F2A900" stroke-width="3"/>
+      <path d="M0 150 L0 95 Q120 30 250 78 Q360 118 470 70 Q600 12 720 72 Q850 128 1000 78 L1000 150 Z" fill="#1C9E8E" opacity=".85"/>
+      <path d="M0 150 L0 118 Q160 70 320 108 Q480 146 640 104 Q820 58 1000 110 L1000 150 Z" fill="#0B2C5E" opacity=".9"/>
+      <!-- tejado hanok central -->
+      <g transform="translate(430,90)">
+        <path d="M70 0 Q90 26 150 30 L-10 30 Q50 26 70 0Z" fill="#CD2E3A"/>
+        <path d="M-10 30 L150 30 L150 40 L-10 40 Z" fill="#8a1f27"/>
+        <rect x="6" y="40" width="128" height="20" fill="#7a4a2b"/>
+      </g>
+    </svg>
+
+    <div class="legend">
+      <span><i class="dot" style="background:#1763C9"></i>Seúl</span>
+      <span><i class="dot" style="background:#CD2E3A"></i>Busan</span>
+      <span><i class="dot" style="background:#F2A900"></i>Excursión</span>
+      <span><i class="dot" style="background:#1C9E8E"></i>Plan ajustado ✔</span>
+      <span><i class="dot" style="background:#5f5950"></i>Vuelos / traslado</span>
+    </div>
+
+    <div class="grid">
+      <!-- COLUMNA 1 -->
+      <div class="col">
+        <div class="cityband s"><span class="ko">서울</span> SEÚL <span class="ln"></span></div>
+
+        <div class="day"><div class="num trip"><span class="d">3</span><span class="w">LUN</span></div>
+          <div class="place">Preparativos finales</div>
+          <div class="desc">Equipaje, documentos y e-Arrival Card.</div></div>
+
+        <div class="day"><div class="num trip"><span class="d">4</span><span class="w">MAR</span></div>
+          <div class="place">Vuelo TFN → Madrid</div>
+          <div class="desc">TFN 12:40 · Madrid 20:00.</div></div>
+
+        <div class="day"><div class="num trip"><span class="d">5</span><span class="w">MIÉ</span></div>
+          <div class="place">Llegada a Incheon 15:40</div>
+          <div class="desc">Tren al centro · check-in hotel.</div></div>
+
+        <div class="day"><div class="num seoul"><span class="d">6</span><span class="w">JUE</span></div>
+          <div class="place">Gyeongbokgung + Bukchon · Hongdae</div>
+          <div class="desc">Palacio, aldea hanok y barrio K-pop.</div>
+          <div class="tip">Bukchon antes de las 17:00 (multa).</div></div>
+
+        <div class="day"><div class="num seoul"><span class="d">7</span><span class="w">VIE</span></div>
+          <div class="place">Namsan + N Seoul Tower · Myeongdong</div>
+          <div class="desc">Teleférico, compras y Deoksugung.</div>
+          <div class="tip ok">Cambio de guardia 11:00 / 14:00.</div></div>
+
+        <div class="day"><div class="num exc"><span class="d">8</span><span class="w">SÁB</span></div>
+          <div class="place">Excursión a Suwon</div>
+          <div class="desc">Fortaleza Hwaseong (Patrimonio).</div></div>
+
+        <div class="day"><div class="num seoul"><span class="d">9</span><span class="w">DOM</span></div>
+          <div class="place">Gangnam + COEX · Apgujeong</div>
+          <div class="desc">Sur del río y parque Hangang.</div></div>
+
+        <div class="day"><div class="num seoul"><span class="d">10</span><span class="w">LUN</span></div>
+          <span class="ribbon">AJUSTADO</span>
+          <div class="place">Dongdaemun · Naksan · Itaewon · Seongsu</div>
+          <div class="desc">Zonas abiertas en lunes.</div>
+          <div class="tip ok">Los palacios cierran lunes → movidos al mié 12.</div></div>
+
+        <div class="day"><div class="num exc"><span class="d">11</span><span class="w">MAR</span></div>
+          <div class="place">Excursión a Isla Nami</div>
+          <div class="desc">+ Petite France · Jardín de la Calma.</div>
+          <div class="tip">Reservar para el 11 de agosto.</div></div>
+      </div>
+
+      <!-- COLUMNA 2 -->
+      <div class="col">
+        <div class="day"><div class="num seoul"><span class="d">12</span><span class="w">MIÉ</span></div>
+          <span class="ribbon">AJUSTADO</span>
+          <div class="place">Changdeokgung + Jardín Secreto · Insadong</div>
+          <div class="desc">Ikseon-dong y arroyo Cheonggyecheon.</div>
+          <div class="tip">Reservar visita guiada del Jardín Secreto.</div></div>
+
+        <div class="cityband b"><span class="ko">부산</span> BUSAN <span class="ln"></span></div>
+
+        <div class="day"><div class="num busan"><span class="d">13</span><span class="w">JUE</span></div>
+          <div class="place">Seúl → Busan (KTX) · Gwangalli</div>
+          <div class="desc">Check-in 15:00 · sendero Igidae.</div>
+          <div class="tip">Reservar KTX · Igidae: calor, agua.</div></div>
+
+        <div class="day"><div class="num busan"><span class="d">14</span><span class="w">VIE</span></div>
+          <div class="place">Gwangbok · Teleférico · Gamcheon</div>
+          <div class="desc">Pueblo cultural de colores.</div></div>
+
+        <div class="day"><div class="num exc"><span class="d">15</span><span class="w">SÁB</span></div>
+          <div class="place">Excursión a Gyeongju</div>
+          <div class="desc">Bulguksa · Seokguram · tumbas reales.</div>
+          <div class="tip">Festivo nacional: reservar transporte ya.</div></div>
+
+        <div class="day"><div class="num busan"><span class="d">16</span><span class="w">DOM</span></div>
+          <div class="place">Playa Haeundae · Seomyeon</div>
+          <div class="desc">Playa de temporada y centro animado.</div></div>
+
+        <div class="day"><div class="num busan"><span class="d">17</span><span class="w">LUN</span></div>
+          <div class="place">Haedong Yonggungsa · Sky Capsule</div>
+          <div class="desc">Templo junto al mar y cápsulas.</div>
+          <div class="tip">Reservar Sky Capsule (en Haeundae).</div></div>
+
+        <div class="day"><div class="num trip"><span class="d">18</span><span class="w">MAR</span></div>
+          <div class="place">Busan → Seúl (KTX)</div>
+          <div class="desc">Regreso a la capital.</div></div>
+
+        <div class="day"><div class="num seoul"><span class="d">19</span><span class="w">MIÉ</span></div>
+          <div class="place">Seúl — día libre</div>
+          <div class="desc">Compras, cafés y lo pendiente.</div></div>
+
+        <div class="day"><div class="num trip"><span class="d">20</span><span class="w">JUE</span></div>
+          <div class="place">Vuelo Incheon 9:55 → casa</div>
+          <div class="desc">Madrid 18:00 · TFN 22:30. ¡Fin!</div></div>
+      </div>
+    </div>
+
+    <!-- PANELES INFERIORES -->
+    <div class="bottom">
+      <div class="panel book">
+        <h3><span class="k">예약</span> Reservas clave</h3>
+        <ul>
+          <li>Jardín Secreto (Huwon) · visita guiada</li>
+          <li>Isla Nami — 11 de agosto</li>
+          <li>Sky Capsule de Busan (vuela rápido)</li>
+          <li>KTX: Seúl–Busan · Gyeongju · vuelta</li>
+          <li>Entrada N Seoul Tower</li>
+        </ul>
+      </div>
+      <div class="panel">
+        <h3><span class="k">준비</span> Antes de salir</h3>
+        <ul>
+          <li>e-Arrival Card (3 días antes) · España sin K-ETA</li>
+          <li>eSIM + T-money (Climate Card solo Seúl)</li>
+          <li>Seguro de viaje y copias digitales</li>
+          <li>Adaptador C/F · won en efectivo · power bank</li>
+          <li>Apps: Naver Map · KakaoMap · Papago</li>
+        </ul>
+      </div>
+      <div class="panel phrases">
+        <h3>Frases útiles</h3>
+        <div class="row"><div class="ko">안녕하세요</div><div class="es">Hola</div><div class="ro">annyeonghaseyo</div></div>
+        <div class="row"><div class="ko">감사합니다</div><div class="es">Gracias</div><div class="ro">gamsahamnida</div></div>
+        <div class="row"><div class="ko">얼마예요?</div><div class="es">¿Cuánto cuesta?</div><div class="ro">eolmayeyo?</div></div>
+        <div class="row"><div class="ko">화장실 어디예요?</div><div class="es">¿Dónde está el baño?</div><div class="ro">hwajangsil eodiyeyo?</div></div>
+      </div>
+    </div>
+
+  </div>
+  <div class="credit">즐거운 여행 되세요! · ¡BUEN VIAJE! · 18 días · Seúl + Busan + Gyeongju · Agosto 2026</div>
+  <div class="dancheong bottom"></div>
+</body>
+</html>
