@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.13.4",
+    "date": "2026-06-01",
+    "highlights": "Optimizar actualiza el equipo mostrado automáticamente",
+    "changes": [
+      { "type": "feat", "text": "Al pulsar Optimizar, el equipo que se muestra se actualiza automáticamente a la versión optimizada (las tarjetas, notas y hexágonos pasan a reflejar los cambios aplicados a los no fijados), conservando el resumen antes→después y los candados. El textarea queda con el PokePaste optimizado para copiarlo o re-optimizar." }
+    ]
+  },
+  {
     "version": "0.13.3",
     "date": "2026-06-01",
     "highlights": "Importar/valorar acepta equipos en formato Champions (puntos SP), no solo EVs de Showdown",

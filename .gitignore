@@ -7,3 +7,4 @@ __pycache__/
 # VGC transcript ingestion (raw data kept local, synthesized into docs/vgc-principles.md)
 _fetch_transcripts.py
 transcripts/
+sheet_export.csv

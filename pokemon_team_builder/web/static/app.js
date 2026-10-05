@@ -399,6 +399,23 @@ function app() {
           this.optimizeError = data.detail ?? 'Error al optimizar';
         } else {
           this.optimization = data;
+          // El equipo mostrado pasa AUTOMÁTICAMENTE a ser el optimizado:
+          // re-valoramos con el PokePaste resultante y refrescamos las tarjetas,
+          // SIN usar rateTeam() (que borraría el resumen de optimización y los
+          // fijados). Los índices/orden del roster no cambian, así que los
+          // candados siguen siendo válidos.
+          if (data.pokepaste_after) {
+            this.ratePaste = data.pokepaste_after;
+            try {
+              const rr = await fetch('/rate-team', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                cache: 'no-store',
+                body: JSON.stringify({ pokepaste: data.pokepaste_after }),
+              });
+              if (rr.ok) this.teamRating = await rr.json();
+            } catch { /* la valoración previa sigue visible si falla */ }
+          }
         }
       } catch {
         this.optimizeError = 'Error de red';
